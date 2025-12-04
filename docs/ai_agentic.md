@@ -82,42 +82,48 @@ The AI Agent system uses a **QA Manager** orchestrator that delegates tasks to *
 ### File Structure
 
 ```
-backend_server/src/agent/
-├── __init__.py                    # Package exports
-├── config.py                      # Configuration & mode definitions
+backend_server/src/
+├── routes/
+│   └── server_agent_routes.py     # REST + SocketIO handlers
 │
-├── agents/                        # Agent definitions
-│   ├── __init__.py
-│   ├── base_agent.py              # Base class with tool execution loop
-│   ├── explorer.py                # Explorer Agent
-│   ├── builder.py                 # Builder Agent
-│   ├── executor.py                # Executor Agent
-│   ├── analyst.py                 # Analyst Agent
-│   └── maintainer.py              # Maintainer Agent
-│
-├── skills/                        # Tool mappings per agent
-│   ├── __init__.py
-│   ├── explorer_skills.py         # 21 tools
-│   ├── builder_skills.py          # 17 tools
-│   ├── executor_skills.py         # 15 tools
-│   ├── analyst_skills.py          # 20 tools
-│   └── maintainer_skills.py       # 15 tools
-│
-├── core/                          # Core components
-│   ├── __init__.py
-│   ├── manager.py                 # QA Manager orchestrator
-│   ├── session.py                 # Chat session management
-│   ├── message_types.py           # Event types for streaming
-│   └── tool_bridge.py             # MCP ↔ Agent bridge
-│
-└── api/                           # API endpoints
+└── agent/                         # Agent system
     ├── __init__.py
-    └── routes.py                  # REST + SocketIO handlers
+    ├── config.py                  # Configuration & mode definitions
+    │
+    ├── agents/                    # Agent definitions
+    │   ├── __init__.py
+    │   ├── base_agent.py          # Base class with tool execution loop
+    │   ├── explorer.py            # Explorer Agent
+    │   ├── builder.py             # Builder Agent
+    │   ├── executor.py            # Executor Agent
+    │   ├── analyst.py             # Analyst Agent
+    │   └── maintainer.py          # Maintainer Agent
+    │
+    ├── skills/                    # Tool mappings per agent
+    │   ├── __init__.py
+    │   ├── explorer_skills.py
+    │   ├── builder_skills.py
+    │   ├── executor_skills.py
+    │   ├── analyst_skills.py
+    │   └── maintainer_skills.py
+    │
+    └── core/                      # Core components
+        ├── __init__.py
+        ├── manager.py             # QA Manager orchestrator
+        ├── session.py             # Chat session management
+        ├── message_types.py       # Event types for streaming
+        └── tool_bridge.py         # MCP ↔ Agent bridge
 ```
 
 ### Key Components
 
-#### Tool Bridge (`core/tool_bridge.py`)
+#### Routes (`routes/server_agent_routes.py`)
+
+Follows standard routes architecture with:
+- Blueprint: `server_agent_bp` (prefix: `/server/agent`)
+- SocketIO namespace: `/agent`
+
+#### Tool Bridge (`agent/core/tool_bridge.py`)
 Connects Claude Agent SDK to existing MCP tools:
 
 ```python
@@ -132,7 +138,7 @@ class ToolBridge:
         # Executes MCP tool
 ```
 
-#### Base Agent (`agents/base_agent.py`)
+#### Base Agent (`agent/agents/base_agent.py`)
 Common functionality for all specialist agents:
 
 ```python
@@ -148,7 +154,7 @@ class BaseAgent:
         # Agent loop: Claude → tool calls → results → repeat
 ```
 
-#### QA Manager (`core/manager.py`)
+#### QA Manager (`agent/core/manager.py`)
 Orchestrates the entire system:
 
 ```python
@@ -164,16 +170,16 @@ class QAManagerAgent:
 
 ### API Endpoints
 
-#### REST Endpoints
+#### REST Endpoints (prefix: `/server/agent`)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/agent/sessions` | POST | Create new chat session |
-| `/agent/sessions` | GET | List all sessions |
-| `/agent/sessions/<id>` | GET | Get session details |
-| `/agent/sessions/<id>` | DELETE | Delete session |
-| `/agent/sessions/<id>/approve` | POST | Approve/reject action |
-| `/agent/health` | GET | Health check |
+| `/server/agent/health` | GET | Health check + API key status |
+| `/server/agent/sessions` | POST | Create new chat session |
+| `/server/agent/sessions` | GET | List all sessions |
+| `/server/agent/sessions/<id>` | GET | Get session details |
+| `/server/agent/sessions/<id>` | DELETE | Delete session |
+| `/server/agent/sessions/<id>/approve` | POST | Approve/reject action |
 
 #### SocketIO Events (namespace: `/agent`)
 
@@ -214,62 +220,38 @@ frontend/src/
 │
 └── components/
     └── common/
-        └── Navigation_Bar.tsx     # Added AI Agent button
+        └── Navigation_Bar.tsx     # AI Agent button in nav
 ```
 
-### AgentChat Page
+### AgentChat Page Features
 
-The main chat interface includes:
+1. **API Key Management**
+   - Auto-detects backend `ANTHROPIC_API_KEY` from `.env`
+   - Falls back to user-provided key (stored in localStorage)
+   - Shows API key input only when needed
 
-1. **Header Bar**: Connection status, mode indicator, active agent
-2. **Messages Area**: User/agent messages with tool call display
-3. **Input Area**: Message input with send button
+2. **Session Persistence**
+   - Messages saved to localStorage
+   - Survives page refresh/navigation
 
-### UI Components
+3. **Status Indicator**
+   - Single colored dot (green/yellow/red)
+   - Green = Ready, Yellow = Checking/Setup, Red = Error
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🧠 AI Agent               [Connected] [CREATE] [Explorer] [New] │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  User Message                                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ Automate sauce-demo.com with login and cart flows       │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  Agent Message                                                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ 🧠 QA Manager                                            │   │
-│  │ Mode detected: CREATE                                    │   │
-│  │ ┌──────────────────────────────────────────────────────┐│   │
-│  │ │ 🔧 get_compatible_hosts                          ✓ ▼ ││   │
-│  │ └──────────────────────────────────────────────────────┘│   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ [Type your message...                                    ] [→] │
-└─────────────────────────────────────────────────────────────────┘
-```
+4. **Clean Chat UI**
+   - Message bubbles with agent colors
+   - Collapsible tool call details
+   - Processing spinner during agent work
+   - Approval buttons when required
 
-### Color Coding
+### UI States
 
-**Modes:**
-| Mode | Color |
-|------|-------|
-| CREATE | Green (#4caf50) |
-| VALIDATE | Blue (#2196f3) |
-| ANALYZE | Orange (#ff9800) |
-| MAINTAIN | Purple (#9c27b0) |
-
-**Agents:**
-| Agent | Color |
-|-------|-------|
-| QA Manager | Blue (#1976d2) |
-| Explorer | Green (#4caf50) |
-| Builder | Orange (#ff9800) |
-| Executor | Red (#f44336) |
-| Analyst | Purple (#9c27b0) |
-| Maintainer | Cyan (#00bcd4) |
+| State | What You See |
+|-------|--------------|
+| **Checking** | Spinner + "Connecting..." |
+| **Needs Key** | 🔑 API key input form |
+| **Ready** | ● Green dot + chat messages |
+| **Error** | ● Red dot + retry button |
 
 ### SocketIO Integration
 
@@ -291,6 +273,26 @@ socket.on('agent_event', (event: AgentEvent) => {
   // Handle thinking, tool_call, message, etc.
 });
 ```
+
+### Color Coding
+
+**Modes:**
+| Mode | Color |
+|------|-------|
+| CREATE | Green (#4caf50) |
+| VALIDATE | Blue (#2196f3) |
+| ANALYZE | Orange (#ff9800) |
+| MAINTAIN | Purple (#9c27b0) |
+
+**Agents:**
+| Agent | Color |
+|-------|-------|
+| QA Manager | Blue (#1976d2) |
+| Explorer | Green (#4caf50) |
+| Builder | Orange (#ff9800) |
+| Executor | Red (#f44336) |
+| Analyst | Purple (#9c27b0) |
+| Maintainer | Cyan (#00bcd4) |
 
 ---
 
@@ -369,7 +371,7 @@ QA Manager: ✅ Edge fixed and verified.
 ### Environment Variables
 
 ```bash
-# Required
+# Required for AI Agent
 ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
 
 # Optional
@@ -425,4 +427,3 @@ The system pauses for human approval at:
 3. **Parallel Execution**: Multiple Executor instances
 4. **Session Persistence**: Database-backed sessions
 5. **Sub-agent Memory**: Remember past fixes
-

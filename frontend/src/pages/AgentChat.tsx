@@ -1,8 +1,14 @@
 /**
  * AI Agent Chat Page
  * 
- * Chat interface for interacting with the QA Manager and specialist agents.
- * Supports modes: CREATE, VALIDATE, ANALYZE, MAINTAIN
+ * Professional QA Assistant Interface - "Sober Dark" Edition
+ * Inspired by Claude/Linear aesthetics.
+ * 
+ * Features:
+ * - Dark-first professional UI
+ * - Focus-mode input (center initially, bottom when chatting)
+ * - Minimalist message stream
+ * - No double scrollbars
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -12,26 +18,64 @@ import {
   Typography,
   TextField,
   IconButton,
-  Chip,
-  Divider,
-  CircularProgress,
-  Collapse,
   Button,
   Alert,
+  Avatar,
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Container,
+  useTheme,
+  Fade,
 } from '@mui/material';
 import {
-  Send as SendIcon,
-  RocketLaunch as AgentIcon,
-  Build as ToolIcon,
+  ArrowUpward as SendIcon,
+  AutoAwesome as SparkleIcon,
+  Terminal as ConsoleIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   ExpandMore as ExpandIcon,
-  ExpandLess as CollapseIcon,
-  Add as NewSessionIcon,
+  Psychology as ThinkingIcon,
+  Stop as StopIcon,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import { io, Socket } from 'socket.io-client';
 
-// Types
+// --- Constants & Configuration ---
+
+const STORAGE_KEY_API = 'virtualpytest_anthropic_key';
+const STORAGE_KEY_MESSAGES = 'virtualpytest_agent_messages';
+
+// Sober Palette (Dark Mode Optimized)
+const PALETTE = {
+  background: '#1e1e1e', // Deep Charcoal
+  surface: '#252526',    // Slightly lighter
+  inputBg: '#2d2d2d',
+  textPrimary: '#ececec',
+  textSecondary: '#a1a1a3',
+  accent: '#c29f82',     // "Claude" earthy brown/orange
+  accentHover: '#a8866b',
+  agentBubble: 'transparent',
+  userBubble: '#2d2d2d',
+  borderColor: '#3e3e42',
+};
+
+// Agent Identities (Subtle Colors)
+const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
+  'QA Manager': { color: '#607d8b', label: 'Orchestrator' },
+  'Explorer': { color: '#81c784', label: 'Explorer' },
+  'Builder': { color: '#ffb74d', label: 'Builder' },
+  'Executor': { color: '#e57373', label: 'Executor' },
+  'Analyst': { color: '#ba68c8', label: 'Analyst' },
+  'Maintainer': { color: '#4fc3f7', label: 'Maintainer' },
+};
+
+const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
+
+// --- Types ---
+
 interface AgentEvent {
   type: string;
   agent: string;
@@ -42,10 +86,6 @@ interface AgentEvent {
   tool_result?: unknown;
   success?: boolean;
   error?: string;
-  approval?: {
-    id: string;
-    options: string[];
-  };
 }
 
 interface Message {
@@ -53,7 +93,7 @@ interface Message {
   role: 'user' | 'agent';
   content: string;
   agent?: string;
-  timestamp: Date;
+  timestamp: string;
   events?: AgentEvent[];
 }
 
@@ -61,40 +101,29 @@ interface Session {
   id: string;
   mode?: string;
   active_agent?: string;
-  created_at: string;
 }
 
-// Agent icon color
-const AGENT_ICON_COLOR = '#FFD700'; // Gold
+type Status = 'checking' | 'ready' | 'needs_key' | 'error';
 
-// Mode colors
-const MODE_COLORS: Record<string, string> = {
-  CREATE: '#4caf50',
-  VALIDATE: '#2196f3',
-  ANALYZE: '#ff9800',
-  MAINTAIN: '#9c27b0',
-};
-
-// Agent colors
-const AGENT_COLORS: Record<string, string> = {
-  'QA Manager': '#1976d2',
-  'Explorer': '#4caf50',
-  'Builder': '#ff9800',
-  'Executor': '#f44336',
-  'Analyst': '#9c27b0',
-  'Maintainer': '#00bcd4',
-};
+// --- Components ---
 
 const AgentChat: React.FC = () => {
+  const theme = useTheme();
+  const isDarkMode = theme.palette.mode === 'dark';
+  
   // State
+  const [status, setStatus] = useState<Status>('checking');
   const [session, setSession] = useState<Session | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentEvents, setCurrentEvents] = useState<AgentEvent[]>([]);
-  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  
+  // API Key state
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   
   // Refs
   const socketRef = useRef<Socket | null>(null);
@@ -102,9 +131,30 @@ const AgentChat: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   
   // Server URL
-  const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:5109';
+  const serverUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? `${window.location.protocol}//${window.location.hostname}:5109`
+    : 'http://localhost:5109';
 
-  // Scroll to bottom
+  // --- Effects ---
+
+  // Load messages
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_MESSAGES);
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch {}
+    }
+  }, []);
+
+  // Save messages
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  // Auto-scroll
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
@@ -113,457 +163,495 @@ const AgentChat: React.FC = () => {
     scrollToBottom();
   }, [messages, currentEvents, scrollToBottom]);
 
-  // Create new session
-  const createSession = async () => {
+  // Check Connectivity & Auth
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const response = await fetch(`${serverUrl}/server/agent/health`);
+        const data = await response.json();
+        
+        if (data.api_key_configured) {
+          setStatus('ready');
+          initializeSession();
+        } else {
+          const savedKey = localStorage.getItem(STORAGE_KEY_API);
+          if (savedKey) {
+            setStatus('ready');
+            initializeSession();
+          } else {
+            setStatus('needs_key');
+          }
+        }
+      } catch {
+        setStatus('error');
+        setError('Backend unavailable on port 5109');
+      }
+    };
+    checkConnection();
+  }, [serverUrl]);
+
+  // --- Actions ---
+
+  const initializeSession = async () => {
     try {
-      const response = await fetch(`${serverUrl}/agent/sessions`, {
-        method: 'POST',
-      });
+      const response = await fetch(`${serverUrl}/server/agent/sessions`, { method: 'POST' });
       const data = await response.json();
       if (data.success) {
         setSession(data.session);
-        setMessages([]);
-        setCurrentEvents([]);
-        setError(null);
-        
-        // Join session room via socket
-        if (socketRef.current?.connected) {
-          socketRef.current.emit('join_session', { session_id: data.session.id });
-        }
+        connectSocket(data.session.id);
       }
-    } catch (err) {
-      setError('Failed to create session');
-      console.error('Create session error:', err);
+    } catch {
+      setStatus('error');
     }
   };
 
-  // Initialize socket connection
-  useEffect(() => {
+  const connectSocket = (sessionId: string) => {
+    if (socketRef.current?.connected) return;
+
     const socket = io(`${serverUrl}/agent`, {
       path: '/server/socket.io',
       transports: ['websocket', 'polling'],
     });
 
     socket.on('connect', () => {
-      console.log('Connected to agent namespace');
-      setIsConnected(true);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('Disconnected from agent namespace');
-      setIsConnected(false);
-    });
-
-    socket.on('joined', (data: { session_id: string }) => {
-      console.log('Joined session:', data.session_id);
+      socket.emit('join_session', { session_id: sessionId });
     });
 
     socket.on('agent_event', (event: AgentEvent) => {
-      console.log('Agent event:', event);
-      
-      // Add to current events
       setCurrentEvents(prev => [...prev, event]);
       
-      // Handle specific event types
+      // Mode Detection
+      if (event.type === 'mode_detected' && session) {
+         setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
+      }
+
+      // Agent Delegation
+      if (event.type === 'agent_delegated') {
+        const agentName = event.content.replace('Delegating to ', '').replace(' agent...', '');
+        setSession(prev => prev ? { ...prev, active_agent: agentName } : null);
+      }
+
+      // Message Completion
       if (event.type === 'message' || event.type === 'result') {
-        // Create a message from the event
         const newMessage: Message = {
           id: `${Date.now()}-${Math.random()}`,
           role: 'agent',
           content: event.content,
           agent: event.agent,
-          timestamp: new Date(event.timestamp),
+          timestamp: event.timestamp,
           events: [...currentEvents, event],
         };
+        // Use function updater to access latest currentEvents
         setMessages(prev => [...prev, newMessage]);
-        setCurrentEvents([]);
+        setCurrentEvents([]); // Clear current events buffer
       }
       
       if (event.type === 'session_ended') {
         setIsProcessing(false);
       }
-      
-      if (event.type === 'mode_detected' && session) {
-        setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
-      }
-      
-      if (event.type === 'agent_delegated' && session) {
-        const agentName = event.content.replace('Delegating to ', '').replace(' agent...', '');
-        setSession(prev => prev ? { ...prev, active_agent: agentName } : null);
-      }
     });
 
-    socket.on('error', (data: { error: string }) => {
+    socket.on('error', (data) => {
       setError(data.error);
       setIsProcessing(false);
     });
 
     socketRef.current = socket;
+  };
 
-    // Create initial session
-    createSession();
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [serverUrl]);
-
-  // Send message
-  const sendMessage = () => {
-    if (!input.trim() || !session || !socketRef.current?.connected || isProcessing) {
+  const saveApiKey = () => {
+    if (!apiKeyInput.trim().startsWith('sk-ant-')) {
+      setError('Invalid Key');
       return;
     }
+    setIsValidating(true);
+    localStorage.setItem(STORAGE_KEY_API, apiKeyInput.trim());
+    setTimeout(() => {
+      setStatus('ready');
+      setIsValidating(false);
+      initializeSession();
+    }, 1000);
+  };
 
-    const userMessage: Message = {
+  const sendMessage = () => {
+    if (!input.trim() || isProcessing) return;
+
+    const userMsg: Message = {
       id: `${Date.now()}-user`,
       role: 'user',
       content: input.trim(),
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setCurrentEvents([]);
+
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
     setIsProcessing(true);
+    setCurrentEvents([]);
     setError(null);
-    
-    socketRef.current.emit('send_message', {
-      session_id: session.id,
+
+    socketRef.current?.emit('send_message', {
+      session_id: session?.id,
       message: input.trim(),
     });
-    
-    setInput('');
-    inputRef.current?.focus();
   };
 
-  // Toggle tool expansion
-  const toggleTool = (toolId: string) => {
-    setExpandedTools(prev => {
-      const next = new Set(prev);
-      if (next.has(toolId)) {
-        next.delete(toolId);
-      } else {
-        next.add(toolId);
-      }
-      return next;
-    });
-  };
-
-  // Handle approval
   const handleApproval = (approved: boolean) => {
-    if (!session || !socketRef.current?.connected) return;
-    
-    socketRef.current.emit('approve', {
-      session_id: session.id,
-      approved,
-    });
+    socketRef.current?.emit('approve', { session_id: session?.id, approved });
   };
 
-  // Render tool call
-  const renderToolCall = (event: AgentEvent, index: number) => {
-    const toolId = `${event.tool_name}-${index}`;
-    const isExpanded = expandedTools.has(toolId);
-    
-    return (
-      <Box
-        key={toolId}
-        sx={{
-          backgroundColor: 'rgba(0, 0, 0, 0.1)',
-          borderRadius: 1,
-          p: 1,
-          mb: 1,
-          fontSize: '0.85rem',
+  const clearHistory = () => {
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY_MESSAGES);
+    initializeSession();
+  };
+
+  // --- Renderers ---
+
+  const renderToolActivity = (event: AgentEvent, idx: number) => (
+    <Accordion 
+      key={idx} 
+      disableGutters 
+      elevation={0}
+      sx={{ 
+        bgcolor: 'transparent',
+        border: 'none',
+        '&:before': { display: 'none' },
+        mb: 0.5
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandIcon sx={{ fontSize: 14, color: 'text.disabled' }} />}
+        sx={{ 
+          minHeight: 24, 
+          p: 0, 
+          '& .MuiAccordionSummary-content': { my: 0 },
+          flexDirection: 'row-reverse',
+          gap: 1
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            cursor: 'pointer',
-          }}
-          onClick={() => toggleTool(toolId)}
-        >
-          <ToolIcon sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
-          <Typography variant="body2" sx={{ fontFamily: 'monospace', flex: 1 }}>
-            {event.tool_name}
-          </Typography>
-          {event.success !== undefined && (
-            event.success ? (
-              <SuccessIcon sx={{ fontSize: 16, color: 'success.main', mr: 1 }} />
-            ) : (
-              <ErrorIcon sx={{ fontSize: 16, color: 'error.main', mr: 1 }} />
-            )
-          )}
-          {isExpanded ? <CollapseIcon /> : <ExpandIcon />}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+           <ConsoleIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+           <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', flex: 1 }}>
+             {event.tool_name}
+           </Typography>
+           {event.success ? 
+             <SuccessIcon sx={{ fontSize: 12, color: PALETTE.accent }} /> : 
+             <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} />
+           }
         </Box>
-        
-        <Collapse in={isExpanded}>
-          <Box sx={{ mt: 1, pl: 3 }}>
-            {event.tool_params && (
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" color="text.secondary">Params:</Typography>
-                <pre style={{ margin: 0, fontSize: '0.75rem', overflow: 'auto' }}>
-                  {JSON.stringify(event.tool_params, null, 2)}
-                </pre>
+      </AccordionSummary>
+      <AccordionDetails sx={{ p: 0, pl: 3 }}>
+        <Paper 
+          variant="outlined" 
+          sx={{ 
+            p: 1.5, 
+            bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.50',
+            borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300',
+            borderRadius: 2
+          }}
+        >
+           <Typography variant="caption" display="block" color="text.secondary" gutterBottom>Input</Typography>
+           <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary' }}>
+             {JSON.stringify(event.tool_params, null, 2)}
+           </Box>
+           {event.tool_result !== undefined && event.tool_result !== null && (
+             <>
+               <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1 }}>Result</Typography>
+               <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 200 }}>
+                  {typeof event.tool_result === 'string' ? event.tool_result : JSON.stringify(event.tool_result, null, 2)}
+               </Box>
+             </>
+           )}
+        </Paper>
+      </AccordionDetails>
+    </Accordion>
+  );
+
+  // Empty State / Focus Mode
+  if (status === 'ready' && messages.length === 0) {
+    return (
+      <Box sx={{ 
+        height: 'calc(100vh - 64px)', // Adjust based on your app header
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        bgcolor: 'background.default'
+      }}>
+        <Fade in timeout={800}>
+          <Box sx={{ textAlign: 'center', maxWidth: 600, width: '100%', p: 3 }}>
+             <SparkleIcon sx={{ fontSize: 48, color: PALETTE.accent, mb: 3 }} />
+             <Typography variant="h4" sx={{ fontFamily: 'serif', mb: 4, color: 'text.primary' }}>
+               How can I help you test today?
+             </Typography>
+             
+             <Paper
+                elevation={0}
+                sx={{
+                  p: '2px 4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.100',
+                  border: `1px solid ${isDarkMode ? PALETTE.borderColor : '#e0e0e0'}`,
+                  borderRadius: 3,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                     borderColor: PALETTE.accent
+                  }
+                }}
+              >
+                <TextField
+                  autoFocus
+                  fullWidth
+                  placeholder="Describe a test case or ask to automate a site..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  sx={{ ml: 2, flex: 1 }}
+                  variant="standard"
+                  InputProps={{ disableUnderline: true }}
+                />
+                <IconButton 
+                   onClick={sendMessage}
+                   disabled={!input.trim()}
+                   sx={{ 
+                     m: 1, 
+                     bgcolor: input.trim() ? PALETTE.accent : 'transparent',
+                     color: input.trim() ? '#fff' : 'text.disabled',
+                     '&:hover': { bgcolor: PALETTE.accentHover }
+                   }}
+                >
+                  <SendIcon />
+                </IconButton>
+              </Paper>
+              
+              <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                 {['Automate sauce-demo login', 'Run regression tests', 'Why did checkout fail?'].map((suggestion) => (
+                    <Chip 
+                      key={suggestion} 
+                      label={suggestion} 
+                      onClick={() => setInput(suggestion)}
+                      sx={{ 
+                        bgcolor: 'transparent', 
+                        border: '1px solid', 
+                        borderColor: 'divider',
+                        '&:hover': { borderColor: PALETTE.accent, cursor: 'pointer' }
+                      }} 
+                    />
+                 ))}
               </Box>
-            )}
-            {event.tool_result && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">Result:</Typography>
-                <pre style={{ margin: 0, fontSize: '0.75rem', overflow: 'auto', maxHeight: 200 }}>
-                  {typeof event.tool_result === 'string' 
-                    ? event.tool_result 
-                    : JSON.stringify(event.tool_result, null, 2)}
-                </pre>
-              </Box>
-            )}
-            {event.error && (
-              <Typography variant="body2" color="error.main">
-                Error: {event.error}
-              </Typography>
-            )}
           </Box>
-        </Collapse>
+        </Fade>
       </Box>
     );
-  };
+  }
 
-  // Render message
-  const renderMessage = (message: Message) => {
-    const isUser = message.role === 'user';
-    const agentColor = message.agent ? AGENT_COLORS[message.agent] || '#666' : '#666';
-    
-    return (
-      <Box
-        key={message.id}
-        sx={{
-          display: 'flex',
-          justifyContent: isUser ? 'flex-end' : 'flex-start',
-          mb: 2,
-        }}
-      >
-        <Box
-          sx={{
-            maxWidth: '80%',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* Agent name badge */}
-          {!isUser && message.agent && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-              <AgentIcon sx={{ fontSize: 16, color: AGENT_ICON_COLOR, mr: 0.5 }} />
-              <Typography variant="caption" sx={{ color: agentColor, fontWeight: 600 }}>
-                {message.agent}
-              </Typography>
+  // Main Chat Interface
+  return (
+    <Box sx={{ 
+      height: 'calc(100vh - 64px)', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      bgcolor: 'background.default',
+      overflow: 'hidden' // Prevent outer scroll
+    }}>
+      
+      {/* Minimal Header */}
+      <Box sx={{ 
+        p: 2, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        borderBottom: '1px solid',
+        borderColor: 'divider'
+      }}>
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              QA Assistant
+            </Typography>
+            {session?.mode && (
+               <Chip label={session.mode} size="small" sx={{ height: 20, fontSize: '0.7rem', borderRadius: 1 }} />
+            )}
+         </Box>
+         <Button size="small" color="inherit" onClick={clearHistory} sx={{ opacity: 0.5 }}>
+           Clear
+         </Button>
+      </Box>
+
+      {/* Chat Stream */}
+      <Box sx={{ 
+        flex: 1, 
+        overflowY: 'auto', // Only this area scrolls
+        p: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 3
+      }}>
+        <Container maxWidth="md">
+          
+          {status === 'needs_key' && (
+             <Box sx={{ textAlign: 'center', mb: 4 }}>
+               <Alert severity="info" sx={{ mb: 2 }}>Please configure your Anthropic API Key to proceed.</Alert>
+               <Box sx={{ display: 'flex', gap: 1 }}>
+                 <TextField 
+                   size="small" 
+                   placeholder="sk-ant-..." 
+                   value={apiKeyInput} 
+                   onChange={(e) => setApiKeyInput(e.target.value)} 
+                   type={showApiKey ? "text" : "password"}
+                 />
+                 <Button variant="contained" onClick={saveApiKey} disabled={isValidating}>Save</Button>
+                 <IconButton onClick={() => setShowApiKey(!showApiKey)}>
+                   {showApiKey ? <VisibilityOff /> : <Visibility />}
+                 </IconButton>
+               </Box>
+               {error && <Typography color="error" variant="caption">{error}</Typography>}
+             </Box>
+          )}
+
+          {messages.map((msg) => {
+            const isUser = msg.role === 'user';
+            const agentColor = AGENT_CONFIG[msg.agent || 'QA Manager']?.color;
+
+            return (
+              <Box key={msg.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', mb: 4 }}>
+                 
+                 {/* Sender Info */}
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pl: isUser ? 0 : 1, pr: isUser ? 1 : 0 }}>
+                    {!isUser ? (
+                       <>
+                        <Avatar sx={{ width: 20, height: 20, fontSize: 10, bgcolor: agentColor }}>{getInitials(msg.agent || 'QA')}</Avatar>
+                        <Typography variant="caption" fontWeight="bold" color="text.primary">{msg.agent}</Typography>
+                       </>
+                    ) : (
+                        <Typography variant="caption" color="text.secondary">You</Typography>
+                    )}
+                 </Box>
+
+                 {/* Message Content */}
+                 <Paper 
+                   elevation={0}
+                   sx={{ 
+                     p: isUser ? 2 : 0, // Agents don't need bubble padding as much
+                     px: isUser ? 2 : 1,
+                     bgcolor: isUser ? (isDarkMode ? PALETTE.userBubble : 'grey.100') : 'transparent',
+                     color: 'text.primary',
+                     borderRadius: 2,
+                     maxWidth: '85%',
+                     fontSize: '1rem',
+                     lineHeight: 1.6
+                   }}
+                 >
+                    {/* Tool Logs */}
+                    {!isUser && msg.events && (
+                       <Box sx={{ mb: 2 }}>
+                          {msg.events.filter(e => e.type === 'tool_call').map(renderToolActivity)}
+                       </Box>
+                    )}
+                    
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                       {msg.content}
+                    </Typography>
+                 </Paper>
+              </Box>
+            );
+          })}
+
+          {/* Processing State */}
+          {isProcessing && (
+            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                     <ThinkingIcon sx={{ animation: 'pulse 1.5s infinite', color: PALETTE.accent, fontSize: 18 }} />
+                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        Thinking...
+                     </Typography>
+                  </Box>
+                  
+                  {/* Live Tool Stream */}
+                  <Box sx={{ pl: 3, borderLeft: `2px solid ${PALETTE.borderColor}` }}>
+                     {currentEvents.map((event, idx) => {
+                        if (event.type === 'tool_call') return renderToolActivity(event, idx);
+                        if (event.type === 'thinking') return (
+                           <Typography key={idx} variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
+                              › {event.content}
+                           </Typography>
+                        );
+                        return null;
+                     })}
+                  </Box>
+
+                  {/* Approval Card */}
+                  {currentEvents.some(e => e.type === 'approval_required') && (
+                     <Paper variant="outlined" sx={{ p: 2, mt: 2, borderColor: PALETTE.accent, bgcolor: 'rgba(194, 159, 130, 0.05)' }}>
+                        <Typography variant="subtitle2" color={PALETTE.accent} gutterBottom>
+                           Permission Request
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 2 }}>The agent wants to perform a critical action.</Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                           <Button variant="contained" size="small" onClick={() => handleApproval(true)} sx={{ bgcolor: PALETTE.accent, '&:hover': { bgcolor: PALETTE.accentHover } }}>
+                              Approve
+                           </Button>
+                           <Button variant="outlined" size="small" color="inherit" onClick={() => handleApproval(false)}>
+                              Deny
+                           </Button>
+                        </Box>
+                     </Paper>
+                  )}
+               </Box>
             </Box>
           )}
           
-          {/* Message bubble */}
-          <Paper
-            elevation={1}
-            sx={{
-              p: 2,
-              backgroundColor: isUser ? 'primary.main' : 'background.paper',
-              color: isUser ? 'primary.contrastText' : 'text.primary',
-              borderRadius: 2,
-              borderTopRightRadius: isUser ? 0 : 2,
-              borderTopLeftRadius: isUser ? 2 : 0,
-            }}
-          >
-            {/* Tool calls (if any) */}
-            {message.events?.filter(e => e.type === 'tool_call').map((event, i) => 
-              renderToolCall(event, i)
-            )}
-            
-            {/* Message content */}
-            <Typography
-              variant="body1"
-              sx={{ whiteSpace: 'pre-wrap' }}
-            >
-              {message.content}
-            </Typography>
-            
-            {/* Timestamp */}
-            <Typography
-              variant="caption"
-              sx={{
-                display: 'block',
-                mt: 1,
-                opacity: 0.7,
-                textAlign: isUser ? 'right' : 'left',
-              }}
-            >
-              {message.timestamp.toLocaleTimeString()}
-            </Typography>
-          </Paper>
-        </Box>
+          <div ref={messagesEndRef} />
+        </Container>
       </Box>
-    );
-  };
 
-  return (
-    <Box sx={{ height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-        <AgentIcon sx={{ fontSize: 32, color: AGENT_ICON_COLOR }} />
-        <Typography variant="h5" sx={{ flex: 1 }}>
-          AI Agent
-        </Typography>
-        
-        {/* Status chips */}
-        <Chip
-          label={isConnected ? 'Connected' : 'Disconnected'}
-          color={isConnected ? 'success' : 'error'}
-          size="small"
-        />
-        
-        {session?.mode && (
-          <Chip
-            label={session.mode}
-            size="small"
-            sx={{ 
-              backgroundColor: MODE_COLORS[session.mode] || '#666',
-              color: 'white',
-            }}
-          />
-        )}
-        
-        {session?.active_agent && (
-          <Chip
-            icon={<AgentIcon sx={{ color: '#FFD700' }} />}
-            label={session.active_agent}
-            size="small"
-            variant="outlined"
-            sx={{ 
-              borderColor: AGENT_COLORS[session.active_agent] || '#666',
-              color: AGENT_COLORS[session.active_agent] || '#666',
-            }}
-          />
-        )}
-        
-        <IconButton onClick={createSession} title="New Session">
-          <NewSessionIcon />
-        </IconButton>
+      {/* Input Area (Sticky Bottom) */}
+      <Box sx={{ p: 3, bgcolor: 'background.default' }}>
+        <Container maxWidth="md">
+           <Paper
+                elevation={0}
+                sx={{
+                  p: '2px 4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.50',
+                  border: `1px solid ${isDarkMode ? PALETTE.borderColor : '#e0e0e0'}`,
+                  borderRadius: 3,
+                }}
+              >
+                <TextField
+                  inputRef={inputRef}
+                  fullWidth
+                  multiline
+                  maxRows={4}
+                  placeholder="Message QA Assistant..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  sx={{ ml: 2, flex: 1, py: 1 }}
+                  variant="standard"
+                  InputProps={{ disableUnderline: true }}
+                />
+                <IconButton 
+                   onClick={isProcessing ? () => {} : sendMessage}
+                   disabled={!input.trim() && !isProcessing}
+                   sx={{ 
+                     m: 1, 
+                     bgcolor: input.trim() ? PALETTE.accent : 'transparent',
+                     color: input.trim() ? '#fff' : 'text.disabled',
+                     width: 32,
+                     height: 32,
+                     '&:hover': { bgcolor: PALETTE.accentHover }
+                   }}
+                >
+                  {isProcessing ? <StopIcon fontSize="small" /> : <SendIcon fontSize="small" />}
+                </IconButton>
+              </Paper>
+        </Container>
       </Box>
-      
-      <Divider sx={{ mb: 2 }} />
-      
-      {/* Error alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-      
-      {/* Messages area */}
-      <Paper
-        elevation={0}
-        sx={{
-          flex: 1,
-          overflow: 'auto',
-          p: 2,
-          backgroundColor: 'background.default',
-          borderRadius: 2,
-          mb: 2,
-        }}
-      >
-        {messages.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <AgentIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Start a conversation
-            </Typography>
-            <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 400, mx: 'auto' }}>
-              Try: "Automate sauce-demo.com with login and cart flows" or "Run regression tests for sauce-demo"
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            {messages.map(renderMessage)}
-            
-            {/* Current processing events */}
-            {currentEvents.length > 0 && (
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <CircularProgress size={16} sx={{ mr: 1 }} />
-                  <Typography variant="caption" color="text.secondary">
-                    Processing...
-                  </Typography>
-                </Box>
-                {currentEvents.filter(e => e.type === 'thinking').map((event, i) => (
-                  <Typography
-                    key={i}
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ fontStyle: 'italic', mb: 0.5 }}
-                  >
-                    {event.content}
-                  </Typography>
-                ))}
-                {currentEvents.filter(e => e.type === 'tool_call').map((event, i) =>
-                  renderToolCall(event, i)
-                )}
-              </Box>
-            )}
-            
-            {/* Approval prompt */}
-            {currentEvents.some(e => e.type === 'approval_required') && (
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', my: 2 }}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={() => handleApproval(true)}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  onClick={() => handleApproval(false)}
-                >
-                  Reject
-                </Button>
-              </Box>
-            )}
-          </>
-        )}
-        <div ref={messagesEndRef} />
-      </Paper>
-      
-      {/* Input area */}
-      <Paper
-        elevation={2}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          p: 1,
-          gap: 1,
-        }}
-      >
-        <TextField
-          inputRef={inputRef}
-          fullWidth
-          placeholder={isProcessing ? 'Processing...' : 'Type your message...'}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-          disabled={isProcessing || !isConnected || !session}
-          multiline
-          maxRows={4}
-          variant="outlined"
-          size="small"
-        />
-        <IconButton
-          color="primary"
-          onClick={sendMessage}
-          disabled={!input.trim() || isProcessing || !isConnected || !session}
-        >
-          {isProcessing ? <CircularProgress size={24} /> : <SendIcon />}
-        </IconButton>
-      </Paper>
     </Box>
   );
 };
 
 export default AgentChat;
-

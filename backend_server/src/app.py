@@ -297,9 +297,9 @@ def register_all_server_routes(app):
         from routes import server_users_routes
         print("[@backend_server:routes] ✅ server_users_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing agent routes...")
-        from agent.api import agent_bp, register_socketio_handlers
-        print("[@backend_server:routes] ✅ agent routes imported successfully")
+        print("[@backend_server:routes] 🔍 Importing server_agent_routes...")
+        from routes import server_agent_routes
+        print("[@backend_server:routes] ✅ server_agent_routes imported successfully")
         
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
@@ -357,7 +357,7 @@ def register_all_server_routes(app):
             (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, power, remote, translation + 18 verification routes)'),
             
             # AI Agent chat system
-            (agent_bp, 'AI Agent chat (QA Manager + specialist agents)'),
+            (server_agent_routes.server_agent_bp, 'AI Agent chat (QA Manager + specialist agents)'),
         ]
         
         for blueprint, description in blueprints:
@@ -371,7 +371,7 @@ def register_all_server_routes(app):
         # Register AI Agent SocketIO handlers
         if hasattr(app, 'socketio'):
             print("[@backend_server:routes] 🔍 Registering AI Agent SocketIO handlers...")
-            register_socketio_handlers(app.socketio)
+            server_agent_routes.register_agent_socketio_handlers(app.socketio)
             print("[@backend_server:routes] ✅ AI Agent SocketIO handlers registered")
         
         print("✅ All server routes registered successfully")

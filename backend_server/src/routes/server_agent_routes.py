@@ -1,43 +1,41 @@
 """
-Agent API Routes
+Server Agent Routes - AI Agent Chat System
 
 REST endpoints for session management.
-SocketIO handlers for real-time chat.
+SocketIO handlers for real-time chat with QA Manager and specialist agents.
 """
 
+import os
 import logging
 import asyncio
-from functools import wraps
 
 from flask import Blueprint, request, jsonify
-
-from ..core.manager import QAManagerAgent
-from ..core.session import SessionManager
-from ..core.message_types import EventType
 
 logger = logging.getLogger(__name__)
 
 # Blueprint for REST endpoints
-agent_bp = Blueprint('agent', __name__, url_prefix='/agent')
+server_agent_bp = Blueprint('server_agent', __name__, url_prefix='/server/agent')
 
-# Global instances (initialized on first request)
-_manager: QAManagerAgent = None
-_session_manager: SessionManager = None
+# Lazy imports to avoid circular dependencies
+_manager = None
+_session_manager = None
 
 
-def get_manager() -> QAManagerAgent:
-    """Get or create QA Manager instance"""
+def get_manager():
+    """Get or create QA Manager instance (lazy load)"""
     global _manager
     if _manager is None:
+        from agent.core.manager import QAManagerAgent
         logger.info("Initializing QA Manager agent...")
         _manager = QAManagerAgent()
     return _manager
 
 
-def get_session_manager() -> SessionManager:
-    """Get or create Session Manager instance"""
+def get_session_manager():
+    """Get or create Session Manager instance (lazy load)"""
     global _session_manager
     if _session_manager is None:
+        from agent.core.session import SessionManager
         _session_manager = SessionManager()
     return _session_manager
 
@@ -46,7 +44,21 @@ def get_session_manager() -> SessionManager:
 # REST Endpoints
 # =============================================================================
 
-@agent_bp.route('/sessions', methods=['POST'])
+@server_agent_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check - returns API key configuration status"""
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    api_key_configured = bool(api_key and len(api_key) > 10)
+    
+    return jsonify({
+        "success": True,
+        "status": "healthy",
+        "api_key_configured": api_key_configured,
+        "manager_initialized": _manager is not None,
+    })
+
+
+@server_agent_bp.route('/sessions', methods=['POST'])
 def create_session():
     """Create a new chat session"""
     session_mgr = get_session_manager()
@@ -58,7 +70,7 @@ def create_session():
     })
 
 
-@agent_bp.route('/sessions', methods=['GET'])
+@server_agent_bp.route('/sessions', methods=['GET'])
 def list_sessions():
     """List all sessions"""
     session_mgr = get_session_manager()
@@ -70,7 +82,7 @@ def list_sessions():
     })
 
 
-@agent_bp.route('/sessions/<session_id>', methods=['GET'])
+@server_agent_bp.route('/sessions/<session_id>', methods=['GET'])
 def get_session(session_id: str):
     """Get a specific session"""
     session_mgr = get_session_manager()
@@ -89,7 +101,7 @@ def get_session(session_id: str):
     })
 
 
-@agent_bp.route('/sessions/<session_id>', methods=['DELETE'])
+@server_agent_bp.route('/sessions/<session_id>', methods=['DELETE'])
 def delete_session(session_id: str):
     """Delete a session"""
     session_mgr = get_session_manager()
@@ -100,16 +112,12 @@ def delete_session(session_id: str):
     })
 
 
-@agent_bp.route('/sessions/<session_id>/approve', methods=['POST'])
+@server_agent_bp.route('/sessions/<session_id>/approve', methods=['POST'])
 def approve_action(session_id: str):
     """
     Approve or reject a pending action
     
-    Body:
-    {
-        "approved": true/false,
-        "modifications": {} (optional)
-    }
+    Body: { "approved": true/false, "modifications": {} }
     """
     session_mgr = get_session_manager()
     session = session_mgr.get_session(session_id)
@@ -130,7 +138,6 @@ def approve_action(session_id: str):
     approved = data.get("approved", False)
     modifications = data.get("modifications", {})
     
-    # Handle approval (run async)
     manager = get_manager()
     
     async def run_approval():
@@ -147,35 +154,25 @@ def approve_action(session_id: str):
     })
 
 
-@agent_bp.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        "success": True,
-        "status": "healthy",
-        "manager_initialized": _manager is not None,
-    })
-
-
 # =============================================================================
 # SocketIO Handlers
 # =============================================================================
 
-def register_socketio_handlers(socketio):
+def register_agent_socketio_handlers(socketio):
     """
-    Register SocketIO event handlers
+    Register SocketIO event handlers for /agent namespace
     
     Call this from app.py after creating the socketio instance.
     """
     
     @socketio.on('connect', namespace='/agent')
     def handle_connect():
-        logger.info(f"Client connected to /agent namespace")
+        logger.info("Client connected to /agent namespace")
         socketio.emit('connected', {'status': 'ok'}, namespace='/agent')
     
     @socketio.on('disconnect', namespace='/agent')
     def handle_disconnect():
-        logger.info(f"Client disconnected from /agent namespace")
+        logger.info("Client disconnected from /agent namespace")
     
     @socketio.on('join_session', namespace='/agent')
     def handle_join_session(data):
@@ -201,11 +198,7 @@ def register_socketio_handlers(socketio):
         """
         Handle user message
         
-        Data:
-        {
-            "session_id": "...",
-            "message": "..."
-        }
+        Data: { "session_id": "...", "message": "..." }
         """
         session_id = data.get('session_id')
         message = data.get('message')
@@ -227,19 +220,15 @@ def register_socketio_handlers(socketio):
         
         manager = get_manager()
         
-        # Process message and stream events
         async def process_and_stream():
             async for event in manager.process_message(message, session):
-                # Emit event to session room
                 socketio.emit('agent_event', 
                     event.to_dict(), 
                     room=session_id,
                     namespace='/agent'
                 )
-                # Small delay to prevent overwhelming client
                 await asyncio.sleep(0.05)
         
-        # Run async in background
         socketio.start_background_task(
             lambda: asyncio.run(process_and_stream())
         )
@@ -249,12 +238,7 @@ def register_socketio_handlers(socketio):
         """
         Handle approval response
         
-        Data:
-        {
-            "session_id": "...",
-            "approved": true/false,
-            "modifications": {} (optional)
-        }
+        Data: { "session_id": "...", "approved": true/false, "modifications": {} }
         """
         session_id = data.get('session_id')
         approved = data.get('approved', False)
