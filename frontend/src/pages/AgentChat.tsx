@@ -464,7 +464,7 @@ const AgentChat: React.FC = () => {
                     )}
                     
                     {/* Content (Collapsible for Reasoning/Plans) */}
-                    {!isUser && msg.agent === 'QA Manager' && (msg.content.includes('**Plan**') || msg.content.includes('**Mode confirmed**')) ? (
+                    {!isUser && msg.agent === 'QA Manager' && (msg.content.toLowerCase().includes('**plan**') || msg.content.toLowerCase().includes('**mode confirmed**') || msg.content.toLowerCase().includes('session summary')) ? (
                       <Accordion 
                         elevation={0} 
                         disableGutters

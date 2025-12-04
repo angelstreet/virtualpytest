@@ -12,7 +12,7 @@ from typing import Dict, Any, AsyncGenerator, Optional
 
 import anthropic
 
-from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, Mode, MODE_AGENTS
+from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, Mode, MODE_AGENTS, MANAGER_TOOLS
 from .session import Session
 from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent, ApprovalRequest
@@ -37,10 +37,18 @@ class QAManagerAgent:
     SYSTEM_PROMPT = """You are the QA Manager, a Senior QA Lead who orchestrates testing automation.
 
 ## Your Role
-You understand user requests and delegate to specialist agents. You NEVER execute tools directly.
-IMPORTANT: Be decisive and take action. Don't overthink or ask too many clarifying questions.
+1. Understand user requests
+2. **DIRECTLY ANSWER** simple questions using your tools (e.g., "how many test cases?")
+3. **DELEGATE** complex tasks to specialist agents (e.g., "run regression", "fix bug")
 
-## Your Specialists (5 Agents)
+## Your Tools (Direct Access)
+You can now use these tools yourself. Do NOT delegate if you can answer directly:
+- `list_testcases`: Count or list tests
+- `list_userinterfaces`: See available apps
+- `list_requirements`: Check requirements
+- `get_coverage_summary`: Check coverage status
+
+## Your Specialists (for complex tasks)
 - **Explorer**: UI discovery, navigation tree building
 - **Builder**: Test cases, requirements, coverage setup
 - **Executor**: Test execution STRATEGY (devices, parallelization, retries)
@@ -56,31 +64,25 @@ Detect the mode from user messages:
 **VALIDATE** - Keywords: "run", "test", "validate", "regression", "execute"
 → Delegate to Executor (run tests) THEN Analyst (analyze results)
 
-**ANALYZE** - Keywords: "how many", "count", "list", "analyze", "why did", "is this a bug", "investigate", "show me", "what"
-→ Delegate to Analyst only (queries about test cases, results, coverage, metrics)
+**ANALYZE** - Keywords: "analyze", "why did", "is this a bug", "investigate"
+→ Delegate to Analyst (for deep analysis of failures)
 
 **MAINTAIN** - Keywords: "fix", "repair", "broken", "update", "selector"
 → Delegate to Maintainer
 
-## Simple Queries - TAKE ACTION IMMEDIATELY
-For questions like "how many test cases", "list tests", "show coverage":
-- DON'T ask for clarification
-- DON'T overthink the mode
-- Just delegate to Analyst immediately
-- Let Analyst figure out the details
+## Decision Logic
+1. **Can I answer this with `list_testcases` or similar?**
+   → YES: Call the tool, get the result, and answer the user. DONE.
+   → NO: Identify the mode and delegate to a specialist.
 
-## Your Process
-1. Quickly identify the mode (don't second-guess yourself)
-2. Delegate to appropriate specialist immediately
-3. Report results when done
+2. **Is this a request to run/change something?**
+   → ALWAYS delegate.
 
 ## Response Format
-Keep it short:
-- Brief acknowledgment of what you understood
-- Which agent is handling it
-- Results when available
+- If answering directly: Just give the answer.
+- If delegating: "Delegating to [Agent]..."
 
-Be efficient. The user wants results, not lengthy explanations."""
+Be efficient. The user wants results."""
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -163,6 +165,11 @@ Be efficient. The user wants results, not lengthy explanations."""
         
         return context
     
+    @property
+    def tool_names(self) -> list[str]:
+        """Tools available to the QA Manager"""
+        return MANAGER_TOOLS
+
     async def process_message(
         self, 
         message: str, 
@@ -214,34 +221,105 @@ Be efficient. The user wants results, not lengthy explanations."""
             content="Analyzing your request...",
         )
         
-        # Get manager's response
+        # Get manager's response with Hybrid Tool Loop
         planning_prompt = f"""User request: {message}
-
-Detected mode: {mode}
-Extracted context: {extracted_context}
-
-Based on this request:
-1. Confirm the mode is correct
-2. Identify what specific task(s) need to be done
-3. Which specialist agent(s) should handle this?
-4. What information do we need from the user (if any)?
-
-Respond with a brief plan."""
-
-        response = self.client.messages.create(
-            model=DEFAULT_MODEL,
-            max_tokens=1024,
-            system=self.SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": planning_prompt}],
-        )
         
-        plan = response.content[0].text
+        Detected mode: {mode}
+        Extracted context: {extracted_context}
         
-        yield AgentEvent(
-            type=EventType.MESSAGE,
-            agent="QA Manager",
-            content=plan,
-        )
+        Based on this request:
+        1. If it's a simple query (list/count), use your tools directly.
+        2. If it's complex, delegate to a specialist.
+        
+        Respond with tool use OR a brief plan."""
+
+        # Message history for this turn (to support tool use loop)
+        turn_messages = [{"role": "user", "content": planning_prompt}]
+        tools = self.tool_bridge.get_tool_definitions(self.tool_names)
+        
+        plan = ""
+        tools_used = False
+        
+        # Tool Use Loop
+        while True:
+            response = self.client.messages.create(
+                model=DEFAULT_MODEL,
+                max_tokens=1024,
+                system=self.SYSTEM_PROMPT,
+                messages=turn_messages,
+                tools=tools
+            )
+            
+            # Add assistant response to history
+            turn_messages.append({"role": "assistant", "content": response.content})
+            
+            # Process response
+            tool_use = next((b for b in response.content if b.type == "tool_use"), None)
+            text_content = next((b.text for b in response.content if b.type == "text"), "")
+            
+            if tool_use:
+                tools_used = True
+                # Yield tool call event
+                yield AgentEvent(
+                    type=EventType.TOOL_CALL,
+                    agent="QA Manager",
+                    tool_name=tool_use.name,
+                    tool_params=tool_use.input
+                )
+                
+                # Execute tool
+                try:
+                    result = self.tool_bridge.execute(tool_use.name, tool_use.input)
+                    
+                    yield AgentEvent(
+                        type=EventType.TOOL_RESULT,
+                        agent="QA Manager",
+                        tool_name=tool_use.name,
+                        tool_result=result,
+                        success=True
+                    )
+                    
+                    # Add result to history
+                    turn_messages.append({
+                        "role": "user", 
+                        "content": [
+                            {"type": "tool_result", "tool_use_id": tool_use.id, "content": str(result)}
+                        ]
+                    })
+                    
+                except Exception as e:
+                    yield AgentEvent(
+                        type=EventType.ERROR,
+                        agent="QA Manager",
+                        content=f"Tool error: {str(e)}",
+                        error=str(e)
+                    )
+                    turn_messages.append({
+                        "role": "user",
+                        "content": [
+                            {"type": "tool_result", "tool_use_id": tool_use.id, "content": f"Error: {str(e)}", "is_error": True}
+                        ]
+                    })
+            else:
+                # No tool use - final answer or plan
+                plan = text_content
+                yield AgentEvent(
+                    type=EventType.MESSAGE,
+                    agent="QA Manager",
+                    content=plan,
+                )
+                break
+        
+        # Decision: Delegate or Finish?
+        # If we used tools AND we are in ANALYZE mode, we likely answered directly.
+        # Unless the plan explicitly says "Delegating..."
+        should_delegate = True
+        if tools_used and mode == Mode.ANALYZE and "delegating" not in plan.lower():
+            should_delegate = False
+            
+        if not should_delegate:
+             yield AgentEvent(type=EventType.SESSION_ENDED, agent="QA Manager", content="Task completed")
+             return
         
         # Delegate to appropriate agents
         agents_to_use = MODE_AGENTS.get(mode, ["explorer"])
@@ -418,6 +496,23 @@ Steps:
 5. Report what was fixed"""
 
         elif mode == Mode.ANALYZE:
+            # Simple queries (count, list, how many) - just answer directly
+            simple_keywords = ["how many", "count", "list", "show", "what are", "total"]
+            is_simple_query = any(kw in original_message.lower() for kw in simple_keywords)
+            
+            if is_simple_query:
+                return f"""Answer this simple query directly:
+
+{original_message}
+
+IMPORTANT: This is a simple information request. 
+- Just provide the answer concisely
+- Do NOT analyze failures or provide recommendations
+- Do NOT load individual test cases unless specifically asked
+- If asked "how many", just call list_testcases and count them
+- Keep your response SHORT (under 100 words)"""
+            
+            # Complex analysis queries
             return f"""Analyze test results or failures:
 
 {original_message}
@@ -434,18 +529,13 @@ Provide clear classifications and actionable recommendations."""
         return original_message
     
     def _generate_summary(self, session: Session) -> str:
-        """Generate session summary"""
+        """Generate session summary - brief, no duplication"""
         if not session.results:
-            return "No results to report."
+            return ""
         
-        summary_parts = [f"## Session Summary ({session.mode} mode)\n"]
-        
-        for result in session.results:
-            agent = result.get("agent", "Unknown")
-            data = result.get("result", {})
-            summary_parts.append(f"### {agent}\n{data}\n")
-        
-        return "\n".join(summary_parts)
+        # Just indicate completion, don't repeat results
+        agents_used = [r.get("agent", "Agent") for r in session.results]
+        return f"✓ Completed by {', '.join(agents_used)}"
     
     async def handle_approval(
         self, 
