@@ -42,16 +42,18 @@ const Z_INDEX_ORDER = [
   'HEADER', // 230 - Page headers
   'HEADER_DROPDOWN', // 240 - Header dropdown menus
   
-  // Modals and screenshots (high layer)
-  'MODAL_BACKDROP', // 250 - Modal backdrop/overlay
-  'MODAL_CONTENT', // 260 - Modal content windows
-  'SCREENSHOT_MODAL', // 270 - Screenshot viewing modals
-  'AI_DISAMBIGUATION_MODAL', // 280 - AI disambiguation requires user input before execution
-  'TIMELINE_OVERLAY', // 290 - Video timeline controls
+  // Interactive overlays (below modals)
+  'APPIUM_OVERLAY', // 250 - Appium element overlays
+  'ANDROID_MOBILE_OVERLAY', // 260 - Android mobile overlays
   
-  // Interactive overlays (highest layer - on top of everything)
-  'APPIUM_OVERLAY', // 300 - Appium element overlays
-  'ANDROID_MOBILE_OVERLAY', // 310 - Android mobile overlays
+  // Modals and screenshots (high layer - above interactive overlays)
+  'MODAL_BACKDROP', // 270 - Modal backdrop/overlay
+  'MODAL_CONTENT', // 280 - Modal content windows
+  'SCREENSHOT_MODAL', // 290 - Screenshot viewing modals
+  'AI_DISAMBIGUATION_MODAL', // 300 - AI disambiguation requires user input before execution
+  'TIMELINE_OVERLAY', // 310 - Video timeline controls
+  
+  // Top-most overlays (highest layer - on top of everything)
   'DEBUG_OVERLAY', // 320 - Debug information overlays
   'SCREENSHOT_CAPTURE_OVERLAY', // 330 - Screenshot capture drag selection overlay (above all overlays)
 ] as const;
