@@ -294,4 +294,31 @@
     </a>
   </div>
 
+  <div class="screenshot-card">
+    <h3>AI Model Generation</h3>
+    <a href="/screenshot/ai_model1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/ai_model1.png" alt="AI Model Generation">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>AI Model Progression</h3>
+    <a href="/screenshot/ai_model2.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/ai_model2.png" alt="AI Model Progression">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>AI Model Review</h3>
+    <a href="/screenshot/ai_model3.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/ai_model3.png" alt="AI Model Review">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>AI Node Verification</h3>
+    <a href="/screenshot/ai_model4.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/ai_model4.png" alt="AI Node Verification">
+    </a>
+  </div>
 </div>

@@ -233,6 +233,31 @@
       </a>
     </td>
     <td align="center" width="250">
+     <b>AI Model Generation</b>
+      <a href="../../frontend/public/screenshot/ai_model1.png" target="_blank">
+        <img src="../../frontend/public/screenshot/ai_model1.png" width="240" alt="AI Model Generation">
+      </a>
+    </td>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="250">
+      <b>AI Model Progression</b>
+      <a href="../../frontend/public/screenshot/ai_model2.png" target="_blank">
+        <img src="../../frontend/public/screenshot/ai_model2.png" width="240" alt="AI Model Progression">
+      </a>
+    </td>
+    <td align="center" width="250">
+      <b>AI Model Review</b>
+      <a href="../../frontend/public/screenshot/ai_model3.png" target="_blank">
+        <img src="../../frontend/public/screenshot/ai_model3.png" width="240" alt="AI Model Review">
+      </a>
+    </td>
+    <td align="center" width="250">
+     <b>AI Node Verification</b>
+      <a href="../../frontend/public/screenshot/ai_model4.png" target="_blank">
+        <img src="../../frontend/public/screenshot/ai_model4.png" width="240" alt="AI Node Verification">
+      </a>
     </td>
   </tr>
 </table>

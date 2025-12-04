@@ -136,6 +136,42 @@
   </div>
 </div>
 
+<div class="video-card">
+  <h3>AI Model Generation</h3>
+  <div class="video-wrapper">
+    <iframe 
+      src="https://www.youtube.com/embed/kXLRNYWVuzU" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
+
+<div class="video-card">
+  <h3>AI Script Generation</h3>
+  <div class="video-wrapper">
+    <iframe 
+      src="https://www.youtube.com/embed/" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
+
+<div class="video-card">
+  <h3>AI Script Execution and Analysis</h3>
+  <div class="video-wrapper">
+    <iframe 
+      src="https://www.youtube.com/embed/" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
+
 </div>
 
 ---
