@@ -230,7 +230,7 @@ const NavigationBar: React.FC = () => {
           color: location.pathname === '/' ? 'secondary.main' : 'inherit',
           fontWeight: location.pathname === '/' ? 600 : 400,
           textTransform: 'none',
-          px: 2,
+          px: 1,
           py: 1,
           '&:hover': {
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -249,7 +249,7 @@ const NavigationBar: React.FC = () => {
           color: location.pathname === '/rec' ? 'secondary.main' : 'inherit',
           fontWeight: location.pathname === '/rec' ? 600 : 400,
           textTransform: 'none',
-          px: 2,
+          px: 1,
           py: 1,
           '&:hover': {
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -259,24 +259,19 @@ const NavigationBar: React.FC = () => {
         Rec
       </Button>
 
-      {/* AI Agent - Prominent button for AI-powered QA automation */}
+      {/* AI Agent - Simple button */}
       <Button
         component={Link}
         to="/ai-agent"
         startIcon={<AgentIcon fontSize="small" />}
         sx={{
-          color: location.pathname === '/ai-agent' ? 'secondary.main' : 'inherit',
+          color: location.pathname === '/ai-agent' ? '#FFD700' : 'inherit',
           fontWeight: location.pathname === '/ai-agent' ? 600 : 400,
           textTransform: 'none',
-          px: 2,
+          px: 1,
           py: 1,
-          background: location.pathname === '/ai-agent' 
-            ? 'linear-gradient(45deg, rgba(156, 39, 176, 0.3), rgba(103, 58, 183, 0.3))'
-            : 'transparent',
-          borderRadius: 1,
           '&:hover': {
-            backgroundColor: 'rgba(156, 39, 176, 0.2)',
-            background: 'linear-gradient(45deg, rgba(156, 39, 176, 0.2), rgba(103, 58, 183, 0.2))',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
           },
         }}
       >
@@ -295,7 +290,7 @@ const NavigationBar: React.FC = () => {
           color: location.pathname.startsWith('/configuration/interface') ? 'secondary.main' : 'inherit',
           fontWeight: location.pathname.startsWith('/configuration/interface') ? 600 : 400,
           textTransform: 'none',
-          px: 2,
+          px: 1,
           py: 1,
           '&:hover': {
             backgroundColor: 'rgba(255, 255, 255, 0.1)',

@@ -158,7 +158,6 @@ const AppHeader: React.FC = () => {
     return (
       <AppBar position="static" elevation={1}>
         <Toolbar>
-          <Science sx={{ mr: 2 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             VirtualPyTest
           </Typography>
@@ -185,7 +184,10 @@ const AppHeader: React.FC = () => {
           <NavigationBar />
         </Box>
         <Box sx={{ flexGrow: 1 }} />
-        <UserMenu />
+        <ThemeToggle />
+        <Box sx={{ ml: 2 }}>
+          <UserMenu />
+        </Box>
       </Toolbar>
     </AppBar>
   );
