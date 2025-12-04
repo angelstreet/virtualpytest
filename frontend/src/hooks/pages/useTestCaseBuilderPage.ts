@@ -20,7 +20,7 @@ import { useTestCaseBuilder } from '../../contexts/testcase/TestCaseBuilderConte
 import { useTestCaseAI } from '../testcase';
 import { filterCompatibleInterfaces } from '../../utils/userinterface/deviceCompatibilityUtils';
 import { buildToolboxFromNavigationData } from '../../utils/toolboxBuilder';
-import { useBuilder } from '../../contexts/builder/BuilderContext';
+import { useBuilder } from '../../contexts/builder/useBuilder';
 
 export interface UseTestCaseBuilderPageReturn {
   // Device & Host

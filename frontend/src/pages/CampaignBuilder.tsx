@@ -55,7 +55,7 @@ import { CampaignNode, CampaignDragData } from '../types/pages/CampaignGraph_Typ
 import { useTheme } from '../contexts/ThemeContext';
 import { useHostManager } from '../contexts/index';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
-import { useBuilder } from '../contexts/builder/BuilderContext';
+import { useBuilder } from '../contexts/builder/useBuilder';
 import { useDeviceControlWithForceUnlock } from '../hooks/useDeviceControlWithForceUnlock';
 import { useNavigationConfig, NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
 import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';

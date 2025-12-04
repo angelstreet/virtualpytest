@@ -7,7 +7,6 @@
 
 import React, {
   createContext,
-  useContext,
   useState,
   useCallback,
   useMemo,
@@ -37,21 +36,13 @@ interface BuilderActions {
   clearData: () => void;
 }
 
-type BuilderContextType = BuilderState & BuilderActions;
+export type BuilderContextType = BuilderState & BuilderActions;
 
 // ========================================
 // CONTEXT
 // ========================================
 
-const BuilderContext = createContext<BuilderContextType | undefined>(undefined);
-
-export const useBuilder = (): BuilderContextType => {
-  const context = useContext(BuilderContext);
-  if (!context) {
-    throw new Error('useBuilder must be used within a BuilderProvider');
-  }
-  return context;
-};
+export const BuilderContext = createContext<BuilderContextType | undefined>(undefined);
 
 // ========================================
 // PROVIDER
