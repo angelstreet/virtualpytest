@@ -3,6 +3,9 @@
 // Auth Hooks
 export * from './auth';
 
+// AI Agent Hooks
+export * from './aiagent';
+
 // Core Hooks
 export * from './useToast';
 

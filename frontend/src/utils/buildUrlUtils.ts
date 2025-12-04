@@ -24,16 +24,23 @@ import { APP_CONFIG, SERVER_CONFIG, STORAGE_KEYS } from '../config/constants';
 // =====================================================
 
 
-export const buildServerUrl = (endpoint: string): string => {
-  // Try to get selected server from localStorage first, fallback to env variable
-  let serverUrl: string;
+/**
+ * Get the base server URL (without endpoint)
+ * Reads from localStorage or falls back to default
+ * Used for Socket.IO connections and base URL extraction
+ */
+export const getServerBaseUrl = (): string => {
   try {
     const selectedServer = localStorage.getItem(STORAGE_KEYS.SELECTED_SERVER);
-    serverUrl = selectedServer || SERVER_CONFIG.DEFAULT_URL;
+    return selectedServer || SERVER_CONFIG.DEFAULT_URL;
   } catch {
     // Fallback if localStorage is not available
-    serverUrl = SERVER_CONFIG.DEFAULT_URL;
+    return SERVER_CONFIG.DEFAULT_URL;
   }
+};
+
+export const buildServerUrl = (endpoint: string): string => {
+  const serverUrl = getServerBaseUrl();
   
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const url = `${serverUrl}/${cleanEndpoint}`;
