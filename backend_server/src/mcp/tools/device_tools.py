@@ -35,17 +35,41 @@ class DeviceTools:
         device_id = params.get('device_id')
         host_name = params.get('host_name')
         
-        # Build request
-        query_params = {}
-        if device_id:
-            query_params['device_id'] = device_id
+        # Use getAllHosts as source of truth (matches frontend behavior)
+        result = self.api.get('/server/system/getAllHosts')
+        
+        if not result.get('success'):
+            return self.formatter.format_api_response(result)
+            
+        hosts = result.get('hosts', [])
+        
+        # Filter by host_name if provided
         if host_name:
-            query_params['host_name'] = host_name
+            hosts = [h for h in hosts if h.get('host_name') == host_name]
+            if not hosts:
+                return {"content": [{"type": "text", "text": f"❌ Error: Host '{host_name}' not found"}], "isError": True}
         
-        # Call API (auto-proxied from /server/devices to /host/devices)
-        result = self.api.get('/server/devices', params=query_params)
+        # Collect all devices
+        all_devices = []
+        for host in hosts:
+            host_info = {
+                'host_name': host.get('host_name'),
+                'status': host.get('status')
+            }
+            
+            for device in host.get('devices', []):
+                # Filter by device_id if provided
+                if device_id and device.get('device_id') != device_id:
+                    continue
+                
+                # Add host context to device
+                device_with_host = {**device, **host_info}
+                all_devices.append(device_with_host)
         
-        return self.formatter.format_api_response(result)
+        if device_id and not all_devices:
+             return {"content": [{"type": "text", "text": f"❌ Error: Device '{device_id}' not found"}], "isError": True}
+             
+        return {"content": [{"type": "text", "text": self.formatter._json_to_string({"devices": all_devices})}], "isError": False}
     
     def get_compatible_hosts(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

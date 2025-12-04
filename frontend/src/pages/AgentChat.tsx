@@ -77,6 +77,22 @@ const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
 
+// Merge tool_call events with their corresponding tool_result events
+const mergeToolEvents = (events: AgentEvent[]): AgentEvent[] => {
+  const toolCalls = events.filter(e => e.type === 'tool_call');
+  const toolResults = events.filter(e => e.type === 'tool_result');
+  
+  return toolCalls.map(call => {
+    // Find matching result by tool_name
+    const result = toolResults.find(r => r.tool_name === call.tool_name);
+    return {
+      ...call,
+      tool_result: result?.tool_result ?? call.tool_result,
+      success: result?.success ?? call.success,
+    };
+  });
+};
+
 // --- Components ---
 
 const AgentChat: React.FC = () => {
@@ -154,7 +170,7 @@ const AgentChat: React.FC = () => {
 
   const renderToolActivity = (event: AgentEvent, idx: number) => (
     <Accordion 
-      key={idx} 
+      key={`${event.tool_name}-${idx}-${event.success ?? 'pending'}-${event.tool_result ? 'done' : 'waiting'}`} 
       disableGutters 
       elevation={0}
       sx={{ 
@@ -179,9 +195,10 @@ const AgentChat: React.FC = () => {
            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', flex: 1 }}>
              {event.tool_name}
            </Typography>
-           {event.success ? 
-             <SuccessIcon sx={{ fontSize: 12, color: PALETTE.accent }} /> : 
-             <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} />
+           {/* Only show error icon when explicitly failed (success === false), otherwise show success */}
+           {event.success === false ? 
+             <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
+             <SuccessIcon sx={{ fontSize: 12, color: PALETTE.accent }} />
            }
         </Box>
       </AccordionSummary>
@@ -196,17 +213,19 @@ const AgentChat: React.FC = () => {
           }}
         >
            <Typography variant="caption" display="block" color="text.secondary" gutterBottom>Input</Typography>
-           <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary' }}>
-             {JSON.stringify(event.tool_params, null, 2)}
+           <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 150 }}>
+             {event.tool_params ? JSON.stringify(event.tool_params, null, 2) : '{}'}
            </Box>
-           {event.tool_result !== undefined && event.tool_result !== null && (
-             <>
-               <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1 }}>Result</Typography>
-               <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 200 }}>
-                  {typeof event.tool_result === 'string' ? event.tool_result : JSON.stringify(event.tool_result, null, 2)}
-               </Box>
-             </>
-           )}
+           
+           <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>Result</Typography>
+           <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 300 }}>
+              {event.tool_result === undefined || event.tool_result === null 
+                ? <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>No result data</Typography>
+                : typeof event.tool_result === 'string' 
+                  ? event.tool_result 
+                  : JSON.stringify(event.tool_result, null, 2)
+              }
+           </Box>
         </Paper>
       </AccordionDetails>
     </Accordion>
@@ -456,10 +475,10 @@ const AgentChat: React.FC = () => {
                       </Box>
                     )}
 
-                    {/* Tool Logs */}
+                    {/* Tool Logs - merge tool_call with tool_result events */}
                     {!isUser && msg.events && msg.events.filter(e => e.type === 'tool_call').length > 0 && (
                        <Box sx={{ mb: 1, p: 1, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 2 }}>
-                          {msg.events.filter(e => e.type === 'tool_call').map(renderToolActivity)}
+                          {mergeToolEvents(msg.events).map(renderToolActivity)}
                        </Box>
                     )}
                     
@@ -577,29 +596,29 @@ const AgentChat: React.FC = () => {
                {/* Live Tool Stream */}
                {currentEvents.length > 0 && (
                  <Box sx={{ pl: 2, borderLeft: `2px solid ${PALETTE.accent}40`, mb: 2 }}>
-                    {currentEvents.map((event, idx) => {
-                       if (event.type === 'tool_call') return renderToolActivity(event, idx);
-                       if (event.type === 'thinking') return (
-                          <Typography 
-                            key={idx} 
-                            variant="body2" 
-                            display="block" 
-                            color="text.secondary" 
-                            sx={{ 
-                              mb: 0.5, 
-                              fontSize: '0.875rem',
-                              animation: 'slideIn 0.3s ease-out',
-                              '@keyframes slideIn': {
-                                '0%': { opacity: 0, transform: 'translateX(-8px)' },
-                                '100%': { opacity: 1, transform: 'translateX(0)' },
-                              },
-                            }}
-                          >
-                             {event.content}
-                          </Typography>
-                       );
-                       return null;
-                    })}
+                    {/* Render merged tool events */}
+                    {mergeToolEvents(currentEvents).map(renderToolActivity)}
+                    
+                    {/* Render thinking events */}
+                    {currentEvents.filter(e => e.type === 'thinking').map((event, idx) => (
+                      <Typography 
+                        key={`thinking-${idx}`} 
+                        variant="body2" 
+                        display="block" 
+                        color="text.secondary" 
+                        sx={{ 
+                          mb: 0.5, 
+                          fontSize: '0.875rem',
+                          animation: 'slideIn 0.3s ease-out',
+                          '@keyframes slideIn': {
+                            '0%': { opacity: 0, transform: 'translateX(-8px)' },
+                            '100%': { opacity: 1, transform: 'translateX(0)' },
+                          },
+                        }}
+                      >
+                        {event.content}
+                      </Typography>
+                    ))}
                  </Box>
                )}
 
