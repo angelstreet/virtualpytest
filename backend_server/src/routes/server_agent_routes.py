@@ -221,13 +221,20 @@ def register_agent_socketio_handlers(socketio):
         manager = get_manager()
         
         async def process_and_stream():
-            async for event in manager.process_message(message, session):
-                socketio.emit('agent_event', 
-                    event.to_dict(), 
-                    room=session_id,
-                    namespace='/agent'
-                )
-                await asyncio.sleep(0.05)
+            try:
+                async for event in manager.process_message(message, session):
+                    socketio.emit('agent_event', 
+                        event.to_dict(), 
+                        room=session_id,
+                        namespace='/agent'
+                    )
+                    await asyncio.sleep(0.05)
+            except Exception as e:
+                logger.error(f"Error processing message: {e}", exc_info=True)
+                socketio.emit('error', {
+                    'error': str(e),
+                    'type': type(e).__name__
+                }, room=session_id, namespace='/agent')
         
         socketio.start_background_task(
             lambda: asyncio.run(process_and_stream())
@@ -256,13 +263,20 @@ def register_agent_socketio_handlers(socketio):
         manager = get_manager()
         
         async def process_approval():
-            async for event in manager.handle_approval(session, approved, modifications):
-                socketio.emit('agent_event',
-                    event.to_dict(),
-                    room=session_id,
-                    namespace='/agent'
-                )
-                await asyncio.sleep(0.05)
+            try:
+                async for event in manager.handle_approval(session, approved, modifications):
+                    socketio.emit('agent_event',
+                        event.to_dict(),
+                        room=session_id,
+                        namespace='/agent'
+                    )
+                    await asyncio.sleep(0.05)
+            except Exception as e:
+                logger.error(f"Error processing approval: {e}", exc_info=True)
+                socketio.emit('error', {
+                    'error': str(e),
+                    'type': type(e).__name__
+                }, room=session_id, namespace='/agent')
         
         socketio.start_background_task(
             lambda: asyncio.run(process_approval())

@@ -92,6 +92,7 @@ const AgentChat: React.FC = () => {
     setInput,
     setShowApiKey,
     setApiKeyInput,
+    setError,
     sendMessage,
     saveApiKey,
     handleApproval,
@@ -261,19 +262,19 @@ const AgentChat: React.FC = () => {
       
       {/* Minimal Header */}
       <Box sx={{ 
-        p: 2, 
+        p: 0, 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
         borderBottom: '1px solid',
         borderColor: 'divider'
       }}>
-         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
             <Typography variant="subtitle2" color="text.secondary">
               QA Assistant
             </Typography>
             {session?.mode && (
-               <Chip label={session.mode} size="small" sx={{ height: 20, fontSize: '0.7rem', borderRadius: 1 }} />
+               <Chip label={session.mode} size="small" sx={{ height: 14, fontSize: '0.7rem', borderRadius: 1 }} />
             )}
          </Box>
          <Button size="small" color="inherit" onClick={clearHistory} sx={{ opacity: 0.5 }}>
@@ -285,10 +286,10 @@ const AgentChat: React.FC = () => {
       <Box sx={{ 
         flex: 1, 
         overflowY: 'auto', // Only this area scrolls
-        p: 3,
+        p: 2,
         display: 'flex',
         flexDirection: 'column',
-        gap: 3,
+        gap: 2,
         // Hide scrollbar while keeping scroll functionality
         scrollbarWidth: 'none', // Firefox
         '&::-webkit-scrollbar': {
@@ -299,7 +300,7 @@ const AgentChat: React.FC = () => {
         <Container maxWidth="md">
           
           {status === 'needs_key' && (
-             <Box sx={{ textAlign: 'center', mb: 4 }}>
+             <Box sx={{ textAlign: 'center', mb: 2 }}>
                <Alert severity="info" sx={{ mb: 2 }}>Please configure your Anthropic API Key to proceed.</Alert>
                <Box sx={{ display: 'flex', gap: 1 }}>
                  <TextField 
@@ -410,6 +411,17 @@ const AgentChat: React.FC = () => {
                   )}
                </Box>
             </Box>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <Alert 
+              severity="error" 
+              sx={{ mt: 2 }}
+              onClose={() => setError(null)}
+            >
+              {error}
+            </Alert>
           )}
           
           <div ref={messagesEndRef} />

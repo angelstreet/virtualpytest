@@ -130,7 +130,11 @@ export const useAgentChat = () => {
     });
 
     socket.on('error', (data) => {
-      setError(data.error);
+      const errorMessage = data.type 
+        ? `${data.type}: ${data.error}`
+        : data.error || 'Unknown error occurred';
+      console.error('[@useAgentChat] Socket error:', errorMessage);
+      setError(errorMessage);
       setIsProcessing(false);
     });
 
@@ -256,6 +260,7 @@ export const useAgentChat = () => {
     setInput,
     setShowApiKey,
     setApiKeyInput,
+    setError,
     sendMessage,
     saveApiKey,
     handleApproval,
