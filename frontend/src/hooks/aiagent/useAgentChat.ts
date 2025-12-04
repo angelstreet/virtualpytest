@@ -87,7 +87,7 @@ export const useAgentChat = () => {
     const serverBaseUrl = getServerBaseUrl();
     const socket = io(`${serverBaseUrl}/agent`, {
       path: '/server/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['polling'], // Use polling only to avoid WebSocket errors
     });
 
     socket.on('connect', () => {
