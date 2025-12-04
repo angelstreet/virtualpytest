@@ -59,6 +59,7 @@ const UserApiWorkspaceDetail = React.lazy(() => import('./pages/UserApiWorkspace
 const JiraIntegration = React.lazy(() => import('./pages/JiraIntegration'));
 const Teams = React.lazy(() => import('./pages/Teams'));
 const Users = React.lazy(() => import('./pages/Users'));
+const AgentChat = React.lazy(() => import('./pages/AgentChat'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -184,10 +185,7 @@ const AppHeader: React.FC = () => {
           <NavigationBar />
         </Box>
         <Box sx={{ flexGrow: 1 }} />
-        <ThemeToggle />
-        <Box sx={{ ml: 2 }}>
-          <UserMenu />
-        </Box>
+        <UserMenu />
       </Toolbar>
     </AppBar>
   );
@@ -235,6 +233,9 @@ const App: React.FC = () => {
 
                   {/* Rec Page */}
                   <Route path="/rec" element={<Rec />} />
+
+                  {/* AI Agent - Chat-based QA automation */}
+                  <Route path="/ai-agent" element={<AgentChat />} />
 
                   {/* Builder Routes */}
                   <Route path="/builder/test-builder" element={<TestCaseBuilder />} />

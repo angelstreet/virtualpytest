@@ -24,6 +24,7 @@ import {
   HelpOutline as FaqIcon, // For FAQ
   PhotoLibrary as ScreenshotsIcon, // For Screenshots
   VideoLibrary as VideosIcon, // For Videos
+  RocketLaunch as AgentIcon, // For AI Agent
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -256,6 +257,30 @@ const NavigationBar: React.FC = () => {
         }}
       >
         Rec
+      </Button>
+
+      {/* AI Agent - Prominent button for AI-powered QA automation */}
+      <Button
+        component={Link}
+        to="/ai-agent"
+        startIcon={<AgentIcon fontSize="small" />}
+        sx={{
+          color: location.pathname === '/ai-agent' ? 'secondary.main' : 'inherit',
+          fontWeight: location.pathname === '/ai-agent' ? 600 : 400,
+          textTransform: 'none',
+          px: 2,
+          py: 1,
+          background: location.pathname === '/ai-agent' 
+            ? 'linear-gradient(45deg, rgba(156, 39, 176, 0.3), rgba(103, 58, 183, 0.3))'
+            : 'transparent',
+          borderRadius: 1,
+          '&:hover': {
+            backgroundColor: 'rgba(156, 39, 176, 0.2)',
+            background: 'linear-gradient(45deg, rgba(156, 39, 176, 0.2), rgba(103, 58, 183, 0.2))',
+          },
+        }}
+      >
+        AI
       </Button>
 
       {/* Test Grouped Dropdown (Plan, Execution, Results) */}

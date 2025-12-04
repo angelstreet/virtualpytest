@@ -114,6 +114,9 @@ speedtest-cli>=2.1.3
 mcp>=1.0.0
 jsonschema>=4.0.0
 
+# AI Agent SDK (Claude)
+anthropic>=0.40.0
+
 # Security scanning tools (for development/CI)
 bandit>=1.7.0
 safety>=3.0.0
