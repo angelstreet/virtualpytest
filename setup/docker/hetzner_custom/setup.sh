@@ -559,7 +559,7 @@ services:
       - ../../../test_scripts:/app/test_scripts:ro
       - ../../../test_campaign:/app/test_campaign:ro
     environment:
-      - SERVER_NAME=${SERVER_NAME:-hetzner1}-server
+      - SERVER_NAME=${SERVER_NAME:-hetzner1}
       - SERVER_PORT=${SERVER_PORT}
       - SERVER_URL=\${SERVER_URL:-http://localhost:${SERVER_PORT}}
       - DEBUG=\${DEBUG:-0}
@@ -836,9 +836,9 @@ echo "   • Docker log rotation: 10MB max per file, 3 files per container"
 echo "   • Prevents disk space issues from unlimited log growth"
 echo ""
 echo "📛 Names (${SERVER_NAME:-hetzner1}):"
-echo "   • ${SERVER_NAME:-hetzner1}-server"
+echo "   • Server: ${SERVER_NAME:-hetzner1}"
 for i in $(seq 1 $HOST_MAX); do
-    echo "   • ${SERVER_NAME:-hetzner1}-host${i}"
+    echo "   • Host ${i}: ${SERVER_NAME:-hetzner1}-host${i}"
 done
 echo ""
 
