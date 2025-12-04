@@ -45,18 +45,21 @@ import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
 
 // --- Constants & Configuration ---
 
-// Sober Palette (Dark Mode Optimized)
+// Refined Palette (Claude-inspired warmth)
 const PALETTE = {
-  background: '#1e1e1e', // Deep Charcoal
-  surface: '#252526',    // Slightly lighter
-  inputBg: '#2d2d2d',
-  textPrimary: '#ececec',
-  textSecondary: '#a1a1a3',
-  accent: '#c29f82',     // "Claude" earthy brown/orange
-  accentHover: '#a8866b',
-  agentBubble: 'transparent',
-  userBubble: '#2d2d2d',
-  borderColor: '#3e3e42',
+  background: '#1a1a1a',
+  surface: '#242424',
+  inputBg: '#2a2a2a',
+  textPrimary: '#f0f0f0',
+  textSecondary: '#9a9a9a',
+  accent: '#d4a574',     // Warm earthy tone
+  accentHover: '#c49464',
+  agentBubble: '#262626',
+  agentBorder: '#333333',
+  userBubble: '#3a3a3a',
+  userBorder: '#4a4a4a',
+  borderColor: '#383838',
+  cardShadow: '0 2px 8px rgba(0,0,0,0.3)',
 };
 
 // Agent Identities (Subtle Colors)
@@ -80,7 +83,6 @@ const AgentChat: React.FC = () => {
   // Use the extracted hook
   const {
     status,
-    session,
     messages,
     input,
     isProcessing,
@@ -182,64 +184,126 @@ const AgentChat: React.FC = () => {
         bgcolor: 'background.default'
       }}>
         <Fade in timeout={800}>
-          <Box sx={{ textAlign: 'center', maxWidth: 600, width: '100%', p: 3 }}>
-             <SparkleIcon sx={{ fontSize: 48, color: PALETTE.accent, mb: 3 }} />
-             <Typography variant="h4" sx={{ fontFamily: 'serif', mb: 4, color: 'text.primary' }}>
-               How can I help you test today?
+          <Box sx={{ textAlign: 'center', maxWidth: 640, width: '100%', p: 4 }}>
+             {/* Logo/Icon */}
+             <Box sx={{ 
+               display: 'inline-flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               width: 72,
+               height: 72,
+               borderRadius: '50%',
+               bgcolor: `${PALETTE.accent}15`,
+               mb: 3
+             }}>
+               <SparkleIcon sx={{ fontSize: 36, color: PALETTE.accent }} />
+             </Box>
+             
+             <Typography 
+               variant="h4" 
+               sx={{ 
+                 fontWeight: 500, 
+                 mb: 1.5, 
+                 color: 'text.primary',
+                 letterSpacing: '-0.02em'
+               }}
+             >
+               QA Assistant
+             </Typography>
+             <Typography 
+               variant="body1" 
+               sx={{ 
+                 mb: 4, 
+                 color: 'text.secondary',
+                 maxWidth: 400,
+                 mx: 'auto'
+               }}
+             >
+               I can help you automate tests, run regressions, and analyze failures.
              </Typography>
              
+             {/* Input Card */}
              <Paper
                 elevation={0}
                 sx={{
-                  p: '2px 4px',
+                  p: 1,
                   display: 'flex',
                   alignItems: 'center',
-                  bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.100',
-                  border: `1px solid ${isDarkMode ? PALETTE.borderColor : '#e0e0e0'}`,
+                  bgcolor: isDarkMode ? PALETTE.inputBg : '#fff',
+                  border: '1px solid',
+                  borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
                   borderRadius: 3,
+                  boxShadow: isDarkMode ? PALETTE.cardShadow : '0 2px 8px rgba(0,0,0,0.08)',
                   transition: 'all 0.2s',
                   '&:hover': {
-                     borderColor: PALETTE.accent
+                     borderColor: PALETTE.accent,
+                     boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.12)'
+                  },
+                  '&:focus-within': {
+                     borderColor: PALETTE.accent,
                   }
                 }}
               >
                 <TextField
                   autoFocus
                   fullWidth
-                  placeholder="Describe a test case or ask to automate a site..."
+                  placeholder="What would you like to test?"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  sx={{ ml: 2, flex: 1 }}
+                  sx={{ ml: 1.5, flex: 1 }}
                   variant="standard"
                   autoComplete="off"
-                  InputProps={{ disableUnderline: true }}
+                  InputProps={{ 
+                    disableUnderline: true,
+                    sx: { fontSize: '1rem' }
+                  }}
                 />
                 <IconButton 
                    onClick={sendMessage}
                    disabled={!input.trim()}
                    sx={{ 
-                     m: 1, 
+                     m: 0.5, 
+                     width: 40,
+                     height: 40,
                      bgcolor: input.trim() ? PALETTE.accent : 'transparent',
                      color: input.trim() ? '#fff' : 'text.disabled',
-                     '&:hover': { bgcolor: PALETTE.accentHover }
+                     transition: 'all 0.2s',
+                     '&:hover': { 
+                       bgcolor: input.trim() ? PALETTE.accentHover : 'transparent',
+                       transform: input.trim() ? 'scale(1.05)' : 'none'
+                     }
                    }}
                 >
-                  <SendIcon />
+                  <SendIcon fontSize="small" />
                 </IconButton>
               </Paper>
               
-              <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-                 {['Automate sauce-demo login', 'Run regression tests', 'Why did checkout fail?'].map((suggestion) => (
+              {/* Suggestion Chips */}
+              <Box sx={{ mt: 4, display: 'flex', gap: 1.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                 {[
+                   '🚀 Automate web app https://sauce-demo.myshopify.com', 
+                   '🧪 Run goto test case', 
+                   '🔍 How many test cases are there?'
+                 ].map((suggestion) => (
                     <Chip 
                       key={suggestion} 
                       label={suggestion} 
-                      onClick={() => setInput(suggestion)}
+                      onClick={() => setInput(suggestion.replace(/^[^\s]+\s/, ''))}
                       sx={{ 
-                        bgcolor: 'transparent', 
+                        bgcolor: isDarkMode ? PALETTE.surface : 'grey.100', 
                         border: '1px solid', 
-                        borderColor: 'divider',
-                        '&:hover': { borderColor: PALETTE.accent, cursor: 'pointer' }
+                        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+                        borderRadius: 2,
+                        py: 2.5,
+                        px: 0.5,
+                        fontSize: '0.875rem',
+                        transition: 'all 0.2s',
+                        '&:hover': { 
+                          borderColor: PALETTE.accent, 
+                          bgcolor: isDarkMode ? PALETTE.agentBubble : 'grey.50',
+                          cursor: 'pointer' 
+                        }
                       }} 
                     />
                  ))}
@@ -253,49 +317,37 @@ const AgentChat: React.FC = () => {
   // Main Chat Interface
   return (
     <Box sx={{ 
-      height: 'calc(100vh - 64px)', 
+      height: 'calc(93vh - 64px)', 
       display: 'flex', 
       flexDirection: 'column', 
       bgcolor: 'background.default',
       overflow: 'hidden' // Prevent outer scroll
     }}>
-      
-      {/* Minimal Header */}
-      <Box sx={{ 
-        p: 0, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        borderBottom: '1px solid',
-        borderColor: 'divider'
-      }}>
-         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              QA Assistant
-            </Typography>
-            {session?.mode && (
-               <Chip label={session.mode} size="small" sx={{ height: 14, fontSize: '0.7rem', borderRadius: 1 }} />
-            )}
-         </Box>
-         <Button size="small" color="inherit" onClick={clearHistory} sx={{ opacity: 0.5 }}>
-           Clear
-         </Button>
-      </Box>
-
       {/* Chat Stream */}
       <Box sx={{ 
         flex: 1, 
-        overflowY: 'auto', // Only this area scrolls
-        p: 2,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        p: 3,
         display: 'flex',
         flexDirection: 'column',
         gap: 2,
-        // Hide scrollbar while keeping scroll functionality
-        scrollbarWidth: 'none', // Firefox
+        // Styled scrollbar - thin and subtle
+        scrollbarWidth: 'thin', // Firefox
+        scrollbarColor: isDarkMode ? `${PALETTE.borderColor} transparent` : '#c1c1c1 transparent',
         '&::-webkit-scrollbar': {
-          display: 'none' // Chrome, Safari, Edge
+          width: 8,
         },
-        msOverflowStyle: 'none' // IE/Edge
+        '&::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: isDarkMode ? PALETTE.borderColor : '#c1c1c1',
+          borderRadius: 4,
+          '&:hover': {
+            background: isDarkMode ? PALETTE.accent : '#a1a1a1',
+          }
+        },
       }}>
         <Container maxWidth="md">
           
@@ -325,44 +377,70 @@ const AgentChat: React.FC = () => {
             const agentColor = AGENT_CONFIG[msg.agent || 'QA Manager']?.color;
 
             return (
-              <Box key={msg.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', mb: 4 }}>
-                 
-                 {/* Sender Info */}
-                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pl: isUser ? 0 : 1, pr: isUser ? 1 : 0 }}>
-                    {!isUser ? (
-                       <>
-                        <Avatar sx={{ width: 20, height: 20, fontSize: 10, bgcolor: agentColor }}>{getInitials(msg.agent || 'QA')}</Avatar>
-                        <Typography variant="caption" fontWeight="bold" color="text.primary">{msg.agent}</Typography>
-                       </>
-                    ) : (
-                        <Typography variant="caption" color="text.secondary">You</Typography>
-                    )}
-                 </Box>
-
-                 {/* Message Content */}
+              <Box 
+                key={msg.id} 
+                sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: isUser ? 'flex-end' : 'flex-start', 
+                  mb: 3 
+                }}
+              >
+                 {/* Message Card */}
                  <Paper 
                    elevation={0}
                    sx={{ 
-                     p: isUser ? 2 : 0, // Agents don't need bubble padding as much
-                     px: isUser ? 2 : 1,
-                     bgcolor: isUser ? (isDarkMode ? PALETTE.userBubble : 'grey.100') : 'transparent',
-                     color: 'text.primary',
-                     borderRadius: 2,
-                     maxWidth: '85%',
-                     fontSize: '1rem',
-                     lineHeight: 1.6
+                     p: 2.5,
+                     bgcolor: isDarkMode 
+                       ? (isUser ? PALETTE.userBubble : PALETTE.agentBubble)
+                       : (isUser ? 'grey.100' : 'grey.50'),
+                     border: '1px solid',
+                     borderColor: isDarkMode 
+                       ? (isUser ? PALETTE.userBorder : PALETTE.agentBorder)
+                       : 'grey.200',
+                     borderRadius: 3,
+                     maxWidth: isUser ? '75%' : '90%',
+                     minWidth: isUser ? 'auto' : '60%',
+                     boxShadow: isDarkMode ? PALETTE.cardShadow : '0 1px 3px rgba(0,0,0,0.1)',
                    }}
                  >
+                    {/* Sender Info (inside card for agent) */}
+                    {!isUser && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200' }}>
+                        <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: agentColor, fontWeight: 600 }}>
+                          {getInitials(msg.agent || 'QA')}
+                        </Avatar>
+                        <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+                          {msg.agent || 'QA Manager'}
+                        </Typography>
+                      </Box>
+                    )}
+
                     {/* Tool Logs */}
-                    {!isUser && msg.events && (
-                       <Box sx={{ mb: 2 }}>
+                    {!isUser && msg.events && msg.events.filter(e => e.type === 'tool_call').length > 0 && (
+                       <Box sx={{ mb: 2, p: 1.5, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 2 }}>
                           {msg.events.filter(e => e.type === 'tool_call').map(renderToolActivity)}
                        </Box>
                     )}
                     
-                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.7,
+                        color: 'text.primary',
+                        fontSize: '0.95rem'
+                      }}
+                    >
                        {msg.content}
                     </Typography>
+
+                    {/* User label (subtle, at bottom) */}
+                    {isUser && (
+                      <Typography variant="caption" sx={{ display: 'block', mt: 1.5, opacity: 0.5, textAlign: 'right' }}>
+                        You
+                      </Typography>
+                    )}
                  </Paper>
               </Box>
             );
@@ -370,47 +448,113 @@ const AgentChat: React.FC = () => {
 
           {/* Processing State */}
           {isProcessing && (
-            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                     <ThinkingIcon sx={{ animation: 'pulse 1.5s infinite', color: PALETTE.accent, fontSize: 18 }} />
-                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        Thinking...
-                     </Typography>
+            <Paper 
+              elevation={0}
+              sx={{ 
+                p: 2.5,
+                bgcolor: isDarkMode ? PALETTE.agentBubble : 'grey.50',
+                border: '1px solid',
+                borderColor: isDarkMode ? PALETTE.agentBorder : 'grey.200',
+                borderRadius: 3,
+                maxWidth: '90%',
+                minWidth: '60%',
+                boxShadow: isDarkMode ? PALETTE.cardShadow : '0 1px 3px rgba(0,0,0,0.1)',
+              }}
+            >
+               {/* Thinking Header */}
+               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200' }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    width: 28, 
+                    height: 28, 
+                    borderRadius: '50%',
+                    bgcolor: `${PALETTE.accent}20`,
+                  }}>
+                    <ThinkingIcon sx={{ 
+                      animation: 'pulse 1.5s infinite', 
+                      color: PALETTE.accent, 
+                      fontSize: 16 
+                    }} />
                   </Box>
-                  
-                  {/* Live Tool Stream */}
-                  <Box sx={{ pl: 3, borderLeft: `2px solid ${PALETTE.borderColor}` }}>
-                     {currentEvents.map((event, idx) => {
-                        if (event.type === 'tool_call') return renderToolActivity(event, idx);
-                        if (event.type === 'thinking') return (
-                           <Typography key={idx} variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
-                              › {event.content}
-                           </Typography>
-                        );
-                        return null;
-                     })}
-                  </Box>
-
-                  {/* Approval Card */}
-                  {currentEvents.some(e => e.type === 'approval_required') && (
-                     <Paper variant="outlined" sx={{ p: 2, mt: 2, borderColor: PALETTE.accent, bgcolor: 'rgba(194, 159, 130, 0.05)' }}>
-                        <Typography variant="subtitle2" color={PALETTE.accent} gutterBottom>
-                           Permission Request
-                        </Typography>
-                        <Typography variant="body2" sx={{ mb: 2 }}>The agent wants to perform a critical action.</Typography>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                           <Button variant="contained" size="small" onClick={() => handleApproval(true)} sx={{ bgcolor: PALETTE.accent, '&:hover': { bgcolor: PALETTE.accentHover } }}>
-                              Approve
-                           </Button>
-                           <Button variant="outlined" size="small" color="inherit" onClick={() => handleApproval(false)}>
-                              Deny
-                           </Button>
-                        </Box>
-                     </Paper>
-                  )}
+                  <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+                     Processing...
+                  </Typography>
                </Box>
-            </Box>
+                  
+               {/* Live Tool Stream */}
+               {currentEvents.length > 0 && (
+                 <Box sx={{ pl: 2, borderLeft: `2px solid ${PALETTE.accent}40`, mb: 2 }}>
+                    {currentEvents.map((event, idx) => {
+                       if (event.type === 'tool_call') return renderToolActivity(event, idx);
+                       if (event.type === 'thinking') return (
+                          <Typography key={idx} variant="body2" display="block" color="text.secondary" sx={{ mb: 0.5, fontSize: '0.875rem' }}>
+                             {event.content}
+                          </Typography>
+                       );
+                       return null;
+                    })}
+                 </Box>
+               )}
+
+               {/* Waiting indicator when no events yet */}
+               {currentEvents.length === 0 && (
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                   <Box sx={{ 
+                     width: 6, height: 6, borderRadius: '50%', 
+                     bgcolor: PALETTE.accent,
+                     animation: 'pulse 1s infinite'
+                   }} />
+                   <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                     Analyzing your request...
+                   </Typography>
+                 </Box>
+               )}
+
+               {/* Approval Card */}
+               {currentEvents.some(e => e.type === 'approval_required') && (
+                  <Box sx={{ 
+                    p: 2, 
+                    mt: 2, 
+                    border: '1px solid',
+                    borderColor: PALETTE.accent,
+                    borderRadius: 2,
+                    bgcolor: `${PALETTE.accent}10`
+                  }}>
+                     <Typography variant="subtitle2" sx={{ color: PALETTE.accent, fontWeight: 600 }} gutterBottom>
+                        🔐 Permission Request
+                     </Typography>
+                     <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                       The agent wants to perform a critical action.
+                     </Typography>
+                     <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button 
+                          variant="contained" 
+                          size="small" 
+                          onClick={() => handleApproval(true)} 
+                          sx={{ 
+                            bgcolor: PALETTE.accent, 
+                            '&:hover': { bgcolor: PALETTE.accentHover },
+                            textTransform: 'none',
+                            fontWeight: 600
+                          }}
+                        >
+                           Approve
+                        </Button>
+                        <Button 
+                          variant="outlined" 
+                          size="small" 
+                          color="inherit" 
+                          onClick={() => handleApproval(false)}
+                          sx={{ textTransform: 'none' }}
+                        >
+                           Deny
+                        </Button>
+                     </Box>
+                  </Box>
+               )}
+            </Paper>
           )}
 
           {/* Error Display */}
@@ -428,49 +572,96 @@ const AgentChat: React.FC = () => {
         </Container>
       </Box>
 
-      {/* Input Area (Sticky Bottom) */}
-      <Box sx={{ p: 3, bgcolor: 'background.default' }}>
+      {/* Input Area (Fixed Bottom) */}
+      <Box sx={{ 
+        px: 3,
+        py: 2,
+        flexShrink: 0,
+      }}>
         <Container maxWidth="md">
-           <Paper
-                elevation={0}
-                sx={{
-                  p: '2px 4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.50',
-                  border: `1px solid ${isDarkMode ? PALETTE.borderColor : '#e0e0e0'}`,
-                  borderRadius: 3,
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {/* Input Box */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1,
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                bgcolor: isDarkMode ? PALETTE.inputBg : '#fff',
+                border: '1px solid',
+                borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+                borderRadius: 3,
+                boxShadow: isDarkMode ? PALETTE.cardShadow : '0 1px 3px rgba(0,0,0,0.08)',
+                transition: 'all 0.2s',
+                '&:focus-within': {
+                  borderColor: PALETTE.accent,
+                  boxShadow: isDarkMode 
+                    ? `0 0 0 2px ${PALETTE.accent}30` 
+                    : `0 0 0 2px ${PALETTE.accent}20`,
+                }
+              }}
+            >
+              <TextField
+                inputRef={inputRef}
+                fullWidth
+                multiline
+                maxRows={4}
+                placeholder="Message QA Assistant..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                sx={{ ml: 1.5, flex: 1, py: 0.5 }}
+                variant="standard"
+                autoComplete="off"
+                InputProps={{ 
+                  disableUnderline: true,
+                  sx: { fontSize: '0.95rem' }
+                }}
+              />
+              <IconButton 
+                onClick={isProcessing ? () => {} : sendMessage}
+                disabled={!input.trim() && !isProcessing}
+                sx={{ 
+                  m: 0.5, 
+                  bgcolor: input.trim() ? PALETTE.accent : 'transparent',
+                  color: input.trim() ? '#fff' : 'text.disabled',
+                  width: 36,
+                  height: 36,
+                  transition: 'all 0.2s',
+                  '&:hover': { 
+                    bgcolor: input.trim() ? PALETTE.accentHover : 'transparent',
+                    transform: input.trim() ? 'scale(1.05)' : 'none'
+                  }
                 }}
               >
-                <TextField
-                  inputRef={inputRef}
-                  fullWidth
-                  multiline
-                  maxRows={4}
-                  placeholder="Message QA Assistant..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  sx={{ ml: 2, flex: 1, py: 1 }}
-                  variant="standard"
-                  autoComplete="off"
-                  InputProps={{ disableUnderline: true }}
-                />
-                <IconButton 
-                   onClick={isProcessing ? () => {} : sendMessage}
-                   disabled={!input.trim() && !isProcessing}
-                   sx={{ 
-                     m: 1, 
-                     bgcolor: input.trim() ? PALETTE.accent : 'transparent',
-                     color: input.trim() ? '#fff' : 'text.disabled',
-                     width: 32,
-                     height: 32,
-                     '&:hover': { bgcolor: PALETTE.accentHover }
-                   }}
-                >
-                  {isProcessing ? <StopIcon fontSize="small" /> : <SendIcon fontSize="small" />}
-                </IconButton>
-              </Paper>
+                {isProcessing ? <StopIcon fontSize="small" /> : <SendIcon fontSize="small" />}
+              </IconButton>
+            </Paper>
+            
+            {/* Clear Button */}
+            <Button 
+              size="small" 
+              color="inherit" 
+              onClick={clearHistory}
+              disabled={messages.length === 0}
+              sx={{ 
+                minWidth: 'auto',
+                px: 1.5,
+                py: 1,
+                opacity: messages.length > 0 ? 0.6 : 0.3,
+                textTransform: 'none',
+                fontSize: '0.85rem',
+                borderRadius: 2,
+                '&:hover': { 
+                  opacity: 1,
+                  bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                }
+              }}
+            >
+              Clear
+            </Button>
+          </Box>
         </Container>
       </Box>
     </Box>

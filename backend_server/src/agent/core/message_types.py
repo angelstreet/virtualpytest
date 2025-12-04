@@ -18,6 +18,7 @@ class EventType(str, Enum):
     TOOL_CALL = "tool_call"         # Tool being called
     TOOL_RESULT = "tool_result"     # Tool result
     MESSAGE = "message"             # Agent message to user
+    RESULT = "result"               # Final result from agent
     
     # Flow control
     MODE_DETECTED = "mode_detected"         # Operating mode identified
