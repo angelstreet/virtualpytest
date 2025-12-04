@@ -6,18 +6,17 @@ VirtualPyTest AI Agent is a multi-agent architecture for automated QA testing, p
 
 ## Overview
 
-The AI Agent system uses a **QA Manager** orchestrator that delegates tasks to **5 specialist agents**, each with specific skills and tools.
+The AI Agent system uses a **Hybrid QA Manager** orchestrator that handles simple queries directly and delegates complex tasks to **5 specialist agents**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              QA MANAGER                                      │
-│                         (Orchestrator - No Tools)                           │
+│                         (Hybrid Orchestrator)                               │
 │                                                                             │
-│  • Understands user requests                                                │
+│  • Tier 1: Handles simple queries DIRECTLY (list tests, status, etc.)       │
+│  • Tier 2: Delegates complex tasks to specialist agents                     │
 │  • Detects operating mode                                                   │
-│  • Delegates to specialist agents                                           │
-│  • Handles approvals                                                        │
-│  • Reports results                                                          │
+│  • Handles approvals & Reports results                                      │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
        ┌──────────┬─────────┬───────┴───────┬──────────┬──────────┐
@@ -40,15 +39,19 @@ The AI Agent system uses a **QA Manager** orchestrator that delegates tasks to *
 | **VALIDATE** | "run", "test", "regression" | Executor → Analyst | Run tests + analyze results |
 | **ANALYZE** | "analyze", "why did", "investigate" | Analyst | Review existing results |
 | **MAINTAIN** | "fix", "repair", "broken" | Maintainer | Fix broken selectors |
+| **DIRECT** | "list", "count", "show", "status" | **QA Manager** | **NEW:** Manager answers directly without delegation |
 
 ---
 
 ## Agent Responsibilities
 
-### QA Manager (Orchestrator)
+### QA Manager (Hybrid Orchestrator)
 - **Role**: Senior QA Lead
-- **Tools**: None (delegates only)
-- **Skills**: Intent parsing, mode detection, delegation, human communication
+- **Tools**: 20+ Read-only tools (`list_testcases`, `get_coverage`, `list_userinterfaces`...)
+- **Skills**: 
+  - **Direct Answer**: Handles counts, lists, and status checks instantly.
+  - **Delegation**: Identifies mode and routes complex tasks to specialists.
+  - **Human Communication**: Summarizes results and requests approvals.
 
 ### Explorer Agent
 - **Role**: UI Discovery Specialist
@@ -69,11 +72,28 @@ The AI Agent system uses a **QA Manager** orchestrator that delegates tasks to *
 - **Role**: Result Analyst
 - **Focus**: WHAT results mean (bug vs UI change, Jira lookup, root cause)
 - **Key Tools**: `get_coverage_summary`, `list_verifications`, `verify_node`
+- **Note**: Optimized to provide concise answers for simple queries and detailed reports for complex analysis.
 
 ### Maintainer Agent
 - **Role**: Self-Healing Specialist
 - **Focus**: Fix broken selectors, update edges
 - **Key Tools**: `update_edge`, `analyze_screen_for_action`, `execute_edge`
+
+---
+
+## Hybrid Architecture (New)
+
+The system implements a **Tiered Response Strategy** to optimize latency and cost:
+
+1.  **Tier 1 (Fast Path)**: The QA Manager has direct access to safe, read-only tools.
+    *   *Query:* "How many test cases?"
+    *   *Action:* Manager calls `list_testcases` -> Answers "24".
+    *   *Benefit:* Zero delegation overhead, instant response.
+
+2.  **Tier 2 (Complex Path)**: For actions that require state changes or deep reasoning.
+    *   *Query:* "Run regression tests."
+    *   *Action:* Manager delegates to Executor -> Executor runs tests -> Analyst analyzes -> Manager reports.
+    *   *Benefit:* Specialists handle complexity with focused prompts.
 
 ---
 
