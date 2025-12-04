@@ -580,7 +580,21 @@ const AgentChat: React.FC = () => {
                     {currentEvents.map((event, idx) => {
                        if (event.type === 'tool_call') return renderToolActivity(event, idx);
                        if (event.type === 'thinking') return (
-                          <Typography key={idx} variant="body2" display="block" color="text.secondary" sx={{ mb: 0.5, fontSize: '0.875rem' }}>
+                          <Typography 
+                            key={idx} 
+                            variant="body2" 
+                            display="block" 
+                            color="text.secondary" 
+                            sx={{ 
+                              mb: 0.5, 
+                              fontSize: '0.875rem',
+                              animation: 'slideIn 0.3s ease-out',
+                              '@keyframes slideIn': {
+                                '0%': { opacity: 0, transform: 'translateX(-8px)' },
+                                '100%': { opacity: 1, transform: 'translateX(0)' },
+                              },
+                            }}
+                          >
                              {event.content}
                           </Typography>
                        );
@@ -591,14 +605,45 @@ const AgentChat: React.FC = () => {
 
                {/* Waiting indicator when no events yet */}
                {currentEvents.length === 0 && (
-                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-                   <Box sx={{ 
-                     width: 6, height: 6, borderRadius: '50%', 
-                     bgcolor: PALETTE.accent,
-                     animation: 'pulse 1s infinite'
-                   }} />
-                   <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                     Analyzing your request...
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary' }}>
+                   {/* Animated dots */}
+                   <Box sx={{ display: 'flex', gap: 0.5 }}>
+                     {[0, 1, 2].map((i) => (
+                       <Box 
+                         key={i}
+                         sx={{ 
+                           width: 6, 
+                           height: 6, 
+                           borderRadius: '50%', 
+                           bgcolor: PALETTE.accent,
+                           animation: 'bounce 1.4s ease-in-out infinite',
+                           animationDelay: `${i * 0.16}s`,
+                           '@keyframes bounce': {
+                             '0%, 80%, 100%': { 
+                               transform: 'scale(0.6)',
+                               opacity: 0.4 
+                             },
+                             '40%': { 
+                               transform: 'scale(1)',
+                               opacity: 1 
+                             },
+                           },
+                         }} 
+                       />
+                     ))}
+                   </Box>
+                   <Typography 
+                     variant="body2" 
+                     sx={{ 
+                       fontStyle: 'italic',
+                       animation: 'fadeInOut 2s ease-in-out infinite',
+                       '@keyframes fadeInOut': {
+                         '0%, 100%': { opacity: 0.5 },
+                         '50%': { opacity: 1 },
+                       },
+                     }}
+                   >
+                     Analyzing your request
                    </Typography>
                  </Box>
                )}
