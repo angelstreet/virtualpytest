@@ -301,6 +301,7 @@ Be efficient. The user wants results."""
                 yield AgentEvent(
                     type=EventType.TOOL_CALL,
                     agent="QA Manager",
+                    content=f"Calling tool: {tool_use.name}",
                     tool_name=tool_use.name,
                     tool_params=tool_use.input
                 )
@@ -312,6 +313,7 @@ Be efficient. The user wants results."""
                     yield AgentEvent(
                         type=EventType.TOOL_RESULT,
                         agent="QA Manager",
+                        content="Tool execution successful",
                         tool_name=tool_use.name,
                         tool_result=result,
                         success=True
