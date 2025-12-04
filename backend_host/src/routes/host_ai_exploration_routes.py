@@ -590,9 +590,33 @@ def finalize_structure():
                 print(f"  ❌ Failed to update edges: {res.get('error')}")
                 return jsonify({'success': False, 'error': f"Edge update failed: {res.get('error')}"}), 500
         
-        # Invalidate cache after all changes
-        from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree
+        # ✅ Clear and REBUILD cache after finalize (don't wait for next take-control)
+        # This ensures user can navigate immediately after AI generation completes
+        from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree, get_complete_tree_hierarchy
+        from shared.src.lib.utils.navigation_cache import populate_unified_cache
+        
+        # 1. Clear old cache
         invalidate_navigation_cache_for_tree(tree_id, team_id)
+        print(f"[@route:ai_generation:finalize_structure] ✅ Cache invalidated for tree {tree_id}")
+        
+        # 2. Rebuild cache immediately
+        hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
+        if hierarchy_result and hierarchy_result.get('all_trees_data'):
+            unified_graph = populate_unified_cache(tree_id, team_id, hierarchy_result['all_trees_data'])
+            if unified_graph:
+                print(f"[@route:ai_generation:finalize_structure] ✅ Cache rebuilt: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+                
+                # 3. Update all NavigationExecutor instances on this host
+                from flask import current_app
+                host_devices = getattr(current_app, 'host_devices', {})
+                for device_id, device in host_devices.items():
+                    if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                        device.navigation_executor.unified_graph = unified_graph
+                        print(f"[@route:ai_generation:finalize_structure] ✅ Updated NavigationExecutor for device {device_id}")
+            else:
+                print(f"[@route:ai_generation:finalize_structure] ⚠️ Failed to rebuild cache (empty graph)")
+        else:
+            print(f"[@route:ai_generation:finalize_structure] ⚠️ No hierarchy data to rebuild cache")
         
         print(f"[@route:ai_generation:finalize_structure] Complete: {nodes_updated} nodes, {edges_updated} edges updated")
         
