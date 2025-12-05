@@ -20,11 +20,35 @@ from ..observability import track_generation, track_tool_call, flush
 class BaseAgent(ABC):
     """Base class for all specialist agents"""
     
-    def __init__(self, tool_bridge: 'ToolBridge'):
+    def __init__(self, tool_bridge: 'ToolBridge', api_key: str = None):
+        """
+        Initialize the base agent.
+        
+        Args:
+            tool_bridge: Tool bridge for executing tools
+            api_key: Optional API key (if None, client will be initialized lazily)
+        """
         self.logger = logging.getLogger(self.__class__.__name__)
         self.tool_bridge = tool_bridge
-        # Use beta client for prompt caching support
-        self.client = anthropic.Anthropic(api_key=get_anthropic_api_key())
+        self._api_key = api_key
+        self._client = None
+    
+    @property
+    def client(self):
+        """Lazy-load Anthropic client - only created when needed"""
+        if self._client is None:
+            if self._api_key:
+                self._client = anthropic.Anthropic(api_key=self._api_key)
+            else:
+                # Try to get from environment
+                key = get_anthropic_api_key(identifier=None)
+                self._client = anthropic.Anthropic(api_key=key)
+        return self._client
+    
+    def set_api_key(self, api_key: str):
+        """Set/update the API key and reset client"""
+        self._api_key = api_key
+        self._client = None  # Reset to force re-creation with new key
         
     @property
     @abstractmethod

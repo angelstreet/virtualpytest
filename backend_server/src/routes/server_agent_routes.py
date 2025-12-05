@@ -341,7 +341,25 @@ def register_agent_socketio_handlers(socketio):
         if team_id:
             session.set_context('team_id', team_id)
         
-        manager = get_manager(team_id=team_id)
+        # Try to get manager - handle API key not configured
+        try:
+            manager = get_manager(team_id=team_id)
+        except Exception as e:
+            logger.warning(f"Failed to initialize manager: {e}")
+            # Emit friendly error asking for API key
+            socketio.emit('agent_event', {
+                'type': 'error',
+                'agent': 'QA Manager',
+                'content': '⚠️ API key not configured. Please enter your Anthropic API key to continue.',
+                'timestamp': datetime.now().isoformat()
+            }, room=session_id, namespace='/agent')
+            socketio.emit('agent_event', {
+                'type': 'session_ended',
+                'agent': 'QA Manager', 
+                'content': 'Session ended - API key required',
+                'timestamp': datetime.now().isoformat()
+            }, room=session_id, namespace='/agent')
+            return
         
         async def process_and_stream():
             try:

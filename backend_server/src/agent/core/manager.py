@@ -102,26 +102,45 @@ Be efficient. The user wants results."""
             user_identifier: Optional user/session identifier for retrieving stored API key
         """
         self.logger = logging.getLogger(__name__)
-        
-        # Get API key - prioritize passed key, then user storage, then environment
-        if api_key:
-            final_key = api_key
-        else:
-            final_key = get_anthropic_api_key(identifier=user_identifier)
-        
-        self.client = anthropic.Anthropic(api_key=final_key)
+        self.user_identifier = user_identifier
+        self._api_key = api_key
+        self._client = None
         self.tool_bridge = ToolBridge()
         
-        # Initialize specialist agents
+        # Initialize specialist agents (pass API key to each)
         self.agents = {
-            "explorer": ExplorerAgent(self.tool_bridge),
-            "builder": BuilderAgent(self.tool_bridge),
-            "executor": ExecutorAgent(self.tool_bridge),
-            "analyst": AnalystAgent(self.tool_bridge),
-            "maintainer": MaintainerAgent(self.tool_bridge),
+            "explorer": ExplorerAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "builder": BuilderAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "executor": ExecutorAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "analyst": AnalystAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "maintainer": MaintainerAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
         }
         
         self.logger.info("QA Manager initialized with 5 specialist agents")
+    
+    def _get_api_key_safe(self) -> Optional[str]:
+        """Get API key safely without raising exceptions"""
+        try:
+            if self._api_key:
+                return self._api_key
+            return get_anthropic_api_key(identifier=self.user_identifier)
+        except ValueError:
+            return None
+    
+    @property
+    def client(self):
+        """Lazy-load Anthropic client"""
+        if self._client is None:
+            key = self._get_api_key_safe()
+            if not key:
+                raise ValueError("ANTHROPIC_API_KEY not configured. Please set your API key.")
+            self._client = anthropic.Anthropic(api_key=key)
+        return self._client
+    
+    @property
+    def api_key_configured(self) -> bool:
+        """Check if API key is configured"""
+        return self._get_api_key_safe() is not None
     
     def detect_mode(self, message: str) -> str:
         """
@@ -209,6 +228,20 @@ Be efficient. The user wants results."""
             AgentEvent objects for frontend
         """
         self.logger.info(f"Processing message: {message[:100]}...")
+        
+        # Check if API key is configured
+        if not self.api_key_configured:
+            yield AgentEvent(
+                type=EventType.ERROR,
+                agent="QA Manager",
+                content="⚠️ API key not configured. Please enter your Anthropic API key to continue.",
+            )
+            yield AgentEvent(
+                type=EventType.SESSION_ENDED,
+                agent="QA Manager",
+                content="Session ended - API key required",
+            )
+            return
         
         # Check for context window compaction
         if session.needs_compaction(threshold=50):
