@@ -1,22 +1,35 @@
 import React from 'react';
-import { Box, Paper, Typography, IconButton, LinearProgress, Divider, Stack } from '@mui/material';
+import { Box, Typography, IconButton, LinearProgress, Divider, Stack } from '@mui/material';
 import { 
   Close as CloseIcon, 
   SmartToy as RobotIcon,
   CheckCircleOutline,
-  RadioButtonUnchecked
+  RadioButtonUnchecked,
+  ErrorOutline
 } from '@mui/icons-material';
 import { useAIContext } from '../../../contexts/AIContext';
-import { motion } from 'framer-motion'; // Ensure framer-motion is installed or use standard CSS transition
 
 export const AgentPilotPanel: React.FC = () => {
-  const { activeTask, isProcessing, togglePilot } = useAIContext();
+  const { activeTask, isProcessing, executionSteps, togglePilot, isConnected } = useAIContext();
+
+  const getStepIcon = (status: string) => {
+    switch (status) {
+      case 'done':
+        return <CheckCircleOutline color="success" fontSize="small" />;
+      case 'active':
+        return <RadioButtonUnchecked color="primary" fontSize="small" sx={{ animation: 'pulse 1s infinite' }} />;
+      case 'error':
+        return <ErrorOutline color="error" fontSize="small" />;
+      default:
+        return <RadioButtonUnchecked color="disabled" fontSize="small" />;
+    }
+  };
 
   return (
     <Box
       sx={{
         position: 'fixed',
-        top: 64, // Below navbar
+        top: 64,
         right: 0,
         bottom: 0,
         width: 320,
@@ -26,12 +39,16 @@ export const AgentPilotPanel: React.FC = () => {
         boxShadow: '-4px 0 20px rgba(0,0,0,0.1)',
         zIndex: 1200,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        '@keyframes pulse': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.5 },
+        },
       }}
     >
       {/* Header */}
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
-        <RobotIcon sx={{ mr: 1, color: 'primary.main' }} />
+        <RobotIcon sx={{ mr: 1, color: isConnected ? 'success.main' : 'text.disabled' }} />
         <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
           Agent Pilot
         </Typography>
@@ -53,7 +70,7 @@ export const AgentPilotPanel: React.FC = () => {
           <Box sx={{ mb: 2 }}>
              <LinearProgress sx={{ borderRadius: 1, height: 6 }} />
              <Typography variant="caption" sx={{ mt: 0.5, display: 'block', textAlign: 'right', color: 'primary.main' }}>
-               Thinking...
+               Processing...
              </Typography>
           </Box>
         )}
@@ -61,31 +78,30 @@ export const AgentPilotPanel: React.FC = () => {
 
       <Divider />
 
-      {/* Steps / Activity Feed */}
+      {/* Execution Steps - Now Dynamic */}
       <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
          <Stack spacing={2}>
-            {/* Placeholder Steps for demo */}
-            {activeTask && (
-                <>
-                    <Box sx={{ display: 'flex', gap: 1.5 }}>
-                        <CheckCircleOutline color="success" fontSize="small" />
-                        <Box>
-                            <Typography variant="body2">Interpret Command</Typography>
-                            <Typography variant="caption" color="text.secondary">Parsed intent: Navigation</Typography>
-                        </Box>
-                    </Box>
-                     <Box sx={{ display: 'flex', gap: 1.5 }}>
-                        <RadioButtonUnchecked color="primary" fontSize="small" />
-                        <Box>
-                            <Typography variant="body2">Execute Action</Typography>
-                            <Typography variant="caption" color="text.secondary">Pending...</Typography>
-                        </Box>
-                    </Box>
-                </>
+            {executionSteps.length === 0 && !activeTask && (
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                Use Cmd+K to start a task
+              </Typography>
             )}
+            
+            {executionSteps.map((step) => (
+              <Box key={step.id} sx={{ display: 'flex', gap: 1.5 }}>
+                {getStepIcon(step.status)}
+                <Box>
+                  <Typography variant="body2">{step.label}</Typography>
+                  {step.detail && (
+                    <Typography variant="caption" color="text.secondary">
+                      {step.detail}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            ))}
          </Stack>
       </Box>
     </Box>
   );
 };
-

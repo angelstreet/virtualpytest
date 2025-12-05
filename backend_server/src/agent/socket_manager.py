@@ -36,14 +36,17 @@ class SocketManager:
     def broadcast(self, event: str, data: Dict[str, Any], namespace: str = '/agent'):
         """Broadcast event to all connected clients in namespace"""
         if not self.socketio:
-            logger.warning("SocketIO not initialized, cannot broadcast")
-            return
+            logger.warning("🔴 SocketIO not initialized, cannot broadcast")
+            return False
 
         try:
+            logger.info(f"🟢 Broadcasting '{event}' to namespace '{namespace}': {data}")
             self.socketio.emit(event, data, namespace=namespace)
-            logger.debug(f"Broadcasted {event}")
+            logger.info(f"🟢 Broadcast complete!")
+            return True
         except Exception as e:
-            logger.error(f"Failed to broadcast {event}: {e}")
+            logger.error(f"🔴 Failed to broadcast {event}: {e}")
+            return False
 
 # Global instance
 socket_manager = SocketManager()

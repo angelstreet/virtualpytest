@@ -42,6 +42,7 @@ class QAManagerAgent:
 1. Understand user requests
 2. **DIRECTLY ANSWER** simple questions using your tools (e.g., "how many test cases?")
 3. **DELEGATE** complex tasks to specialist agents (e.g., "run regression", "fix bug")
+4. **NAVIGATE** the user's browser when they ask to go somewhere
 
 ## CRITICAL: CONCISENESS
 - **Be extremely concise.** Users are busy engineers.
@@ -56,6 +57,7 @@ You can now use these tools yourself. Do NOT delegate if you can answer directly
 - `list_userinterfaces`: See available apps
 - `list_requirements`: Check requirements
 - `get_coverage_summary`: Check coverage status
+- `navigate_to_page`: Navigate user's browser to a page (dashboard, device_control, reports, campaigns, settings, monitor)
 
 ## Your Specialists (for complex tasks)
 - **Explorer**: UI discovery, navigation tree building
@@ -150,6 +152,11 @@ Be efficient. The user wants results."""
             Mode.CREATE, Mode.VALIDATE, Mode.MAINTAIN, or Mode.ANALYZE
         """
         message_lower = message.lower()
+        
+        # NAVIGATE indicators - handle UI navigation requests directly (no delegation)
+        navigate_keywords = ["go to", "navigate to", "take me to", "show me the", "open the"]
+        if any(kw in message_lower for kw in navigate_keywords):
+            return Mode.ANALYZE  # Use ANALYZE so manager handles directly with navigate_to_page tool
         
         # CREATE indicators (must be explicit - don't default to this)
         create_keywords = ["automate", "create new", "build", "new site", "set up", 

@@ -9,21 +9,19 @@ import {
   Backdrop
 } from '@mui/material';
 import { 
-  Search as SearchIcon, 
   AutoAwesome as SparkleIcon,
   KeyboardReturn as EnterIcon
 } from '@mui/icons-material';
 import { useAIContext } from '../../contexts/AIContext';
 
 export const AICommandBar: React.FC = () => {
-  const { isCommandOpen, closeCommand, setTask, setProcessing } = useAIContext();
+  const { isCommandOpen, closeCommand, sendMessage } = useAIContext();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when opened
   useEffect(() => {
     if (isCommandOpen && inputRef.current) {
-      // Small delay to ensure render
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isCommandOpen]);
@@ -32,13 +30,10 @@ export const AICommandBar: React.FC = () => {
     e?.preventDefault();
     if (!input.trim()) return;
 
-    // 1. Set the task in global context
-    setTask(input);
+    // Send message to backend via AIContext
+    sendMessage(input.trim());
     
-    // 2. Start processing (this triggers the Right Panel to open)
-    setProcessing(true);
-    
-    // 3. Clear and close the command bar
+    // Clear and close the command bar
     setInput('');
     closeCommand();
   };

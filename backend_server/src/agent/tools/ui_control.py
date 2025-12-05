@@ -1,12 +1,10 @@
+"""
+UI Control Tool - Navigate user's browser
+"""
+import logging
 from typing import Optional, Dict, Any
-from ..socket_manager import SocketManager
 
-# Global reference to socket manager
-_socket_manager: Optional[SocketManager] = None
-
-def set_socket_manager(manager: SocketManager):
-    global _socket_manager
-    _socket_manager = manager
+logger = logging.getLogger(__name__)
 
 def navigate_to_page(page_name: str, context: Optional[Dict[str, Any]] = None) -> str:
     """
@@ -22,7 +20,11 @@ def navigate_to_page(page_name: str, context: Optional[Dict[str, Any]] = None) -
             - 'monitor': System monitoring/Grafana
         context: Optional parameters to pass (e.g., {'device_id': 'pixel-5'})
     """
-    global _socket_manager
+    # Import socket_manager lazily to avoid circular imports
+    from ..socket_manager import socket_manager
+    
+    logger.info(f"🤖 navigate_to_page called: page_name={page_name}")
+    logger.info(f"🤖 socket_manager.socketio initialized: {socket_manager.socketio is not None}")
     
     # Map friendly names to actual routes
     routes = {
@@ -36,12 +38,15 @@ def navigate_to_page(page_name: str, context: Optional[Dict[str, Any]] = None) -
     
     path = routes.get(page_name)
     if not path:
+        logger.warning(f"🤖 Unknown page: {page_name}")
         return f"Error: Unknown page '{page_name}'. Available: {', '.join(routes.keys())}"
     
-    # Emit the event
-    if _socket_manager:
-        _socket_manager.emit_to_room(
-            'agent_sessions', # Broadcast to all agent sessions or specific session if context has it
+    logger.info(f"🤖 Resolved path: {path}")
+    
+    # Emit the event (broadcast to all connected clients in /agent namespace)
+    if socket_manager.socketio:
+        logger.info(f"🤖 Broadcasting ui_action to /agent namespace...")
+        result = socket_manager.broadcast(
             'ui_action',
             {
                 "action": "navigate",
@@ -52,6 +57,8 @@ def navigate_to_page(page_name: str, context: Optional[Dict[str, Any]] = None) -
                 "agent_message": f"Navigating to {page_name}..."
             }
         )
+        logger.info(f"🤖 Broadcast result: {result}")
         return f"Navigated user to {page_name} ({path})"
     
+    logger.error("🤖 Socket manager not initialized!")
     return "Error: Socket manager not initialized"
