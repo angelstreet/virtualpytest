@@ -241,7 +241,7 @@ const NavigationBar: React.FC = () => {
           },
         }}
       >
-        Device Control
+        Device
       </Button>
 
       {/* AI Agent - Simple button */}
