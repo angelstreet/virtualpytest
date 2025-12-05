@@ -92,6 +92,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@langfuse-db:5432/postgres
       # ClickHouse (required for v3)
       - CLICKHOUSE_URL=http://langfuse-clickhouse:8123
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse-clickhouse:9000
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=clickhouse
       - CLICKHOUSE_CLUSTER_ENABLED=false
@@ -136,19 +137,23 @@ services:
     environment:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=clickhouse
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - langfuse-clickhouse-data:/var/lib/clickhouse
+      - langfuse-clickhouse-logs:/var/log/clickhouse-server
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--password", "clickhouse", "--query", "SELECT 1"]
+      test: ["CMD-SHELL", "clickhouse-client --password clickhouse -q 'SELECT 1'"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 30s
     networks:
       - langfuse-network
 
 volumes:
   langfuse-postgres-data:
   langfuse-clickhouse-data:
+  langfuse-clickhouse-logs:
 
 networks:
   langfuse-network:
