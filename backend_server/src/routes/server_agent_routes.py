@@ -284,6 +284,13 @@ def register_agent_socketio_handlers(socketio):
                     'error': str(e),
                     'type': type(e).__name__
                 }, room=session_id, namespace='/agent')
+            finally:
+                # Ensure Langfuse data is flushed even on errors
+                try:
+                    from agent.observability import flush
+                    flush()
+                except Exception:
+                    pass  # Ignore flush errors
         
         socketio.start_background_task(
             lambda: asyncio.run(process_and_stream())

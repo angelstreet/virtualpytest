@@ -116,7 +116,7 @@ jsonschema>=4.0.0
 
 # AI Agent SDK (Claude)
 anthropic>=0.40.0
-langfuse>=2.0.0  # Optional: LLM observability (enable via LANGFUSE_ENABLED=true)
+langfuse>=2.0.0,<3.0.0  # v2 SDK for Langfuse server v2 (auto-enabled when LANGFUSE_HOST is set)
 
 # Security scanning tools (for development/CI)
 bandit>=1.7.0

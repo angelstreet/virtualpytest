@@ -4,9 +4,8 @@ Agent System Configuration
 Environment variables required:
 - ANTHROPIC_API_KEY: Your Anthropic API key
 
-Optional (LLM Observability):
-- LANGFUSE_ENABLED: Set to "true" to enable observability
-- LANGFUSE_HOST: Langfuse server URL (default: http://localhost:3001)
+Optional (LLM Observability - auto-enabled when LANGFUSE_HOST is set):
+- LANGFUSE_HOST: Langfuse server URL (e.g., http://localhost:3001)
 - LANGFUSE_PUBLIC_KEY: Your Langfuse public key
 - LANGFUSE_SECRET_KEY: Your Langfuse secret key
 """
@@ -18,9 +17,9 @@ from typing import Dict, Any
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
 MAX_TOKENS = 8192
 
-# Langfuse observability (optional)
-LANGFUSE_ENABLED = os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
-LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "http://localhost:3001")
+# Langfuse observability (auto-enabled if LANGFUSE_HOST is configured)
+LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "")
+LANGFUSE_ENABLED = bool(LANGFUSE_HOST)  # Auto-enable if host is set
 
 # Get API key from environment
 def get_anthropic_api_key() -> str:
@@ -65,7 +64,10 @@ MANAGER_TOOLS = [
     "view_logs",
     
     # Verifications
-    "list_verifications"
+    "list_verifications",
+    
+    # UI Control (New)
+    "navigate_to_page"
 ]
 
 # Agent configuration

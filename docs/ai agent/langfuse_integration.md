@@ -68,10 +68,7 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 Add to `backend_server/.env`:
 
 ```bash
-# Langfuse LLM Observability (Optional)
-# Set to true to enable token/cost tracking
-LANGFUSE_ENABLED=false
-
+# Langfuse LLM Observability (auto-enabled when LANGFUSE_HOST is set)
 # Self-hosted (after running langfuse_install.sh)
 LANGFUSE_HOST=http://localhost:3001
 LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
@@ -196,17 +193,14 @@ docker update --env CSP_ALLOW_IFRAME_SELF=true langfuse-web
 
 ### Enable/Disable
 
-Toggle observability without code changes:
+Langfuse is **auto-enabled** when `LANGFUSE_HOST` is configured. To disable:
 
 ```bash
-# Enable
-LANGFUSE_ENABLED=true
-
-# Disable (default)
-LANGFUSE_ENABLED=false
+# Remove or comment out LANGFUSE_HOST to disable
+# LANGFUSE_HOST=http://localhost:3001
 ```
 
-When disabled, the system works normally without any Langfuse overhead.
+When disabled (no host configured), the system works normally without any Langfuse overhead.
 
 ## What Gets Tracked
 
@@ -268,8 +262,8 @@ echo $LANGFUSE_HOST
 
 ### No Data Showing
 
-1. Verify `LANGFUSE_ENABLED=true`
-2. Check API keys are correct
+1. Verify `LANGFUSE_HOST` is set (this auto-enables Langfuse)
+2. Check API keys are correct (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`)
 3. Make an AI Agent request
 4. Wait 10-30 seconds for data to appear
 

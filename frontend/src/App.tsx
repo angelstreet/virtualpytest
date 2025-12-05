@@ -8,7 +8,7 @@ import Footer from './components/common/Footer';
 import NavigationBar from './components/common/Navigation_Bar';
 import { ServerSelector } from './components/common/ServerSelector';
 import ThemeToggle from './components/common/ThemeToggle';
-import { MCPTaskInput } from './components/mcp/MCPTaskInput';
+// import { MCPTaskInput } from './components/mcp/MCPTaskInput';
 import { HostManagerProvider } from './contexts/HostManagerProvider';
 import { ServerManagerProvider } from './contexts/ServerManagerProvider';
 import { ToastProvider } from './contexts/ToastContext';
@@ -236,6 +236,16 @@ const AppHeader: React.FC = () => {
   );
 };
 
+import { AIProvider } from './contexts/AIContext';
+import { AIOmniOverlay } from './components/ai/AIOmniOverlay';
+import { useAIOrchestrator } from './hooks/ai/useAIOrchestrator';
+
+// Orchestrator Wrapper Component
+const AIOrchestratorWrapper: React.FC = () => {
+  useAIOrchestrator();
+  return null;
+};
+
 const App: React.FC = () => {
   // Detect if app is running under a proxy path (e.g., /pi4/)
   // Check if current path starts with /piX/ pattern
@@ -253,10 +263,15 @@ const App: React.FC = () => {
             <BuilderProvider>
               <ServerManagerProvider>
                 <HostManagerProvider>
-                  <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-                <AppHeader />
-            <ConditionalContainer>
-              <Suspense fallback={<LoadingSpinner />}>
+                  <AIProvider>
+                    <AIOrchestratorWrapper />
+                    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+                      <AppHeader />
+                      
+                      <AIOmniOverlay />
+                      
+                      <ConditionalContainer>
+                        <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
                   {/* Public Routes - Only login and OAuth callback */}
                   <Route path="/login" element={<LoginPage />} />
@@ -376,11 +391,12 @@ const App: React.FC = () => {
               </Suspense>
             </ConditionalContainer>
 
-            {/* MCP Task Input - Global overlay component */}
-            <MCPTaskInput />
+            {/* MCP Task Input - Replaced by AIOmniOverlay */}
+            {/* <MCPTaskInput /> */}
 
             <Footer />
           </Box>
+                  </AIProvider>
                 </HostManagerProvider>
               </ServerManagerProvider>
             </BuilderProvider>

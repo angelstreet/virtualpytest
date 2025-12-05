@@ -3,7 +3,7 @@ Base Agent Class
 
 Common functionality for all specialist agents.
 Uses Anthropic Prompt Caching to reduce token costs on repeated requests.
-Integrates with Langfuse for optional observability (enable via LANGFUSE_ENABLED=true).
+Integrates with Langfuse for optional observability (auto-enabled when LANGFUSE_HOST is set).
 """
 
 import logging
@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 import anthropic
 
 from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, LANGFUSE_ENABLED
-from ..observability import track_generation, track_tool_call
+from ..observability import track_generation, track_tool_call, flush
 
 
 class BaseAgent(ABC):
@@ -269,6 +269,10 @@ class BaseAgent(ABC):
             # Check stop reason
             if response.stop_reason == "end_turn":
                 break
+        
+        # Flush Langfuse data to ensure it's sent
+        if LANGFUSE_ENABLED:
+            flush()
         
         self.logger.info(f"[{self.name}] Task completed")
 

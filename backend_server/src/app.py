@@ -376,6 +376,14 @@ def register_all_server_routes(app):
         # Register AI Agent SocketIO handlers
         if hasattr(app, 'socketio'):
             print("[@backend_server:routes] 🔍 Registering AI Agent SocketIO handlers...")
+            # Initialize socket manager
+            from backend_server.src.agent.socket_manager import socket_manager
+            socket_manager.init_app(app.socketio)
+            
+            # Initialize UI tools
+            from backend_server.src.agent.tools.ui_control import set_socket_manager
+            set_socket_manager(socket_manager)
+            
             server_agent_routes.register_agent_socketio_handlers(app.socketio)
             print("[@backend_server:routes] ✅ AI Agent SocketIO handlers registered")
         

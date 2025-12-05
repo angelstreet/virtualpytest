@@ -2,7 +2,7 @@
 Langfuse Observability Integration
 
 Optional LLM observability for token tracking, cost monitoring, and tracing.
-Enable via LANGFUSE_ENABLED=true in .env
+Auto-enabled when LANGFUSE_HOST is configured in .env
 """
 
 import os
@@ -13,8 +13,13 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
-# Check if Langfuse is enabled
-LANGFUSE_ENABLED = os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
+# Auto-enable Langfuse if LANGFUSE_HOST is configured
+LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "")
+LANGFUSE_ENABLED = bool(LANGFUSE_HOST)
+
+# Log Langfuse status once at import
+if LANGFUSE_ENABLED:
+    logger.info(f"Langfuse observability enabled (host={LANGFUSE_HOST})")
 
 # Langfuse client (lazy loaded)
 _langfuse_client = None
@@ -31,12 +36,15 @@ def get_langfuse():
         try:
             from langfuse import Langfuse
             
+            public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
+            secret_key = os.getenv("LANGFUSE_SECRET_KEY")
+            
             _langfuse_client = Langfuse(
-                public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
-                secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-                host=os.getenv("LANGFUSE_HOST", "http://localhost:3001"),
+                public_key=public_key,
+                secret_key=secret_key,
+                host=LANGFUSE_HOST,
             )
-            logger.info("Langfuse observability enabled")
+            logger.info("Langfuse client initialized")
         except ImportError:
             logger.warning("Langfuse not installed. Run: pip install langfuse")
             return None
@@ -151,7 +159,7 @@ def track_generation(
     user_id: Optional[str] = None,
 ):
     """
-    Track an LLM generation call.
+    Track an LLM generation call using Langfuse v2 SDK.
     
     Args:
         agent_name: Name of the agent (Explorer, Builder, etc.)
@@ -164,6 +172,7 @@ def track_generation(
     langfuse = get_langfuse()
     if not langfuse:
         return
+    
     
     try:
         # Extract usage from response
@@ -189,7 +198,7 @@ def track_generation(
             if hasattr(block, 'text'):
                 output_text += block.text
         
-        # Create trace with generation
+        # Langfuse v2 SDK - create trace then add generation
         trace = langfuse.trace(
             name=f"{agent_name} Call",
             session_id=session_id,
@@ -218,12 +227,13 @@ def track_tool_call(
     success: bool,
     session_id: Optional[str] = None,
 ):
-    """Track a tool call"""
+    """Track a tool call using Langfuse v2 SDK"""
     langfuse = get_langfuse()
     if not langfuse:
         return
     
     try:
+        # Langfuse v2 SDK - create trace then add span
         trace = langfuse.trace(
             name=f"{agent_name} Tool: {tool_name}",
             session_id=session_id,

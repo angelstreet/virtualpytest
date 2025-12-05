@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, List
 
 from mcp.mcp_server import VirtualPyTestMCPServer
+from ..tools.ui_control import navigate_to_page
 
 
 class ToolBridge:
@@ -41,6 +42,29 @@ class ToolBridge:
         
         result = []
         for name in tool_names:
+            if name == "navigate_to_page":
+                # Manual definition for UI control tool
+                result.append({
+                    "name": "navigate_to_page",
+                    "description": "Navigates the user's UI to a specific page.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "page_name": {
+                                "type": "string",
+                                "enum": ["dashboard", "device_control", "reports", "campaigns", "settings", "monitor"],
+                                "description": "The identifier of the page to navigate to"
+                            },
+                            "context": {
+                                "type": "object",
+                                "description": "Optional parameters context (e.g., device_id)"
+                            }
+                        },
+                        "required": ["page_name"]
+                    }
+                })
+                continue
+
             if name in tools_by_name:
                 mcp_tool = tools_by_name[name]
                 # Convert MCP format to Claude format
@@ -72,6 +96,13 @@ class ToolBridge:
         self.logger.info(f"Executing tool: {tool_name}")
         self.logger.debug(f"Params: {params}")
         
+        if tool_name == "navigate_to_page":
+            result = navigate_to_page(
+                page_name=params.get("page_name"), 
+                context=params.get("context")
+            )
+            return {"result": result}
+
         result = self.mcp_server.handle_tool_call(tool_name, params)
         
         self.logger.info(f"Tool {tool_name} completed")
@@ -79,5 +110,5 @@ class ToolBridge:
     
     def get_available_tool_names(self) -> List[str]:
         """Get list of all available tool names"""
-        return [t['name'] for t in self._get_all_tools()]
-
+        base_tools = [t['name'] for t in self._get_all_tools()]
+        return base_tools + ["navigate_to_page"]

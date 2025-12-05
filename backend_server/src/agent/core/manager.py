@@ -13,7 +13,8 @@ from typing import Dict, Any, AsyncGenerator, Optional
 
 import anthropic
 
-from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, Mode, MODE_AGENTS, MANAGER_TOOLS
+from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, Mode, MODE_AGENTS, MANAGER_TOOLS, LANGFUSE_ENABLED
+from ..observability import track_generation, track_tool_call, flush
 from .session import Session
 from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent, ApprovalRequest
@@ -286,6 +287,10 @@ Be efficient. The user wants results."""
         plan = ""
         tools_used = False
         
+        # Ensure session_id is in context for Langfuse tracking
+        if "session_id" not in session.context:
+            session.set_context("session_id", session.id)
+        
         # Tool Use Loop
         while True:
             start_time = time.time()
@@ -302,6 +307,17 @@ Be efficient. The user wants results."""
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens
             }
+            
+            # Track with Langfuse if enabled
+            if LANGFUSE_ENABLED:
+                track_generation(
+                    agent_name="QA Manager",
+                    model=DEFAULT_MODEL,
+                    messages=turn_messages,
+                    response=response,
+                    session_id=session.id,
+                    user_id=session.context.get("user_id"),
+                )
             
             # Add assistant response to history
             turn_messages.append({"role": "assistant", "content": response.content})
@@ -326,6 +342,17 @@ Be efficient. The user wants results."""
                 try:
                     result = self.tool_bridge.execute(tool_use.name, tool_use.input)
                     
+                    # Track tool call with Langfuse
+                    if LANGFUSE_ENABLED:
+                        track_tool_call(
+                            agent_name="QA Manager",
+                            tool_name=tool_use.name,
+                            tool_input=tool_use.input,
+                            tool_output=result,
+                            success=True,
+                            session_id=session.id,
+                        )
+                    
                     yield AgentEvent(
                         type=EventType.TOOL_RESULT,
                         agent="QA Manager",
@@ -344,6 +371,17 @@ Be efficient. The user wants results."""
                     })
                     
                 except Exception as e:
+                    # Track failed tool call with Langfuse
+                    if LANGFUSE_ENABLED:
+                        track_tool_call(
+                            agent_name="QA Manager",
+                            tool_name=tool_use.name,
+                            tool_input=tool_use.input,
+                            tool_output=str(e),
+                            success=False,
+                            session_id=session.id,
+                        )
+                    
                     yield AgentEvent(
                         type=EventType.ERROR,
                         agent="QA Manager",
@@ -375,6 +413,9 @@ Be efficient. The user wants results."""
             should_delegate = False
             
         if not should_delegate:
+             # Flush Langfuse before returning
+             if LANGFUSE_ENABLED:
+                 flush()
              yield AgentEvent(type=EventType.SESSION_ENDED, agent="QA Manager", content="Task completed")
              return
         
@@ -484,6 +525,10 @@ Be efficient. The user wants results."""
             agent="QA Manager",
             content="Task completed",
         )
+        
+        # Flush Langfuse data to ensure it's sent
+        if LANGFUSE_ENABLED:
+            flush()
     
     def _build_agent_task(
         self, 
