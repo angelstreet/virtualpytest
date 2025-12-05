@@ -17,6 +17,7 @@ import { useDeployment, Deployment } from '../hooks/useDeployment';
 import { useRun } from '../hooks/useRun';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { getLogsUrl } from '../utils/executionUtils';
+import { getR2Url, extractR2Path, isCloudflareR2Url } from '../utils/infrastructure/cloudflareUtils';
 import { getUserTimezone, formatToLocalTime } from '../utils/dateUtils';
 import { validateCronExpression, cronToHuman } from '../utils/cronUtils';
 import { Host, Device } from '../types/common/Host_Types';
@@ -75,6 +76,21 @@ const Deployments: React.FC = () => {
 
   const hosts = getAllHosts();
   const userTimezone = getUserTimezone();
+  
+  // Open R2 URL with automatic signed URL generation (handles both public and private modes)
+  const handleOpenR2Url = async (url: string) => {
+    try {
+      let path = url;
+      if (isCloudflareR2Url(url)) {
+        const extracted = extractR2Path(url);
+        if (extracted) path = extracted;
+      }
+      const signedUrl = await getR2Url(path);
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('[@Deployments] Failed to open R2 URL:', error);
+    }
+  };
   
   // Validate cron expression
   useEffect(() => {
@@ -873,15 +889,13 @@ const Deployments: React.FC = () => {
                             {e.report_url ? (
                               <Chip
                                 label="View Report"
-                                component="a"
-                                href={e.report_url}
-                                target="_blank"
                                 clickable
                                 size="small"
                                 sx={{ cursor: 'pointer' }}
                                 icon={<LinkIcon />}
                                 color="primary"
                                 variant="outlined"
+                                onClick={() => handleOpenR2Url(e.report_url)}
                               />
                             ) : (
                               <Chip label="No Report" size="small" variant="outlined" disabled />
@@ -894,7 +908,7 @@ const Deployments: React.FC = () => {
                                 label="Logs"
                                 size="small"
                                 clickable
-                                onClick={() => window.open(getLogsUrl(e.report_url), '_blank')}
+                                onClick={() => handleOpenR2Url(getLogsUrl(e.report_url))}
                                 color="secondary"
                                 variant="outlined"
                               />
