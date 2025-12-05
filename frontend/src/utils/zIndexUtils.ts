@@ -34,26 +34,28 @@ const Z_INDEX_ORDER = [
   'NAVIGATION_SELECTION_PANEL', // 170 - Node selection panel
   'NAVIGATION_GOTO_PANEL', // 180 - Navigation goto panel
   'NAVIGATION_CONFIRMATION', // 190 - Navigation confirmation dialogs
-  'NAVIGATION_DIALOGS', // 200 - Navigation dialogs (create/edit)
   
   // Top-level UI
-  'TOOLTIPS', // 210 - Tooltips and hints
-  'READ_ONLY_INDICATOR', // 220 - Read-only mode indicators
-  'HEADER', // 230 - Page headers
-  'HEADER_DROPDOWN', // 240 - Header dropdown menus
+  'TOOLTIPS', // 200 - Tooltips and hints
+  'READ_ONLY_INDICATOR', // 210 - Read-only mode indicators
+  'HEADER', // 220 - Page headers
+  'HEADER_DROPDOWN', // 230 - Header dropdown menus
   
-  // Interactive overlays (below modals)
-  'APPIUM_OVERLAY', // 250 - Appium element overlays
-  'ANDROID_MOBILE_OVERLAY', // 260 - Android mobile overlays
+  // Modals and screenshots (below interactive overlays)
+  'MODAL_BACKDROP', // 240 - Modal backdrop/overlay
+  'MODAL_CONTENT', // 250 - Modal content windows
+  'SCREENSHOT_MODAL', // 260 - Screenshot viewing modals
+  'AI_DISAMBIGUATION_MODAL', // 270 - AI disambiguation requires user input before execution
+  'TIMELINE_OVERLAY', // 280 - Video timeline controls
   
-  // Modals and screenshots (high layer - above interactive overlays)
-  'MODAL_BACKDROP', // 270 - Modal backdrop/overlay
-  'MODAL_CONTENT', // 280 - Modal content windows
-  'SCREENSHOT_MODAL', // 290 - Screenshot viewing modals
-  'AI_DISAMBIGUATION_MODAL', // 300 - AI disambiguation requires user input before execution
-  'TIMELINE_OVERLAY', // 310 - Video timeline controls
+  // Interactive overlays (above modals)
+  'APPIUM_OVERLAY', // 290 - Appium element overlays
+  'ANDROID_MOBILE_OVERLAY', // 300 - Android mobile overlays
   
-  // Top-most overlays (highest layer - on top of everything)
+  // Navigation edit dialogs (highest priority - on top of interactive overlays)
+  'NAVIGATION_DIALOGS', // 310 - Navigation dialogs (node/edge edit - must be on top)
+  
+  // Top-most overlays (absolute highest layer - on top of everything)
   'DEBUG_OVERLAY', // 320 - Debug information overlays
   'SCREENSHOT_CAPTURE_OVERLAY', // 330 - Screenshot capture drag selection overlay (above all overlays)
 ] as const;
