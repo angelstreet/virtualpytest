@@ -160,6 +160,7 @@ const AgentChat: React.FC = () => {
     isValidating,
     conversations,
     activeConversationId,
+    pendingConversationId,
     setInput,
     setShowApiKey,
     setApiKeyInput,
@@ -173,6 +174,9 @@ const AgentChat: React.FC = () => {
     switchConversation,
     deleteConversation,
   } = useAgentChat();
+  
+  // Only show processing state if viewing the conversation that's being processed
+  const showProcessing = isProcessing && activeConversationId === pendingConversationId;
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -744,8 +748,8 @@ const AgentChat: React.FC = () => {
             );
           })}
 
-          {/* Processing State */}
-          {isProcessing && (
+          {/* Processing State - only show when viewing the pending conversation */}
+          {showProcessing && (
             <Paper 
               elevation={0}
               sx={{ 
@@ -855,17 +859,17 @@ const AgentChat: React.FC = () => {
               InputProps={{ disableUnderline: true, sx: { fontSize: '0.9rem' } }}
             />
             <IconButton 
-              onClick={isProcessing ? stopGeneration : sendMessage}
-              disabled={!input.trim() && !isProcessing}
+              onClick={showProcessing ? stopGeneration : sendMessage}
+              disabled={!input.trim() && !showProcessing}
               sx={{  
                 m: 0.25, 
-                bgcolor: input.trim() ? PALETTE.accent : 'transparent',
-                color: input.trim() ? '#fff' : 'text.disabled',
+                bgcolor: (input.trim() || showProcessing) ? PALETTE.accent : 'transparent',
+                color: (input.trim() || showProcessing) ? '#fff' : 'text.disabled',
                 width: 32, height: 32,
-                '&:hover': { bgcolor: input.trim() ? PALETTE.accentHover : 'transparent' },
+                '&:hover': { bgcolor: (input.trim() || showProcessing) ? PALETTE.accentHover : 'transparent' },
               }}
             >
-              {isProcessing ? <StopIcon sx={{ fontSize: 18 }} /> : <SendIcon sx={{ fontSize: 18 }} />}
+              {showProcessing ? <StopIcon sx={{ fontSize: 18 }} /> : <SendIcon sx={{ fontSize: 18 }} />}
             </IconButton>
           </Paper>
           

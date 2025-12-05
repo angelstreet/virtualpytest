@@ -82,6 +82,7 @@ export const useAgentChat = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pendingConversationId, setPendingConversationId] = useState<string | null>(null); // Which conversation is awaiting response
   const [currentEvents, setCurrentEvents] = useState<AgentEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   
@@ -94,6 +95,7 @@ export const useAgentChat = () => {
   const socketRef = useRef<Socket | null>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
+  const pendingConversationIdRef = useRef<string | null>(null); // Track which conversation is awaiting response
 
   // --- Conversation Persistence ---
 
@@ -154,9 +156,9 @@ export const useAgentChat = () => {
 
   const switchConversation = useCallback((conversationId: string) => {
     setActiveConversationId(conversationId);
-    activeConversationIdRef.current = conversationId; // Update ref immediately
-    setCurrentEvents([]);
-    setIsProcessing(false);
+    activeConversationIdRef.current = conversationId;
+    // Don't clear currentEvents or isProcessing - they belong to the pending conversation
+    // The UI will only show processing state when viewing the pending conversation
   }, []);
 
   const deleteConversation = useCallback((conversationId: string) => {
@@ -244,20 +246,26 @@ export const useAgentChat = () => {
             events: prevEvents,
           };
           
-          // Update conversation with new message
-          setConversations(prev => {
-            const currentConvoId = activeConversationIdRef.current;
-            return prev.map(c => {
-              if (c.id !== currentConvoId) return c;
-              const updatedMessages = [...c.messages, newMessage];
-              return {
-                ...c,
-                messages: updatedMessages,
-                title: extractTitle(updatedMessages),
-                updatedAt: new Date().toISOString(),
-              };
+          // Update conversation with new message - use pendingConversationIdRef (the one that initiated the request)
+          const targetConvoId = pendingConversationIdRef.current;
+          if (targetConvoId) {
+            setConversations(prev => {
+              return prev.map(c => {
+                if (c.id !== targetConvoId) return c;
+                const updatedMessages = [...c.messages, newMessage];
+                return {
+                  ...c,
+                  messages: updatedMessages,
+                  title: extractTitle(updatedMessages),
+                  updatedAt: new Date().toISOString(),
+                };
+              });
             });
-          });
+          }
+          
+          // Clear pending conversation
+          pendingConversationIdRef.current = null;
+          setPendingConversationId(null);
           
           return [];
         });
@@ -266,6 +274,8 @@ export const useAgentChat = () => {
       // Failsafe: If we get an error or failed event, unstick processing
       if (event.type === 'error' || event.type === 'failed') {
         setIsProcessing(false);
+        pendingConversationIdRef.current = null;
+        setPendingConversationId(null);
         if (processingTimeoutRef.current) {
           clearTimeout(processingTimeoutRef.current);
           processingTimeoutRef.current = null;
@@ -384,6 +394,10 @@ export const useAgentChat = () => {
       };
     }));
 
+    // Track which conversation is awaiting response (for when user switches chats)
+    pendingConversationIdRef.current = targetConvoId;
+    setPendingConversationId(targetConvoId);
+
     setInput('');
     setIsProcessing(true);
     setCurrentEvents([]);
@@ -423,11 +437,11 @@ export const useAgentChat = () => {
     
     socketRef.current?.emit('stop_generation', { session_id: session.id });
     
-    // Add system message to current conversation
-    const currentConvoId = activeConversationIdRef.current;
-    if (currentConvoId) {
+    // Add system message to the conversation that initiated the request
+    const targetConvoId = pendingConversationIdRef.current;
+    if (targetConvoId) {
       setConversations(prev => prev.map(c => {
-        if (c.id !== currentConvoId) return c;
+        if (c.id !== targetConvoId) return c;
         return {
           ...c,
           messages: [...c.messages, {
@@ -441,15 +455,23 @@ export const useAgentChat = () => {
         };
       }));
     }
-  }, [session?.id]); // Remove activeConversationId - using ref instead
+    
+    // Clear pending conversation
+    pendingConversationIdRef.current = null;
+    setPendingConversationId(null);
+  }, [session?.id]);
 
   const clearHistory = useCallback(() => {
     setConversations([]);
     setActiveConversationId(null);
-    activeConversationIdRef.current = null; // Update ref
+    activeConversationIdRef.current = null;
+    pendingConversationIdRef.current = null;
+    setPendingConversationId(null);
+    setIsProcessing(false);
+    setCurrentEvents([]);
     localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
     localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
-  }, []); // Session already initialized on mount
+  }, []);
 
   // Cleanup socket and timeout on unmount
   useEffect(() => {
@@ -479,6 +501,7 @@ export const useAgentChat = () => {
     // Conversations
     conversations,
     activeConversationId,
+    pendingConversationId,
     
     // Actions
     setInput,
