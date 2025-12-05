@@ -176,13 +176,14 @@ start_langfuse() {
 
 # Wait for Langfuse to be ready
 wait_for_ready() {
-    echo -e "${YELLOW}→ Waiting for Langfuse to be ready...${NC}"
+    echo -e "${YELLOW}→ Waiting for Langfuse to be ready (this may take 1-2 minutes)...${NC}"
     
-    local max_attempts=30
+    local max_attempts=60
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
         if curl -s "http://localhost:$LANGFUSE_PORT" > /dev/null 2>&1; then
+            echo ""
             echo -e "${GREEN}✓ Langfuse is ready!${NC}"
             return 0
         fi
@@ -194,6 +195,7 @@ wait_for_ready() {
     echo ""
     echo -e "${RED}✗ Langfuse did not become ready in time.${NC}"
     echo "  Check logs with: docker logs langfuse-web"
+    echo "  Check ClickHouse: docker logs langfuse-clickhouse"
     exit 1
 }
 
