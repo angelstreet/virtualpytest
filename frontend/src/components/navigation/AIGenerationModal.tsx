@@ -29,6 +29,7 @@ import { AIGenerationPhaseIndicator } from './AIGenerationPhaseIndicator';
 import { Phase2IncrementalView } from './Phase2IncrementalView';
 import { ContextSummary } from './ContextSummary';
 import { StyledDialog } from '../common/StyledDialog';
+import { useR2Url } from '../../hooks/storage/useR2Url';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -112,6 +113,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   
   // Use edited plan if available, otherwise use original
   const activePlan = editedPlan || explorationPlan;
+  
+  // R2 URL for screenshot (handles public/private mode automatically)
+  const { url: screenshotR2Url } = useR2Url(currentAnalysis?.screenshot || null);
   
   // Delete item from exploration plan (corrects AI mistakes)
   const deleteItem = (rowIdx: number, itemIdx: number) => {
@@ -359,15 +363,15 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
             <Grid container spacing={2}>
               {/* Left: Screenshot */}
               <Grid item xs={12} md={5}>
-                {currentAnalysis.screenshot ? (
+                {screenshotR2Url ? (
                   <a 
-                    href={currentAnalysis.screenshot} 
+                    href={screenshotR2Url} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     style={{ display: 'block', cursor: 'pointer' }}
                   >
                     <img
-                      src={currentAnalysis.screenshot}
+                      src={screenshotR2Url}
                       alt="Initial screen"
                       style={{
                         width: '100%',

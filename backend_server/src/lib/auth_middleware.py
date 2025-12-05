@@ -19,8 +19,10 @@ from flask import request, jsonify
 from typing import Optional, Callable
 
 # Get Supabase JWT secret from environment
-# Note: For Supabase, the JWT secret is the ANON_KEY (used for signature verification)
-SUPABASE_JWT_SECRET = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+# IMPORTANT: This must be the actual JWT SECRET from Supabase Dashboard:
+#   Project Settings → API → JWT Secret
+# NOT the anon key (which is a public API key)
+SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
 SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
 
 

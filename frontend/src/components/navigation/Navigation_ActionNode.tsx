@@ -7,6 +7,7 @@ import { getZIndex } from '../../utils/zIndexUtils';
 
 import { useValidationColors } from '../../hooks/validation/useValidationColors';
 import { useMetrics } from '../../hooks/navigation/useMetrics';
+import { useR2Url } from '../../hooks/storage/useR2Url';
 import type { UINavigationNode as UINavigationNodeType, UINavigationEdge } from '../../types/pages/Navigation_Types';
 
 export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = ({
@@ -26,17 +27,25 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
   const metricsHook = useMetrics();
   const nodeMetrics = metricsHook.getNodeMetrics(id);
 
+  // Use R2 URL hook for screenshot (handles public/private mode automatically)
+  const { url: r2ScreenshotUrl } = useR2Url(data.screenshot || null);
+
   // Use screenshot URL with aggressive cache-busting
   const screenshotUrl = React.useMemo(() => {
-    if (!data.screenshot) return null;
+    if (!r2ScreenshotUrl) return null;
 
     // Use multiple cache-busting parameters to ensure fresh load
-    const baseUrl = data.screenshot.split('?')[0]; // Remove existing params
+    const baseUrl = r2ScreenshotUrl.split('?')[0]; // Remove existing params
     const timestamp = data.screenshot_timestamp || Date.now();
     const randomKey = imageKey || Math.random().toString(36).substr(2, 9);
 
-    return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
-  }, [data.screenshot, data.screenshot_timestamp, imageKey]);
+    // For signed URLs, append cache-busting differently (after existing params)
+    if (r2ScreenshotUrl.includes('X-Amz-Signature')) {
+      return `${r2ScreenshotUrl}&v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
+    } else {
+      return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
+    }
+  }, [r2ScreenshotUrl, data.screenshot_timestamp, imageKey]);
 
   // Listen for screenshot update events and force immediate refresh
   useEffect(() => {

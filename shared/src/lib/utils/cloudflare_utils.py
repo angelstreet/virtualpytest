@@ -435,24 +435,62 @@ class CloudflareUtils:
             logger.error(f"Copy failed: {str(e)}")
             return {'success': False, 'error': str(e)}
     
+    def is_public_mode(self) -> bool:
+        """
+        Check if public URL mode is enabled.
+        
+        Returns:
+            True if CLOUDFLARE_R2_PUBLIC_URL is set (public bucket mode)
+            False if not set (private bucket mode - use signed URLs)
+        """
+        public_url_base = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', '').strip()
+        return bool(public_url_base)
+    
+    def get_file_url_or_path(self, remote_path: str) -> str:
+        """
+        Get the appropriate reference for a file in R2.
+        
+        In PUBLIC mode (CLOUDFLARE_R2_PUBLIC_URL is set):
+            Returns full public URL: https://pub-xxx.r2.dev/captures/file.jpg
+        
+        In PRIVATE mode (CLOUDFLARE_R2_PUBLIC_URL is NOT set):
+            Returns just the path: captures/file.jpg
+            (Frontend will use this path to request signed URLs)
+        
+        Args:
+            remote_path: Path in R2 (e.g., 'captures/device1/screenshot.jpg')
+            
+        Returns:
+            Full public URL (public mode) or just the path (private mode)
+        """
+        public_url_base = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', '').strip()
+        
+        if public_url_base:
+            # PUBLIC MODE: Return full URL
+            base_url = public_url_base.rstrip('/')
+            return f"{base_url}/{remote_path}"
+        else:
+            # PRIVATE MODE: Return just the path
+            # Frontend will use this to request signed URLs from backend
+            logger.debug(f"Private mode: returning path only for {remote_path}")
+            return remote_path
+    
     def get_public_url(self, remote_path: str) -> str:
         """
         Get a public URL for a file in R2.
+        
+        DEPRECATED: Use get_file_url_or_path() instead for mode-aware behavior.
+        This method is kept for backwards compatibility but now returns
+        path-only in private mode (instead of empty string).
         
         Args:
             remote_path: Path in R2
             
         Returns:
-            Public URL string
+            Public URL string (if public mode) or path (if private mode)
         """
-        public_url_base = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', '')
-        if not public_url_base:
-            logger.error("CLOUDFLARE_R2_PUBLIC_URL environment variable not set")
-            return ""
-        
-        # Remove trailing slash if present and add the remote path
-        base_url = public_url_base.rstrip('/')
-        return f"{base_url}/{remote_path}"
+        # Delegate to new mode-aware method
+        return self.get_file_url_or_path(remote_path)
     
     def generate_presigned_url(self, remote_path: str, expires_in: int = 3600) -> Dict:
         """

@@ -26,6 +26,7 @@ import {
   ArrowBack as BackIcon,
 } from '@mui/icons-material';
 import { StyledDialog } from '../common/StyledDialog';
+import { R2Image } from '../common/R2Image';
 
 interface NodeVerificationModalProps {
   isOpen: boolean;
@@ -190,8 +191,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                   Screenshot
                 </Typography>
                 {selectedSuggestion.screenshot_url ? (
-                  <Box
-                    component="img"
+                  <R2Image
                     src={selectedSuggestion.screenshot_url}
                     alt={selectedSuggestion.node_label}
                     sx={{
