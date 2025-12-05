@@ -43,6 +43,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useScriptResults, ScriptResult } from '../hooks/pages/useScriptResults';
 import { formatToLocalTime } from '../utils/dateUtils';
+import { getR2Url, extractR2Path, isCloudflareR2Url } from '../utils/infrastructure/cloudflareUtils';
 
 const TestReports: React.FC = () => {
   // Get Grafana URL from environment variable
@@ -118,6 +119,27 @@ const TestReports: React.FC = () => {
   function getLogsUrl(reportUrl: string): string {
     return reportUrl.replace('script-reports', 'script-logs').replace('report.html', 'execution.txt');
   }
+
+  // Open R2 URL with automatic signed URL generation (handles both public and private modes)
+  const handleOpenR2Url = async (url: string) => {
+    try {
+      // Extract path from full URL if needed (database stores full public URLs)
+      let path = url;
+      if (isCloudflareR2Url(url)) {
+        const extracted = extractR2Path(url);
+        if (extracted) {
+          path = extracted;
+        }
+      }
+      
+      // getR2Url handles both public and private modes automatically
+      const signedUrl = await getR2Url(path);
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('[@TestReports] Failed to open R2 URL:', error);
+      setError('Failed to open file. Please try again.');
+    }
+  };
 
   // Determine execution status helper
   function getExecutionStatus(result: ScriptResult): 'running' | 'passed' | 'failed' {
@@ -520,7 +542,7 @@ const TestReports: React.FC = () => {
                           <Tooltip title="Open Report">
                             <IconButton
                               size="small"
-                              onClick={() => window.open(result.html_report_r2_url!, '_blank')}
+                              onClick={() => handleOpenR2Url(result.html_report_r2_url!)}
                               color="primary"
                               sx={{ p: 0.5 }}
                             >
@@ -536,7 +558,7 @@ const TestReports: React.FC = () => {
                           <Tooltip title="Open Logs">
                             <IconButton
                               size="small"
-                              onClick={() => window.open(getLogsUrl(result.html_report_r2_url!), '_blank')}
+                              onClick={() => handleOpenR2Url(getLogsUrl(result.html_report_r2_url!))}
                               color="secondary"
                               sx={{ p: 0.5 }}
                             >

@@ -45,7 +45,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
       return r2ScreenshotUrl;
     } else {
       // Public URL - use query string for cache-busting
-      return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
+    return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
     }
   }, [r2ScreenshotUrl, data.screenshot_timestamp, imageKey]);
 

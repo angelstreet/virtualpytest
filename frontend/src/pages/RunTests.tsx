@@ -44,6 +44,7 @@ import { DeviceStreamGrid } from '../components/common/DeviceStreaming/DeviceStr
 
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { getR2Url, extractR2Path, isCloudflareR2Url } from '../utils/infrastructure/cloudflareUtils';
 // Simple execution record interface
 interface ExecutionRecord {
   id: string;
@@ -428,6 +429,27 @@ const RunTests: React.FC = () => {
       return `"${escaped}"`;
     }
     return value;
+  };
+
+  // Open R2 URL with automatic signed URL generation (handles both public and private modes)
+  const handleOpenR2Url = async (url: string) => {
+    try {
+      // Extract path from full URL if needed (database stores full public URLs)
+      let path = url;
+      if (isCloudflareR2Url(url)) {
+        const extracted = extractR2Path(url);
+        if (extracted) {
+          path = extracted;
+        }
+      }
+      
+      // getR2Url handles both public and private modes automatically
+      const signedUrl = await getR2Url(path);
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('[@RunTests] Failed to open R2 URL:', error);
+      showError('Failed to open file. Please try again.');
+    }
   };
 
   const buildParameterString = (deviceHost?: string, deviceId?: string, deviceUserinterface?: string) => {
@@ -1529,10 +1551,8 @@ const RunTests: React.FC = () => {
                             {execution.reportUrl ? (
                               <Chip
                                 label="View Report"
-                                component="a"
-                                href={execution.reportUrl}
-                                target="_blank"
                                 clickable
+                                onClick={() => handleOpenR2Url(execution.reportUrl!)}
                                 size="small"
                                 sx={{ cursor: 'pointer' }}
                                 icon={<LinkIcon />}
@@ -1550,7 +1570,7 @@ const RunTests: React.FC = () => {
                                 label="Logs"
                                 size="small"
                                 clickable
-                                onClick={() => window.open(execution.logsUrl!, '_blank')}
+                                onClick={() => handleOpenR2Url(execution.logsUrl!)}
                                 color="secondary"
                                 variant="outlined"
                               />

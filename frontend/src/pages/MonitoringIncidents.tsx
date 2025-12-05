@@ -45,6 +45,7 @@ import {
 import React, { useState, useEffect, useCallback } from 'react';
 
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
+import { R2Image } from '../components/common/R2Image';
 import { useAlerts } from '../hooks/pages/useAlerts';
 import { Alert } from '../types/pages/Monitoring_Types';
 
@@ -497,10 +498,10 @@ const MonitoringIncidents: React.FC = () => {
                     <Typography variant="caption" display="block" sx={{ mb: 1, color: 'text.secondary' }}>
                       Start
                     </Typography>
-                    <Box
-                      component="img"
-                      src={imageUrls.thumbnailUrl || ''}
+                    <R2Image
+                      src={imageUrls.thumbnailUrl}
                       alt="Alert start"
+                      showLoading={false}
                       sx={{
                         width: 120,
                         height: 90,
@@ -516,14 +517,10 @@ const MonitoringIncidents: React.FC = () => {
                 </Grid>
               )}
 
-              {/* 3 Freeze Frames - using R2 thumbnail URLs directly */}
+              {/* 3 Freeze Frames - using R2 thumbnail URLs */}
               {freezeImageUrls.map((imageUrl, index) => {
                 const diff = freezeDiffs[index];
                 const isCurrentFrame = index === 2;
-
-                // R2 URLs from alert metadata are already complete thumbnail URLs
-                // Format: https://r2.dev/alerts/freeze/device1/timestamp/thumb_0.jpg
-                console.log(`[@MonitoringIncidents] Freeze frame ${index}:`, imageUrl);
 
                 return (
                   <Grid item key={index}>
@@ -539,10 +536,10 @@ const MonitoringIncidents: React.FC = () => {
                       >
                         {index === 0 ? 'Frame -2' : index === 1 ? 'Frame -1' : 'Current'}
                       </Typography>
-                      <Box
-                        component="img"
+                      <R2Image
                         src={imageUrl}
                         alt={`Freeze frame ${index + 1}`}
+                        showLoading={false}
                         sx={{
                           width: 120,
                           height: 90,
@@ -579,10 +576,10 @@ const MonitoringIncidents: React.FC = () => {
                     <Typography variant="caption" display="block" sx={{ mb: 1, color: 'text.secondary' }}>
                       End
                     </Typography>
-                    <Box
-                      component="img"
+                    <R2Image
                       src={imageUrls.closureUrl}
                       alt="Alert end"
+                      showLoading={false}
                       sx={{
                         width: 120,
                         height: 90,
@@ -591,9 +588,6 @@ const MonitoringIncidents: React.FC = () => {
                         borderColor: 'divider',
                         cursor: 'pointer',
                         '&:hover': { opacity: 0.8 },
-                      }}
-                      onClick={() => {
-                        if (imageUrls.closureUrl) window.open(imageUrls.closureUrl, '_blank');
                       }}
                     />
                   </Box>
@@ -629,10 +623,10 @@ const MonitoringIncidents: React.FC = () => {
                   >
                     Start
                   </Typography>
-                  <Box
-                    component="img"
-                    src={imageUrls.thumbnailUrl || ''}
+                  <R2Image
+                    src={imageUrls.thumbnailUrl}
                     alt="Alert start"
+                    showLoading={false}
                     sx={{
                       width: 120,
                       height: 'auto',
@@ -640,20 +634,14 @@ const MonitoringIncidents: React.FC = () => {
                       border: '1px solid',
                       borderColor: 'divider',
                       cursor: 'pointer',
-                      '&:hover': {
-                        opacity: 0.8,
-                      },
-                    }}
-                    onClick={() => {
-                      const url = imageUrls.originalUrl || imageUrls.thumbnailUrl;
-                      if (url) window.open(url, '_blank');
+                      '&:hover': { opacity: 0.8 },
                     }}
                   />
                 </Box>
               </Grid>
 
               {/* End Time Image (if resolved) */}
-              {alert.status === 'resolved' && (
+              {alert.status === 'resolved' && imageUrls.closureUrl && (
                 <Grid item>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography
@@ -663,10 +651,10 @@ const MonitoringIncidents: React.FC = () => {
                     >
                       End
                     </Typography>
-                    <Box
-                      component="img"
-                      src={imageUrls.thumbnailUrl || ''}
+                    <R2Image
+                      src={imageUrls.closureUrl}
                       alt="Alert end"
+                      showLoading={false}
                       sx={{
                         width: 120,
                         height: 'auto',
@@ -674,13 +662,7 @@ const MonitoringIncidents: React.FC = () => {
                         border: '1px solid',
                         borderColor: 'divider',
                         cursor: 'pointer',
-                        '&:hover': {
-                          opacity: 0.8,
-                        },
-                      }}
-                      onClick={() => {
-                        const url = imageUrls.originalUrl || imageUrls.thumbnailUrl;
-                        if (url) window.open(url, '_blank');
+                        '&:hover': { opacity: 0.8 },
                       }}
                     />
                   </Box>

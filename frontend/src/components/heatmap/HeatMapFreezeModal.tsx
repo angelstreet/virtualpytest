@@ -1,6 +1,7 @@
 import { Close as CloseIcon } from '@mui/icons-material';
 import { Modal, Box, IconButton, Typography } from '@mui/material';
 import React from 'react';
+import { useR2UrlsBatch } from '../../hooks/storage/useR2Url';
 
 interface HeatMapFreezeModalProps {
   freezeModalOpen: boolean;
@@ -21,6 +22,9 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
   timestamp,
   onClose,
 }) => {
+  // Convert R2 URLs to signed URLs (handles public/private mode automatically)
+  const { urls: signedThumbnailUrls, loading } = useR2UrlsBatch(thumbnailUrls);
+  
   if (!freezeModalOpen || thumbnailUrls.length === 0) return null;
 
   return (
@@ -112,43 +116,55 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
 
         {/* 3 Images side by side */}
         <Box sx={{ display: 'flex', flex: 1, gap: 1, p: 1 }}>
-          {thumbnailUrls.map((imageUrl: string, index: number) => {
-            const diff = freezeDiffs[index];
-            const frameLabels = ['Frame -2', 'Frame -1', 'Current'];
+          {loading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+              <Typography sx={{ color: 'white' }}>Loading images...</Typography>
+            </Box>
+          ) : (
+            signedThumbnailUrls.map((imageUrl: string | null, index: number) => {
+              const diff = freezeDiffs[index];
+              const frameLabels = ['Frame -2', 'Frame -1', 'Current'];
 
-            return (
-              <Box
-                key={index}
-                sx={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                <Typography
-                  variant="caption"
+              return (
+                <Box
+                  key={index}
                   sx={{
-                    color: 'white',
-                    textAlign: 'center',
-                    p: 0.5,
-                    bgcolor: 'rgba(0,0,0,0.7)',
-                    fontSize: '0.75rem',
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
-                  {frameLabels[index]} - Diff ({diff !== undefined ? diff.toFixed(1) : 'N/A'})
-                </Typography>
-                <img
-                  src={imageUrl}
-                  alt={`Frame ${index}`}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                  }}
-                />
-              </Box>
-            );
-          })}
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'white',
+                      textAlign: 'center',
+                      p: 0.5,
+                      bgcolor: 'rgba(0,0,0,0.7)',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {frameLabels[index]} - Diff ({diff !== undefined ? diff.toFixed(1) : 'N/A'})
+                  </Typography>
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={`Frame ${index}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  ) : (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, bgcolor: 'rgba(255,255,255,0.1)' }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.5)' }}>Image unavailable</Typography>
+                    </Box>
+                  )}
+                </Box>
+              );
+            })
+          )}
         </Box>
       </Box>
     </Modal>

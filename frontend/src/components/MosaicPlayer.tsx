@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 
 import { TimelineItem } from '../hooks/useHeatmap';
+import { useR2Url } from '../hooks/storage/useR2Url';
 
 // Add type alias for filter
 type FilterType = 'ALL' | 'OK' | 'KO';
@@ -59,7 +60,10 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   }>>([]);
   
   const currentItem = timeline[currentIndex];
-  const mosaicSrc = getMosaicUrl ? getMosaicUrl(currentItem, filter) : currentItem?.mosaicUrl || '';
+  const mosaicSrcOriginal = getMosaicUrl ? getMosaicUrl(currentItem, filter) : currentItem?.mosaicUrl || '';
+  
+  // Convert R2 URL to signed URL (handles public/private mode automatically)
+  const { url: mosaicSrc } = useR2Url(mosaicSrcOriginal || null);
   
   // Reset loading state when filter or index changes
   useEffect(() => {

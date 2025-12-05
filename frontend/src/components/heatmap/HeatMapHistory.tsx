@@ -18,6 +18,7 @@ import {
 import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { getR2Url, extractR2Path, isCloudflareR2Url } from '../../utils/infrastructure/cloudflareUtils';
 
 interface HeatmapReport {
   id: string;
@@ -76,6 +77,27 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
       console.error('[@component:HeatMapHistory] Error fetching reports:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Open R2 URL with automatic signed URL generation (handles both public and private modes)
+  const handleOpenR2Url = async (url: string) => {
+    try {
+      // Extract path from full URL if needed (database stores full public URLs)
+      let path = url;
+      if (isCloudflareR2Url(url)) {
+        const extracted = extractR2Path(url);
+        if (extracted) {
+          path = extracted;
+        }
+      }
+      
+      // getR2Url handles both public and private modes automatically
+      const signedUrl = await getR2Url(path);
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('[@HeatMapHistory] Failed to open R2 URL:', error);
+      setError('Failed to open file. Please try again.');
     }
   };
 
@@ -270,9 +292,7 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
                   <TableCell align="center">
                     <IconButton
                       size="small"
-                      href={report.html_r2_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      onClick={() => handleOpenR2Url(report.html_r2_url)}
                       disabled={!report.html_r2_url}
                     >
                       <OpenInNew fontSize="small" />

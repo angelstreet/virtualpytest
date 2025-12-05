@@ -43,7 +43,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
     if (r2ScreenshotUrl.includes('X-Amz-Signature')) {
       return r2ScreenshotUrl;
     } else {
-      return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
+    return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
     }
   }, [r2ScreenshotUrl, data.screenshot_timestamp, imageKey]);
 

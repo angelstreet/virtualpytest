@@ -404,6 +404,89 @@ or
 
 ---
 
+## 📄 Test Reports & Logs
+
+Reports and logs are also stored in R2 and automatically work with both public and private modes.
+
+### How It Works
+
+1. **Backend Uploads** (`report_utils.py`):
+   - Uploads HTML reports to R2
+   - Uploads execution logs to R2
+   - Returns URL or path (depending on mode)
+
+2. **Database Storage**:
+   - Stores the URL/path in `html_report_r2_url`
+   - Same field works for both modes
+
+3. **Frontend Display** (`TestReports.tsx`, `RunTests.tsx`):
+   - User clicks "View Report" or "Logs"
+   - Frontend calls `handleOpenR2Url(url)`
+   - Automatically generates signed URL if private mode
+   - Opens in new browser tab
+
+### Example Flow (Private Mode)
+
+```typescript
+// User clicks "View Report"
+onClick={() => handleOpenR2Url(result.html_report_r2_url)}
+
+// handleOpenR2Url implementation:
+const handleOpenR2Url = async (url: string) => {
+  // Extract path from full public URL stored in database
+  let path = url;
+  if (isCloudflareR2Url(url)) {
+    const extracted = extractR2Path(url);
+    if (extracted) path = extracted;
+  }
+  
+  // getR2Url detects mode and generates signed URL if needed
+  const signedUrl = await getR2Url(path);  
+  window.open(signedUrl, '_blank');
+};
+```
+
+**Database stores full public URLs** (backward compatible):
+- Old reports: `https://pub-xxx.r2.dev/script-reports/...` ✅ Works
+- New reports (private mode): `script-reports/...` ✅ Works
+- Path extraction handles both formats automatically
+
+**No data migration needed** - existing reports continue to work! 🎉
+
+### Files Updated for Report/Log Links
+
+All pages that display R2 report/log URLs have been updated:
+
+**Reports & Logs:**
+✅ **TestReports.tsx** - Script execution reports
+✅ **RunTests.tsx** - Execution history table  
+✅ **CampaignResultsList.tsx** - Campaign execution reports
+✅ **HeatMapHistory.tsx** - Heatmap reports
+
+**Screenshots & Images:**
+✅ **Navigation_NavigationNode.tsx** - Node screenshots  
+✅ **Navigation_ActionNode.tsx** - Action screenshots
+✅ **NodeVerificationModal.tsx** - AI verification screenshots
+✅ **AIGenerationModal.tsx** - AI exploration screenshots
+✅ **HeatMapFreezeModal.tsx** - Freeze detection thumbnails (uses `useR2UrlsBatch`)
+✅ **MosaicPlayer.tsx** - Heatmap mosaic images (uses `useR2Url`)
+✅ **R2Image.tsx** - Reusable image component
+
+All use the same pattern:
+```typescript
+const handleOpenR2Url = async (url: string) => {
+  let path = url;
+  if (isCloudflareR2Url(url)) {
+    const extracted = extractR2Path(url);
+    if (extracted) path = extracted;
+  }
+  const signedUrl = await getR2Url(path);
+  window.open(signedUrl, '_blank');
+};
+```
+
+---
+
 ## 📚 API Reference
 
 ### Backend API

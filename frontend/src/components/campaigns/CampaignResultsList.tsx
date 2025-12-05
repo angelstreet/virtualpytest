@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { useCampaignResults, CampaignResult } from '../../hooks/pages/useCampaignResults';
 import { formatToLocalTime } from '../../utils/dateUtils';
+import { getR2Url, extractR2Path, isCloudflareR2Url } from '../../utils/infrastructure/cloudflareUtils';
 
 export interface CampaignResultsListProps {
   onDiscardToggle?: (resultId: string, discardValue: boolean) => Promise<void>;
@@ -115,6 +116,27 @@ export const CampaignResultsList: React.FC<CampaignResultsListProps> = ({
     const minutes = Math.floor(ms / 60000);
     const seconds = ((ms % 60000) / 1000).toFixed(1);
     return `${minutes}m ${seconds}s`;
+  };
+
+  // Open R2 URL with automatic signed URL generation (handles both public and private modes)
+  const handleOpenR2Url = async (url: string) => {
+    try {
+      // Extract path from full URL if needed (database stores full public URLs)
+      let path = url;
+      if (isCloudflareR2Url(url)) {
+        const extracted = extractR2Path(url);
+        if (extracted) {
+          path = extracted;
+        }
+      }
+      
+      // getR2Url handles both public and private modes automatically
+      const signedUrl = await getR2Url(path);
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('[@CampaignResultsList] Failed to open R2 URL:', error);
+      setError('Failed to open file. Please try again.');
+    }
   };
 
   // Handle row expansion
@@ -317,7 +339,7 @@ export const CampaignResultsList: React.FC<CampaignResultsListProps> = ({
                       {result.html_report_r2_url && (
                         <IconButton
                           size="small"
-                          onClick={() => window.open(result.html_report_r2_url!, '_blank')}
+                          onClick={() => handleOpenR2Url(result.html_report_r2_url!)}
                           sx={{ flexShrink: 0, color: 'primary.main' }}
                         >
                           <LinkIcon fontSize="small" />
@@ -396,7 +418,7 @@ export const CampaignResultsList: React.FC<CampaignResultsListProps> = ({
                               {script.html_report_r2_url && (
                                 <IconButton
                                   size="small"
-                                  onClick={() => window.open(script.html_report_r2_url!, '_blank')}
+                                  onClick={() => handleOpenR2Url(script.html_report_r2_url!)}
                                   sx={{ ml: 'auto', flexShrink: 0, color: 'primary.main' }}
                                 >
                                   <LinkIcon fontSize="small" />
