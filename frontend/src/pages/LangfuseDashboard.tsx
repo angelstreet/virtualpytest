@@ -1,57 +1,52 @@
-import { Box, IconButton, Tooltip, Typography, Alert, Button } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography, Alert, Button, useTheme } from '@mui/material';
 import { OpenInNew, Insights as LangfuseIcon } from '@mui/icons-material';
 import React from 'react';
 
 const LangfuseDashboard: React.FC = () => {
-  // Get Langfuse URL from environment variable
-  const langfuseUrl = (import.meta as any).env?.VITE_LANGFUSE_URL || 'http://localhost:3001';
-  const langfuseEnabled = (import.meta as any).env?.VITE_LANGFUSE_ENABLED === 'true';
+  const theme = useTheme();
+  // Get Langfuse URL from environment variable - if set, Langfuse is enabled
+  const langfuseUrl = (import.meta as any).env?.VITE_LANGFUSE_URL;
+  const langfuseEnabled = !!langfuseUrl;
+
+  const codeBlockStyle = {
+    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    padding: 8,
+    borderRadius: 4,
+    marginTop: 4,
+    fontSize: 12,
+  };
 
   if (!langfuseEnabled) {
     return (
       <Box sx={{ 
-        height: '100vh', 
+        height: '100%', 
         display: 'flex', 
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 3,
-        p: 4,
+        gap: 2,
+        p: 2,
       }}>
-        <LangfuseIcon sx={{ fontSize: 80, color: 'text.secondary' }} />
-        <Typography variant="h4" gutterBottom>
+        <LangfuseIcon sx={{ fontSize: 64, color: 'text.secondary' }} />
+        <Typography variant="h4">
           Langfuse LLM Observability
         </Typography>
         <Alert severity="info" sx={{ maxWidth: 600 }}>
           <Typography variant="body1" gutterBottom>
             Langfuse is not enabled. To enable LLM observability:
           </Typography>
-          <ol style={{ margin: '8px 0', paddingLeft: 20 }}>
+          <ol style={{ margin: '4px 0', paddingLeft: 20 }}>
             <li>Run the install script: <code>./scripts/langfuse_install.sh</code></li>
             <li>Add to <code>backend_server/.env</code>:
-              <pre style={{ 
-                background: '#f5f5f5', 
-                padding: 8, 
-                borderRadius: 4,
-                marginTop: 4,
-                fontSize: 12,
-              }}>
-{`LANGFUSE_ENABLED=true
-LANGFUSE_HOST=http://localhost:3001
+              <pre style={codeBlockStyle}>
+{`LANGFUSE_HOST=http://localhost:3001
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...`}
               </pre>
             </li>
             <li>Add to <code>frontend/.env</code>:
-              <pre style={{ 
-                background: '#f5f5f5', 
-                padding: 8, 
-                borderRadius: 4,
-                marginTop: 4,
-                fontSize: 12,
-              }}>
-{`VITE_LANGFUSE_ENABLED=true
-VITE_LANGFUSE_URL=http://localhost:3001`}
+              <pre style={codeBlockStyle}>
+{`VITE_LANGFUSE_URL=http://localhost:3001`}
               </pre>
             </li>
             <li>Restart services</li>
@@ -59,8 +54,7 @@ VITE_LANGFUSE_URL=http://localhost:3001`}
         </Alert>
         <Button 
           variant="outlined" 
-          href="/docs/ai agent/langfuse_integration"
-          sx={{ mt: 2 }}
+          href="/docs/ai%20agent/langfuse_integration"
         >
           View Documentation
         </Button>

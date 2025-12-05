@@ -93,6 +93,10 @@ services:
       - NEXTAUTH_URL=http://localhost:${LANGFUSE_PORT}
       - TELEMETRY_ENABLED=false
       - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=false
+      # Allow iframe embedding for local development
+      - NEXT_PUBLIC_ENABLE_EXPERIMENTAL_FEATURES=false
+      # Configure CSP to allow embedding from localhost
+      - CSP_ALLOW_IFRAME_SELF=true
     depends_on:
       langfuse-db:
         condition: service_healthy
@@ -116,6 +120,7 @@ services:
       retries: 5
     networks:
       - langfuse-network
+
 
 volumes:
   langfuse-postgres-data:
