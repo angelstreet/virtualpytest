@@ -21,9 +21,38 @@ MAX_TOKENS = 8192
 LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "")
 LANGFUSE_ENABLED = bool(LANGFUSE_HOST)  # Auto-enable if host is set
 
-# Get API key from environment
-def get_anthropic_api_key() -> str:
-    """Get Anthropic API key from environment"""
+# In-memory API key storage (per-user/session)
+# Format: { 'user_id' or 'session_id': 'api_key' }
+_user_api_keys: Dict[str, str] = {}
+
+def set_user_api_key(identifier: str, api_key: str) -> None:
+    """Store API key for a user/session"""
+    _user_api_keys[identifier] = api_key
+
+def get_user_api_key(identifier: str) -> str | None:
+    """Get API key for a user/session"""
+    return _user_api_keys.get(identifier)
+
+def get_anthropic_api_key(identifier: str | None = None) -> str:
+    """
+    Get Anthropic API key from user storage or environment
+    
+    Args:
+        identifier: User ID or session ID to retrieve user-specific key
+        
+    Returns:
+        API key string
+        
+    Raises:
+        ValueError: If no API key is found
+    """
+    # First check user-specific key
+    if identifier:
+        user_key = get_user_api_key(identifier)
+        if user_key:
+            return user_key
+    
+    # Fall back to environment variable
     key = os.getenv('ANTHROPIC_API_KEY')
     if not key:
         raise ValueError("ANTHROPIC_API_KEY not set in environment")

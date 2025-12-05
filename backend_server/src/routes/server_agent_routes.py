@@ -58,14 +58,21 @@ _manager = None
 _session_manager = None
 
 
-def get_manager():
-    """Get or create QA Manager instance (lazy load)"""
-    global _manager
-    if _manager is None:
-        from agent.core.manager import QAManagerAgent
-        logger.info("Initializing QA Manager agent...")
-        _manager = QAManagerAgent()
-    return _manager
+def get_manager(team_id: str = None):
+    """
+    Get or create QA Manager instance (lazy load)
+    
+    Args:
+        team_id: Team/user identifier for API key retrieval
+        
+    Returns:
+        QAManagerAgent instance
+    """
+    # Always create a new manager with the team_id to ensure correct API key
+    # (In-memory storage means we can't cache the manager globally)
+    from agent.core.manager import QAManagerAgent
+    logger.info(f"Initializing QA Manager agent for team: {team_id or 'default'}...")
+    return QAManagerAgent(user_identifier=team_id)
 
 
 def get_session_manager():
@@ -84,8 +91,16 @@ def get_session_manager():
 @server_agent_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check - returns API key configuration status"""
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    api_key_configured = bool(api_key and len(api_key) > 10)
+    team_id = request.args.get('team_id')
+    
+    # Check for API key in environment OR user storage
+    env_api_key = os.getenv('ANTHROPIC_API_KEY')
+    user_api_key = None
+    if team_id:
+        from agent.config import get_user_api_key
+        user_api_key = get_user_api_key(team_id)
+    
+    api_key_configured = bool(env_api_key and len(env_api_key) > 10) or bool(user_api_key)
     
     return jsonify({
         "success": True,
@@ -93,6 +108,69 @@ def health_check():
         "api_key_configured": api_key_configured,
         "manager_initialized": _manager is not None,
     })
+
+
+@server_agent_bp.route('/api-key', methods=['POST'])
+def save_api_key():
+    """
+    Save and validate user's Anthropic API key
+    
+    Body: { "api_key": "sk-ant-...", "team_id": "..." }
+    """
+    data = request.get_json() or {}
+    api_key = data.get('api_key', '').strip()
+    team_id = data.get('team_id') or request.args.get('team_id')
+    
+    if not api_key:
+        return jsonify({
+            "success": False,
+            "error": "API key required"
+        }), 400
+    
+    if not api_key.startswith('sk-ant-'):
+        return jsonify({
+            "success": False,
+            "error": "Invalid API key format. Must start with 'sk-ant-'"
+        }), 400
+    
+    if not team_id:
+        return jsonify({
+            "success": False,
+            "error": "team_id required"
+        }), 400
+    
+    # Validate the API key by making a test request
+    try:
+        import anthropic
+        test_client = anthropic.Anthropic(api_key=api_key)
+        # Simple test - list available models or make a minimal request
+        # Using a very small token limit to minimize cost
+        test_response = test_client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Hi"}]
+        )
+        
+        # If we got here, the key is valid
+        from agent.config import set_user_api_key
+        set_user_api_key(team_id, api_key)
+        
+        return jsonify({
+            "success": True,
+            "message": "API key validated and saved successfully"
+        })
+        
+    except anthropic.AuthenticationError:
+        return jsonify({
+            "success": False,
+            "error": "Invalid API key - authentication failed"
+        }), 401
+    except Exception as e:
+        logger.error(f"API key validation error: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Validation error: {str(e)}"
+        }), 500
 
 
 @server_agent_bp.route('/sessions', methods=['POST'])
@@ -235,10 +313,11 @@ def register_agent_socketio_handlers(socketio):
         """
         Handle user message
         
-        Data: { "session_id": "...", "message": "..." }
+        Data: { "session_id": "...", "message": "...", "team_id": "..." }
         """
         session_id = data.get('session_id')
         message = data.get('message')
+        team_id = data.get('team_id')
         
         if not session_id or not message:
             socketio.emit('error', {
@@ -247,7 +326,7 @@ def register_agent_socketio_handlers(socketio):
             return
         
         # Log user message
-        log_agent_event('USER_MESSAGE', session_id, {'message': message})
+        log_agent_event('USER_MESSAGE', session_id, {'message': message, 'team_id': team_id})
         
         session_mgr = get_session_manager()
         session = session_mgr.get_session(session_id)
@@ -258,7 +337,11 @@ def register_agent_socketio_handlers(socketio):
             }, namespace='/agent')
             return
         
-        manager = get_manager()
+        # Store team_id in session context for API key retrieval
+        if team_id:
+            session.set_context('team_id', team_id)
+        
+        manager = get_manager(team_id=team_id)
         
         async def process_and_stream():
             try:

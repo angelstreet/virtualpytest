@@ -93,9 +93,23 @@ Detect the mode from user messages:
 
 Be efficient. The user wants results."""
 
-    def __init__(self):
+    def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None):
+        """
+        Initialize QA Manager
+        
+        Args:
+            api_key: Optional API key to use (overrides environment)
+            user_identifier: Optional user/session identifier for retrieving stored API key
+        """
         self.logger = logging.getLogger(__name__)
-        self.client = anthropic.Anthropic(api_key=get_anthropic_api_key())
+        
+        # Get API key - prioritize passed key, then user storage, then environment
+        if api_key:
+            final_key = api_key
+        else:
+            final_key = get_anthropic_api_key(identifier=user_identifier)
+        
+        self.client = anthropic.Anthropic(api_key=final_key)
         self.tool_bridge = ToolBridge()
         
         # Initialize specialist agents

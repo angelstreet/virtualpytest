@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { buildServerUrl, getServerBaseUrl } from '../../utils/buildUrlUtils';
+import { APP_CONFIG } from '../../config/constants';
 
 // --- Constants ---
 
@@ -316,17 +317,40 @@ export const useAgentChat = () => {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const response = await fetch(buildServerUrl('/server/agent/health'));
+        const teamId = APP_CONFIG.DEFAULT_TEAM_ID;
+        
+        const response = await fetch(buildServerUrl(`/server/agent/health?team_id=${teamId}`));
         const data = await response.json();
         
         if (data.api_key_configured) {
           setStatus('ready');
           initializeSession();
         } else {
+          // Check if we have a saved key in localStorage
           const savedKey = localStorage.getItem(STORAGE_KEY_API);
           if (savedKey) {
-            setStatus('ready');
-            initializeSession();
+            // Send the saved key to backend
+            try {
+              const saveResponse = await fetch(buildServerUrl('/server/agent/api-key'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  api_key: savedKey,
+                  team_id: teamId
+                })
+              });
+              
+              const saveData = await saveResponse.json();
+              if (saveData.success) {
+                setStatus('ready');
+                initializeSession();
+              } else {
+                setStatus('needs_key');
+              }
+            } catch (err) {
+              console.error('Failed to restore saved API key:', err);
+              setStatus('needs_key');
+            }
           } else {
             setStatus('needs_key');
           }
@@ -342,18 +366,45 @@ export const useAgentChat = () => {
 
   // --- Actions ---
 
-  const saveApiKey = useCallback(() => {
+  const saveApiKey = useCallback(async (teamId?: string) => {
     if (!apiKeyInput.trim().startsWith('sk-ant-')) {
       setError('Invalid Key');
       return;
     }
+    
     setIsValidating(true);
-    localStorage.setItem(STORAGE_KEY_API, apiKeyInput.trim());
-    setTimeout(() => {
-      setStatus('ready');
+    setError(null);
+    
+    try {
+      const effectiveTeamId = teamId || APP_CONFIG.DEFAULT_TEAM_ID;
+      
+      // Save to backend for validation
+      const response = await fetch(buildServerUrl('/server/agent/api-key'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          api_key: apiKeyInput.trim(),
+          team_id: effectiveTeamId
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Also save to localStorage for persistence
+        localStorage.setItem(STORAGE_KEY_API, apiKeyInput.trim());
+        setStatus('ready');
+        setIsValidating(false);
+        initializeSession();
+      } else {
+        setError(data.error || 'Failed to validate API key');
+        setIsValidating(false);
+      }
+    } catch (err) {
+      console.error('Failed to save API key:', err);
+      setError('Failed to save API key - check server connection');
       setIsValidating(false);
-      initializeSession();
-    }, 1000);
+    }
   }, [apiKeyInput, initializeSession]);
 
   const sendMessage = useCallback(() => {
@@ -416,6 +467,7 @@ export const useAgentChat = () => {
     socketRef.current?.emit('send_message', {
       session_id: session?.id,
       message: input.trim(),
+      team_id: APP_CONFIG.DEFAULT_TEAM_ID,
     });
   }, [input, isProcessing, session?.id, activeConversationId]);
 

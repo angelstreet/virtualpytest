@@ -83,113 +83,99 @@ LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
 Add to `frontend/.env`:
 
 ```bash
-# Langfuse Dashboard URL for iframe embedding
+# Local development - Direct access to Langfuse
 VITE_LANGFUSE_URL=http://localhost:3001
+
+# Production/Remote - Use SSL proxy on port 3002 (see Production Deployment section)
+# VITE_LANGFUSE_URL=https://yourdomain.com:3002
 ```
 
-### CORS & Iframe Configuration
+### Access Method
 
-Langfuse is embedded in the frontend as an iframe. This requires proper CORS and Content Security Policy configuration.
+**Langfuse opens in a new browser tab** (not embedded as iframe) to avoid CORS and path issues.
 
-#### Local Development
+#### How It Works
 
-The system automatically configures CORS for local development:
+1. Click "Langfuse" in navigation menu
+2. Opens in new tab at configured URL
+3. No CORS configuration needed
+4. No iframe embedding issues
 
-**Docker Compose** (`~/.langfuse/docker-compose.yml`):
-- Langfuse runs on `localhost:3001`
-- CSP allows iframe embedding from `localhost:5073` (frontend)
+**Local Development:**
+- Opens `http://localhost:3001` directly
 
-**Nginx** (`backend_server/config/nginx/local.conf`):
+**Production/Remote:**
+- Opens `https://yourdomain.com:3002` via nginx SSL proxy
+
+#### Production/Remote Deployment
+
+**Problem:** Langfuse is a Next.js app that doesn't work well on subpaths like `/langfuse/`. When served at `https://yourdomain.com/langfuse/`, it generates broken asset URLs.
+
+**Solution:** Expose Langfuse on a separate HTTPS port using nginx as an SSL proxy.
+
+**Step 1: Add nginx SSL proxy on port 3002**
+
+Add this to your nginx config (e.g., `/etc/nginx/sites-enabled/default`):
+
 ```nginx
-location /langfuse/ {
-    # ... proxy settings ...
+# Langfuse SSL Proxy - Serves Langfuse at root path with HTTPS
+server {
+    listen 3002 ssl;
+    server_name yourdomain.com;
     
-    # Allow iframe embedding for local development
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header Content-Security-Policy "frame-ancestors 'self' http://localhost:5073" always;
-}
-```
-
-**Frontend** (`vite.config.ts`):
-```typescript
-cors: {
-  origin: true,
-  credentials: true,
-}
-```
-
-#### Production Deployment
-
-For production, configure allowed domains in nginx:
-
-**Nginx** (`backend_server/config/nginx/*.conf`):
-```nginx
-location /langfuse/ {
-    # ... proxy settings ...
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
     
-    # Allow iframe embedding from production domains
-    add_header X-Frame-Options "ALLOW-FROM https://www.virtualpytest.com" always;
-    add_header Content-Security-Policy "frame-ancestors 'self' https://www.virtualpytest.com https://virtualpytest.com https://virtualpytest.vercel.app" always;
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 }
 ```
 
-After updating nginx config:
-```bash
-# Test configuration
-sudo nginx -t
+**Step 2: Open firewall**
 
-# Reload nginx (no downtime)
-sudo systemctl reload nginx
+```bash
+sudo ufw allow 3002/tcp
 ```
 
-#### Update Running Docker Container (Without Rebuild)
+**Step 3: Reload nginx**
 
-If Langfuse is already running and you need to update environment variables:
-
-**Method 1: Edit docker-compose.yml and restart**
 ```bash
-# Edit the compose file
-nano ~/.langfuse/docker-compose.yml
-
-# Add/modify environment variables under langfuse-server:
-#   environment:
-#     - CSP_ALLOW_IFRAME_SELF=true
-#     - NEXT_PUBLIC_ENABLE_EXPERIMENTAL_FEATURES=false
-
-# Restart container with new config
-cd ~/.langfuse
-docker compose down
-docker compose up -d
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**Method 2: Set environment variables directly (temporary)**
+**Step 4: Configure frontend**
+
+Update `frontend/.env`:
+
 ```bash
-# Stop container
-docker stop langfuse-web
+# Remote server
+VITE_LANGFUSE_URL=https://yourdomain.com:3002
 
-# Start with new environment variables
-docker start langfuse-web
-
-# Or use docker update (limited variables)
-docker update --env CSP_ALLOW_IFRAME_SELF=true langfuse-web
+# Local development (unchanged)
+# VITE_LANGFUSE_URL=http://localhost:3001
 ```
 
-**Method 3: Reinstall (clean slate)**
-```bash
-# Uninstall
-./scripts/langfuse_install.sh uninstall
+**Step 5: Rebuild frontend**
 
-# Reinstall (will have updated config)
-./scripts/langfuse_install.sh
+```bash
+cd frontend
+npm run build
+# Restart your frontend service
 ```
 
-**Key Points:**
-- `X-Frame-Options`: Controls which domains can embed Langfuse in iframes
-- `Content-Security-Policy frame-ancestors`: Modern alternative to X-Frame-Options
-- Add your domain to both directives
-- Use `SAMEORIGIN` for same-domain embedding
-- Use specific domains for cross-origin embedding
-- **CORS is primarily handled by nginx**, not Langfuse itself
+**Why this works:**
+- Langfuse runs on HTTP port 3001 internally
+- nginx on port 3002 adds SSL and proxies to Langfuse
+- Langfuse serves from root path `/` (not `/langfuse/`), so all asset URLs work
+- Users click "Langfuse" → Opens in new tab at `https://yourdomain.com:3002`
+
 
 ### Enable/Disable
 
@@ -267,45 +253,37 @@ echo $LANGFUSE_HOST
 3. Make an AI Agent request
 4. Wait 10-30 seconds for data to appear
 
-### Iframe Not Loading / CORS Errors
+### Langfuse Opens But Shows Broken Page / 404 Errors
 
-**Symptom:** Blank iframe or browser console shows CORS errors
+**Symptom:** Langfuse page loads but assets fail (404 errors for `/_next/static/...`)
 
-**Solution:**
+**Cause:** Langfuse was accessed via subpath (e.g., `/langfuse/`) instead of root path
 
-1. **Check browser console** (F12) for errors like:
-   - `Refused to frame because it set 'X-Frame-Options' to 'deny'`
-   - `Refused to frame because an ancestor violates CSP`
+**Solution:** Use dedicated port with SSL proxy (see Production Deployment section):
 
-2. **Verify nginx configuration:**
-   ```bash
-   # Check local config
-   grep -A 5 "location /langfuse" backend_server/config/nginx/local.conf
-   
-   # Should show X-Frame-Options and CSP headers
-   ```
+```bash
+# On remote server, access via port 3002 (not /langfuse/ subpath)
+VITE_LANGFUSE_URL=https://yourdomain.com:3002
+```
 
-3. **Restart nginx after config changes:**
-   ```bash
-   sudo systemctl restart nginx
-   # OR for docker
-   docker restart nginx
-   ```
+### SSL/HTTPS Errors on Remote Server
 
-4. **For local development**, ensure frontend runs on `localhost:5073`:
-   ```bash
-   # Frontend should be accessible at
-   http://localhost:5073/langfuse-dashboard
-   ```
+**Symptom:** `ERR_SSL_PROTOCOL_ERROR` when accessing `https://yourdomain.com:3001`
 
-5. **Check Langfuse is accessible directly:**
-   ```bash
-   curl -I http://localhost:3001
-   # Should return 200 OK
-   ```
+**Cause:** Port 3001 doesn't have SSL enabled
 
-6. **Browser security:** Some browsers block mixed content (HTTP iframe in HTTPS page)
-   - Solution: Use HTTPS for both or HTTP for both in local dev
+**Solution:** Use port 3002 with nginx SSL proxy (see Production Deployment):
+
+```nginx
+# nginx provides SSL on port 3002, proxies to HTTP port 3001
+server {
+    listen 3002 ssl;
+    # ...
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+    }
+}
+```
 
 ### Port Conflict
 
@@ -329,10 +307,11 @@ LANGFUSE_HOST=http://localhost:3002
 
 ## Security
 
-- Self-hosted: All data stays on your infrastructure
-- API keys: Store in `.env`, never commit to git
-- Network: Langfuse only needs outbound to your Anthropic calls
-- CORS: Restrict iframe embedding to trusted domains only
+- **Self-hosted**: All data stays on your infrastructure
+- **API keys**: Store in `.env`, never commit to git
+- **Network**: Langfuse only needs outbound to your LLM provider
+- **Firewall**: Only open port 3002 (SSL proxy), keep 3001 (Langfuse) internal
+- **SSL**: Always use HTTPS in production (port 3002 provides this)
 
 ## Quick Reference
 
@@ -360,15 +339,17 @@ LANGFUSE_HOST=http://localhost:3002
 | Environment | Langfuse URL | Frontend URL |
 |-------------|--------------|--------------|
 | Local Dev | `http://localhost:3001` | `http://localhost:5073/langfuse-dashboard` |
-| Production | `https://yourdomain.com/langfuse/` | `https://yourdomain.com/langfuse-dashboard` |
+| Production/Remote | `https://yourdomain.com:3002` | `https://yourdomain.com/langfuse-dashboard` |
+
+**Note:** Production uses port 3002 (nginx SSL proxy) instead of subpath `/langfuse/` to avoid Next.js path issues.
 
 ### Files to Configure
 
 | File | Purpose |
 |------|---------|
 | `backend_server/.env` | API keys, enable/disable |
-| `frontend/.env` | Dashboard URL for iframe |
-| `backend_server/config/nginx/*.conf` | CORS headers |
+| `frontend/.env` | Dashboard URL (opens in new tab) |
+| `/etc/nginx/sites-enabled/default` | SSL proxy on port 3002 (production only) |
 | `~/.langfuse/docker-compose.yml` | Docker configuration |
 
 ## Related
