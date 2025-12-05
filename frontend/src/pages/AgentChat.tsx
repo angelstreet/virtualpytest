@@ -44,9 +44,10 @@ import {
   Person as PersonIcon,
   Add as AddIcon,
   ChatBubbleOutline as ChatIcon,
-  ChevronLeft as CollapseLeftIcon,
-  ChevronRight as ExpandLeftIcon,
   Devices as DevicesIcon,
+  ViewSidebar as SidebarIcon,
+  Chat as ChatPanelIcon,
+  PhoneAndroid as DevicePanelIcon,
 } from '@mui/icons-material';
 import { useAgentChat, type AgentEvent, type Conversation } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
@@ -142,9 +143,10 @@ const AgentChat: React.FC = () => {
   const isDarkMode = theme.palette.mode === 'dark';
   const { profile } = useProfile();
   
-  // Layout state
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  // Layout state - each section can be shown/hidden
+  const [showHistory, setShowHistory] = useState(true);
+  const [showChat, setShowChat] = useState(true);
+  const [showDevice, setShowDevice] = useState(false);
   
   const {
     status,
@@ -249,11 +251,11 @@ const AgentChat: React.FC = () => {
   const renderLeftSidebar = () => (
     <Box
       sx={{
-        width: leftSidebarOpen ? SIDEBAR_WIDTH : 0,
-        minWidth: leftSidebarOpen ? SIDEBAR_WIDTH : 0,
+        width: showHistory ? SIDEBAR_WIDTH : 0,
+        minWidth: showHistory ? SIDEBAR_WIDTH : 0,
         height: '100%',
         bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
-        borderRight: leftSidebarOpen ? '1px solid' : 'none',
+        borderRight: showHistory ? '1px solid' : 'none',
         borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
         display: 'flex',
         flexDirection: 'column',
@@ -261,7 +263,7 @@ const AgentChat: React.FC = () => {
         transition: 'width 0.2s, min-width 0.2s',
       }}
     >
-      {leftSidebarOpen && (
+      {showHistory && (
         <>
           {/* New Chat Button */}
           <Box sx={{ p: 1.5, pb: 1 }}>
@@ -405,11 +407,11 @@ const AgentChat: React.FC = () => {
   const renderRightPanel = () => (
     <Box
       sx={{
-        width: rightPanelOpen ? RIGHT_PANEL_WIDTH : 0,
-        minWidth: rightPanelOpen ? RIGHT_PANEL_WIDTH : 0,
+        width: showDevice ? RIGHT_PANEL_WIDTH : 0,
+        minWidth: showDevice ? RIGHT_PANEL_WIDTH : 0,
         height: '100%',
         bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
-        borderLeft: rightPanelOpen ? '1px solid' : 'none',
+        borderLeft: showDevice ? '1px solid' : 'none',
         borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
         display: 'flex',
         flexDirection: 'column',
@@ -417,7 +419,7 @@ const AgentChat: React.FC = () => {
         transition: 'width 0.2s, min-width 0.2s',
       }}
     >
-      {rightPanelOpen && (
+      {showDevice && (
         <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <DevicesIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
@@ -461,7 +463,7 @@ const AgentChat: React.FC = () => {
       p: 4,
     }}>
       <Fade in timeout={800}>
-        <Box sx={{ textAlign: 'center', maxWidth: 560, width: '100%' }}>
+        <Box sx={{ textAlign: 'center', maxWidth: 640, width: '100%' }}>
           <Box sx={{ 
             display: 'inline-flex',
             alignItems: 'center',
@@ -574,7 +576,7 @@ const AgentChat: React.FC = () => {
           borderRadius: 3,
         },
       }}>
-        <Box sx={{ maxWidth: 720, width: '100%', mx: 'auto' }}>
+        <Box sx={{ width: '100%' }}>
           
           {status === 'needs_key' && (
             <Box sx={{ textAlign: 'center', mb: 2 }}>
@@ -609,7 +611,7 @@ const AgentChat: React.FC = () => {
                   gap: 1.5,
                   flexDirection: isUser ? 'row-reverse' : 'row',
                   alignSelf: isUser ? 'flex-end' : 'flex-start',
-                  maxWidth: '88%',
+                  maxWidth: '100%',
                   mb: 1
                 }}
               >
@@ -725,7 +727,7 @@ const AgentChat: React.FC = () => {
                 border: '1px solid',
                 borderColor: isDarkMode ? PALETTE.agentBorder : 'grey.200',
                 borderRadius: 2.5,
-                maxWidth: '90%',
+                maxWidth: '85%',
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: currentEvents.length > 0 ? 1.5 : 0 }}>
@@ -796,7 +798,7 @@ const AgentChat: React.FC = () => {
 
       {/* Input Area */}
       <Box sx={{ px: 3, py: 1.5, flexShrink: 0 }}>
-        <Box sx={{ maxWidth: 720, mx: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Paper
             elevation={0}
             sx={{
@@ -862,81 +864,147 @@ const AgentChat: React.FC = () => {
     </>
   );
 
+  // --- Section Toggle Button ---
+  const SectionToggle = ({ 
+    active, 
+    onClick, 
+    icon: Icon, 
+    tooltip 
+  }: { 
+    active: boolean; 
+    onClick: () => void; 
+    icon: React.ElementType; 
+    tooltip: string;
+  }) => (
+    <Tooltip title={tooltip}>
+      <IconButton
+        size="small"
+        onClick={onClick}
+        sx={{
+          width: 32,
+          height: 32,
+          borderRadius: 1.5,
+          bgcolor: active 
+            ? (isDarkMode ? PALETTE.surface : 'grey.200') 
+            : 'transparent',
+          color: active ? PALETTE.accent : 'text.disabled',
+          border: '1px solid',
+          borderColor: active 
+            ? (isDarkMode ? PALETTE.borderColor : 'grey.300')
+            : 'transparent',
+          transition: 'all 0.15s',
+          '&:hover': {
+            bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
+            color: active ? PALETTE.accent : 'text.secondary',
+          },
+        }}
+      >
+        <Icon sx={{ fontSize: 18 }} />
+      </IconButton>
+    </Tooltip>
+  );
+
   // --- Main Render ---
   return (
     <Box sx={{ 
       height: 'calc(100vh - 64px)', 
       display: 'flex', 
+      flexDirection: 'column',
       bgcolor: 'background.default',
       overflow: 'hidden',
     }}>
-      {/* Sidebar Toggle (when collapsed) */}
-      {!leftSidebarOpen && (
-        <Box sx={{ position: 'absolute', left: 8, top: 72, zIndex: 10 }}>
-          <Tooltip title="Show history">
-            <IconButton 
-              size="small" 
-              onClick={() => setLeftSidebarOpen(true)}
-              sx={{ 
-                bgcolor: isDarkMode ? PALETTE.surface : 'grey.100',
-                '&:hover': { bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.200' },
-              }}
-            >
-              <ExpandLeftIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
+      {/* Top Bar with Section Toggles */}
+      <Box sx={{ 
+        py: 0.5, 
+        px: 2, 
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottom: '1px solid',
+        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+        flexShrink: 0,
+        bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
+      }}>
+        {/* Left: Title */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <SparkleIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            QA Assistant
+          </Typography>
         </Box>
-      )}
+        
+        {/* Right: Section Toggles */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 0.5,
+          p: 0.5,
+          borderRadius: 2,
+          bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
+        }}>
+          <SectionToggle
+            active={showHistory}
+            onClick={() => setShowHistory(!showHistory)}
+            icon={SidebarIcon}
+            tooltip={showHistory ? "Hide history" : "Show history"}
+          />
+          <SectionToggle
+            active={showChat}
+            onClick={() => setShowChat(!showChat)}
+            icon={ChatPanelIcon}
+            tooltip={showChat ? "Hide chat" : "Show chat"}
+          />
+          <SectionToggle
+            active={showDevice}
+            onClick={() => setShowDevice(!showDevice)}
+            icon={DevicePanelIcon}
+            tooltip={showDevice ? "Hide device" : "Show device"}
+          />
+        </Box>
+      </Box>
 
-      {/* Left Sidebar */}
-      {renderLeftSidebar()}
-
-      {/* Center - Main Chat */}
+      {/* Main Content Area */}
       <Box sx={{ 
         flex: 1, 
         display: 'flex', 
-        flexDirection: 'column',
-        minWidth: 0,
-        position: 'relative',
+        overflow: 'hidden',
       }}>
-        {/* Header with toggle buttons */}
-        <Box sx={{ 
-          py: 0.75, 
-          px: 2, 
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid',
-          borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
-          flexShrink: 0,
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {leftSidebarOpen && (
-              <Tooltip title="Hide history">
-                <IconButton size="small" onClick={() => setLeftSidebarOpen(false)}>
-                  <CollapseLeftIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            <SparkleIcon sx={{ fontSize: 16, color: PALETTE.accent, opacity: 0.8 }} />
-            <Typography variant="caption" sx={{ color: PALETTE.accent, fontWeight: 500, letterSpacing: '0.5px', opacity: 0.9 }}>
-              Agentic AI
-            </Typography>
+        {/* Left Sidebar */}
+        {renderLeftSidebar()}
+
+        {/* Center - Main Chat */}
+        {showChat && (
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            minWidth: 0,
+          }}>
+            {status === 'ready' && messages.length === 0 ? renderEmptyState() : renderChatContent()}
           </Box>
-          
-          <Tooltip title={rightPanelOpen ? "Hide device panel" : "Show device panel"}>
-            <IconButton size="small" onClick={() => setRightPanelOpen(!rightPanelOpen)}>
-              <DevicesIcon sx={{ fontSize: 18, color: rightPanelOpen ? PALETTE.accent : 'text.secondary' }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        )}
 
-        {/* Chat Content */}
-        {status === 'ready' && messages.length === 0 ? renderEmptyState() : renderChatContent()}
+        {/* Empty state when chat is hidden */}
+        {!showChat && (
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            color: 'text.disabled',
+          }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <ChatPanelIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
+              <Typography variant="body2" color="text.disabled">
+                Chat panel hidden
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
+        {/* Right Panel */}
+        {renderRightPanel()}
       </Box>
-
-      {/* Right Panel */}
-      {renderRightPanel()}
     </Box>
   );
 };
