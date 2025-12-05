@@ -202,22 +202,7 @@ const NavigationBar: React.FC = () => {
       label: 'Models',
       path: '/configuration/models',
       icon: <ModelIcon fontSize="small" />,
-    },
-    {
-      label: 'Remote Test',
-      path: '/remote-test',
-      icon: <TestingIcon fontSize="small" />,
-    },
-    {
-      label: 'OpenRouter Debug',
-      path: '/configuration/openrouter',
-      icon: <AIIcon fontSize="small" />,
-    },
-    {
-      label: 'Settings',
-      path: '/configuration/settings',
-      icon: <SettingsIcon fontSize="small" />,
-    },
+    }
   ];
 
   return (
