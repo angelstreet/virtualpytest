@@ -47,6 +47,8 @@ integrations/README.md
 security/README.md
 screenshots/README.md
 videos/README.md
+ai agent/ai_agentic.md
+ai agent/langfuse_integration.md
 EOF
 
 echo -e "${YELLOW}→${NC} Following markdown links recursively"
@@ -166,10 +168,11 @@ const SECTION_META = {
   'integrations': { icon: '🔌', title: 'Integrations', order: 5 },
   'faq': { icon: '❓', title: 'FAQ', order: 6 },
   'technical': { icon: '🔧', title: 'Technical Docs', order: 7 },
-  'security': { icon: '🔐', title: 'Security', order: 8 },
-  'api': { icon: '📡', title: 'API Reference', order: 9 },
-  'screenshots': { icon: '📸', title: 'Screenshots', order: 10 },
-  'videos': { icon: '🎬', title: 'Videos', order: 11 },
+  'ai agent': { icon: '🤖', title: 'AI Agent', order: 8 },
+  'security': { icon: '🔐', title: 'Security', order: 9 },
+  'api': { icon: '📡', title: 'API Reference', order: 10 },
+  'screenshots': { icon: '📸', title: 'Screenshots', order: 11 },
+  'videos': { icon: '🎬', title: 'Videos', order: 12 },
 };
 
 // Subsection metadata for technical docs

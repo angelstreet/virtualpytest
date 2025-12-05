@@ -23,6 +23,7 @@ import {
   PhotoLibrary as ScreenshotsIcon, // For Screenshots
   VideoLibrary as VideosIcon, // For Videos
   RocketLaunch as AgentIcon, // For AI Agent
+  Insights as LangfuseIcon, // For Langfuse LLM Observability
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -182,6 +183,11 @@ const NavigationBar: React.FC = () => {
       label: 'Grafana',
       path: '/grafana-dashboard',
       icon: <DashboardIcon fontSize="small" />,
+    },
+    {
+      label: 'Langfuse',
+      path: '/langfuse-dashboard',
+      icon: <LangfuseIcon fontSize="small" />,
     },
     {
       label: 'Postman',

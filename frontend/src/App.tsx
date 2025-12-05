@@ -31,6 +31,7 @@ const Requirements = React.lazy(() => import('./pages/Requirements'));
 const Coverage = React.lazy(() => import('./pages/Coverage'));
 const Models = React.lazy(() => import('./pages/Models'));
 const GrafanaDashboard = React.lazy(() => import('./pages/GrafanaDashboard'));
+const LangfuseDashboard = React.lazy(() => import('./pages/LangfuseDashboard'));
 const RunTests = React.lazy(() => import('./pages/RunTests'));
 const RunCampaigns = React.lazy(() => import('./pages/RunCampaigns'));
 const CampaignBuilder = React.lazy(() => import('./pages/CampaignBuilder'));
@@ -303,6 +304,9 @@ const App: React.FC = () => {
 
                   {/* Grafana Dashboard Route */}
                   <Route path="/grafana-dashboard" element={<GrafanaDashboard />} />
+                  
+                  {/* Langfuse LLM Observability Dashboard */}
+                  <Route path="/langfuse-dashboard" element={<LangfuseDashboard />} />
                   
                   {/* Grafana Direct Access - Redirects to VITE_GRAFANA_URL */}
                   <Route path="/grafana/*" element={<GrafanaRedirect />} />

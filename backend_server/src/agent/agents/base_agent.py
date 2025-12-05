@@ -3,6 +3,7 @@ Base Agent Class
 
 Common functionality for all specialist agents.
 Uses Anthropic Prompt Caching to reduce token costs on repeated requests.
+Integrates with Langfuse for optional observability (enable via LANGFUSE_ENABLED=true).
 """
 
 import logging
@@ -12,7 +13,8 @@ from abc import ABC, abstractmethod
 
 import anthropic
 
-from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS
+from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, LANGFUSE_ENABLED
+from ..observability import track_generation, track_tool_call
 
 
 class BaseAgent(ABC):
@@ -135,6 +137,19 @@ class BaseAgent(ABC):
             elif cache_create > 0:
                 self.logger.info(f"[{self.name}] Cache CREATED: {cache_create} tokens cached for future requests")
             
+            # Track with Langfuse if enabled
+            if LANGFUSE_ENABLED:
+                session_id = context.get("session_id") if context else None
+                user_id = context.get("user_id") if context else None
+                track_generation(
+                    agent_name=self.name,
+                    model=DEFAULT_MODEL,
+                    messages=messages,
+                    response=response,
+                    session_id=session_id,
+                    user_id=user_id,
+                )
+            
             # Process response
             assistant_content = []
             tool_calls = []
@@ -206,8 +221,32 @@ class BaseAgent(ABC):
                         "content": str(result),
                     })
                     
+                    # Track tool call with Langfuse
+                    if LANGFUSE_ENABLED:
+                        session_id = context.get("session_id") if context else None
+                        track_tool_call(
+                            agent_name=self.name,
+                            tool_name=tool_call.name,
+                            tool_input=tool_call.input,
+                            tool_output=result,
+                            success=True,
+                            session_id=session_id,
+                        )
+                    
                 except Exception as e:
                     self.logger.error(f"Tool {tool_call.name} failed: {e}")
+                    
+                    # Track failed tool call with Langfuse
+                    if LANGFUSE_ENABLED:
+                        session_id = context.get("session_id") if context else None
+                        track_tool_call(
+                            agent_name=self.name,
+                            tool_name=tool_call.name,
+                            tool_input=tool_call.input,
+                            tool_output=str(e),
+                            success=False,
+                            session_id=session_id,
+                        )
                     
                     yield {
                         "type": "tool_result",
