@@ -177,6 +177,9 @@ const NavigationBar: React.FC = () => {
     },
   ];
 
+  // Get Langfuse URL from environment - if set, redirect externally to avoid CORS
+  const langfuseUrl = (import.meta as any).env?.VITE_LANGFUSE_URL;
+
   // Third-party Integrations menu items
   const integrationsItems = [
     {
@@ -184,11 +187,20 @@ const NavigationBar: React.FC = () => {
       path: '/grafana-dashboard',
       icon: <DashboardIcon fontSize="small" />,
     },
-    {
-      label: 'Langfuse',
-      path: '/langfuse-dashboard',
-      icon: <LangfuseIcon fontSize="small" />,
-    },
+    // Langfuse: if URL is configured, open externally; otherwise show config page
+    langfuseUrl
+      ? {
+          label: 'Langfuse',
+          path: '/langfuse-dashboard', // Required for type but not used for external
+          href: langfuseUrl,
+          external: true,
+          icon: <LangfuseIcon fontSize="small" />,
+        }
+      : {
+          label: 'Langfuse',
+          path: '/langfuse-dashboard',
+          icon: <LangfuseIcon fontSize="small" />,
+        },
     {
       label: 'Postman',
       path: '/api/workspaces',

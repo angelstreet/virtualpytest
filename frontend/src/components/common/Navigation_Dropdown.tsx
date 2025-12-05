@@ -1,9 +1,9 @@
-import { KeyboardArrowDown } from '@mui/icons-material';
+import { KeyboardArrowDown, OpenInNew } from '@mui/icons-material';
 import { Button, Menu, MenuItem, Box, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-import { NavigationDropdownProps } from '../../types/pages/Navigation_Types';
+import { NavigationDropdownProps, NavigationItem } from '../../types/pages/Navigation_Types';
 
 const NavigationDropdown: React.FC<NavigationDropdownProps> = ({ label, items }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -18,8 +18,61 @@ const NavigationDropdown: React.FC<NavigationDropdownProps> = ({ label, items })
     setAnchorEl(null);
   };
 
-  // Check if any of the dropdown items match the current path
-  const isDropdownActive = items.some((item) => location.pathname.startsWith(item.path));
+  const handleExternalClick = (href: string) => {
+    window.open(href, '_blank', 'noopener,noreferrer');
+    handleClose();
+  };
+
+  // Check if any of the dropdown items match the current path (only internal links)
+  const isDropdownActive = items.some((item) => !item.external && location.pathname.startsWith(item.path));
+
+  const renderMenuItem = (item: NavigationItem) => {
+    if (item.external && item.href) {
+      // External link - opens in new tab
+      return (
+        <MenuItem
+          key={item.href}
+          onClick={() => handleExternalClick(item.href!)}
+          sx={{
+            py: 1.5,
+            px: 2,
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1} width="100%">
+            {item.icon}
+            <Typography variant="body2" sx={{ flex: 1 }}>{item.label}</Typography>
+            <OpenInNew fontSize="small" sx={{ opacity: 0.5, ml: 1 }} />
+          </Box>
+        </MenuItem>
+      );
+    }
+
+    // Internal link - uses React Router
+    return (
+      <MenuItem
+        key={item.path}
+        component={Link}
+        to={item.path}
+        onClick={handleClose}
+        sx={{
+          py: 1.5,
+          px: 2,
+          backgroundColor: location.pathname === item.path ? 'action.selected' : 'transparent',
+          '&:hover': {
+            backgroundColor: 'action.hover',
+          },
+        }}
+      >
+        <Box display="flex" alignItems="center" gap={1}>
+          {item.icon}
+          <Typography variant="body2">{item.label}</Typography>
+        </Box>
+      </MenuItem>
+    );
+  };
 
   return (
     <Box>
@@ -59,27 +112,7 @@ const NavigationDropdown: React.FC<NavigationDropdownProps> = ({ label, items })
           },
         }}
       >
-        {items.map((item) => (
-          <MenuItem
-            key={item.path}
-            component={Link}
-            to={item.path}
-            onClick={handleClose}
-            sx={{
-              py: 1.5,
-              px: 2,
-              backgroundColor: location.pathname === item.path ? 'action.selected' : 'transparent',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            <Box display="flex" alignItems="center" gap={1}>
-              {item.icon}
-              <Typography variant="body2">{item.label}</Typography>
-            </Box>
-          </MenuItem>
-        ))}
+        {items.map(renderMenuItem)}
       </Menu>
     </Box>
   );

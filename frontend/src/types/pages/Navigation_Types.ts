@@ -600,6 +600,8 @@ export interface NavigationItem {
   label: string;
   path: string;
   icon?: React.ReactNode;
+  external?: boolean; // If true, opens in new tab
+  href?: string; // External URL (used when external is true)
 }
 
 export interface NavigationDropdownProps {
