@@ -126,7 +126,7 @@ class DeviceTools:
         if device_id and not all_devices:
              return {"content": [{"type": "text", "text": f"❌ Error: Device '{device_id}' not found"}], "isError": True}
              
-        return {"content": [{"type": "text", "text": self.formatter._json_to_string({"devices": all_devices})}], "isError": False}
+        return self.formatter.format_success({"devices": all_devices})
     
     def get_compatible_hosts(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
