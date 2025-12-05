@@ -142,6 +142,48 @@ const LoadingSpinner: React.FC = () => (
   </Box>
 );
 
+// Conditional Container wrapper based on route
+const ConditionalContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+  const isFullWidth = FULL_WIDTH_ROUTES.includes(location.pathname);
+
+  if (isFullWidth) {
+    // Full width layout for chat-like pages
+    return (
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {children}
+      </Box>
+    );
+  }
+
+  // Standard container layout for other pages
+  return (
+    <Container
+      maxWidth="lg"
+      sx={{
+        mt: 2,
+        mb: 2,
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+      }}
+    >
+      {children}
+    </Container>
+  );
+};
+
+// Routes that should use full width without Container constraints
+const FULL_WIDTH_ROUTES = ['/ai-agent'];
+
 // Header component that checks auth state
 const AppHeader: React.FC = () => {
   const location = useLocation();
@@ -212,17 +254,7 @@ const App: React.FC = () => {
                 <HostManagerProvider>
                   <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
                 <AppHeader />
-            <Container
-              maxWidth="lg"
-              sx={{
-                mt: 2,
-                mb: 2,
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'stretch',
-              }}
-            >
+            <ConditionalContainer>
               <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
                   {/* Public Routes - Only login and OAuth callback */}
@@ -338,7 +370,7 @@ const App: React.FC = () => {
                   </Route>
                 </Routes>
               </Suspense>
-            </Container>
+            </ConditionalContainer>
 
             {/* MCP Task Input - Global overlay component */}
             <MCPTaskInput />

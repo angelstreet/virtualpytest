@@ -562,7 +562,7 @@ const AgentChat: React.FC = () => {
         flex: 1, 
         overflowY: 'auto',
         overflowX: 'hidden',
-        px: 3,
+        px: 2,
         py: 2,
         display: 'flex',
         flexDirection: 'column',
@@ -797,7 +797,7 @@ const AgentChat: React.FC = () => {
       </Box>
 
       {/* Input Area */}
-      <Box sx={{ px: 3, py: 1.5, flexShrink: 0 }}>
+      <Box sx={{ px: 2, py: 1.5, flexShrink: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Paper
             elevation={0}
@@ -907,7 +907,7 @@ const AgentChat: React.FC = () => {
   // --- Main Render ---
   return (
     <Box sx={{ 
-      height: 'calc(100vh - 64px)', 
+      height: 'calc(98vh - 64px)', 
       display: 'flex', 
       flexDirection: 'column',
       bgcolor: 'background.default',
