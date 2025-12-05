@@ -39,9 +39,9 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
     const timestamp = data.screenshot_timestamp || Date.now();
     const randomKey = imageKey || Math.random().toString(36).substr(2, 9);
 
-    // For signed URLs, append cache-busting differently (after existing params)
+    // For signed URLs, do NOT append cache-busting params as it invalidates the signature
     if (r2ScreenshotUrl.includes('X-Amz-Signature')) {
-      return `${r2ScreenshotUrl}&v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
+      return r2ScreenshotUrl;
     } else {
       return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
     }

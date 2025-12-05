@@ -29,16 +29,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
 
   // Use R2 URL hook for screenshot (handles public/private mode automatically)
   // The hook extracts path from full URL and generates signed URL if needed
-  const { url: r2ScreenshotUrl, error: r2Error } = useR2Url(data.screenshot || null);
-
-  // Debug logging
-  useEffect(() => {
-    if (data.screenshot) {
-      console.log(`[@NavigationNode] Node ${id} screenshot:`, data.screenshot);
-      console.log(`[@NavigationNode] r2ScreenshotUrl:`, r2ScreenshotUrl);
-      if (r2Error) console.error(`[@NavigationNode] R2 Error:`, r2Error);
-    }
-  }, [id, data.screenshot, r2ScreenshotUrl, r2Error]);
+  const { url: r2ScreenshotUrl } = useR2Url(data.screenshot || null);
 
   // Use screenshot URL with aggressive cache-busting
   const screenshotUrl = React.useMemo(() => {
@@ -49,10 +40,9 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
     const timestamp = data.screenshot_timestamp || Date.now();
     const randomKey = imageKey || Math.random().toString(36).substr(2, 9);
 
-    // For signed URLs, append cache-busting differently (after existing params)
+    // For signed URLs, do NOT append cache-busting params as it invalidates the signature
     if (r2ScreenshotUrl.includes('X-Amz-Signature')) {
-      // Signed URL - append cache-buster to existing query string
-      return `${r2ScreenshotUrl}&v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
+      return r2ScreenshotUrl;
     } else {
       // Public URL - use query string for cache-busting
       return `${baseUrl}?v=${timestamp}&key=${randomKey}&cb=${Date.now()}`;
@@ -521,7 +511,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         style={{
           flex: 1,
           backgroundColor: screenshotUrl ? 'transparent' : '#f5f5f5',
-          backgroundImage: screenshotUrl ? `url("${screenshotUrl}")` : 'none',
+          backgroundImage: screenshotUrl ? `url(${screenshotUrl})` : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           display: 'flex',
