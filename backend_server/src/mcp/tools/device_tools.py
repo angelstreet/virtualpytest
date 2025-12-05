@@ -62,9 +62,20 @@ class DeviceTools:
                 if device_id and device.get('device_id') != device_id:
                     continue
                 
-                # Add host context to device
-                device_with_host = {**device, **host_info}
-                all_devices.append(device_with_host)
+                # Remove confusing controller_status and controllers fields
+                # These are internal implementation details that shouldn't be exposed
+                device_clean = {
+                    'device_id': device.get('device_id'),
+                    'device_name': device.get('device_name'),
+                    'device_model': device.get('device_model'),
+                    'device_ip': device.get('device_ip'),
+                    'device_port': device.get('device_port'),
+                    'video_device': device.get('video_device'),
+                    'video_stream_path': device.get('video_stream_path'),
+                    'video_capture_path': device.get('video_capture_path'),
+                    **host_info
+                }
+                all_devices.append(device_clean)
         
         if device_id and not all_devices:
              return {"content": [{"type": "text", "text": f"❌ Error: Device '{device_id}' not found"}], "isError": True}

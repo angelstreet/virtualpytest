@@ -9,8 +9,6 @@ import {
   Campaign as CampaignIcon,
   AccountTree as TreeIcon,
   Devices as DevicesIcon,
-  Add as AddIcon,
-  PlayArrow as PlayIcon,
   Phone as PhoneIcon,
   Tv as TvIcon,
   CheckCircle as SuccessIcon,
@@ -25,7 +23,6 @@ import {
   Card,
   CardContent,
   Typography,
-  Button,
   Chip,
   Alert,
   IconButton,
@@ -486,7 +483,7 @@ const Dashboard: React.FC = () => {
       {/* Statistics Cards */}
       <Box mb={1}>
       </Box>
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 1 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -553,34 +550,6 @@ const Dashboard: React.FC = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
-
-      <Grid container spacing={3}>
-        {/* Quick Actions */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Quick Actions
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={2}>
-              <Button variant="contained" startIcon={<AddIcon />} href="/testcases" fullWidth>
-                Create New Test Case
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                href="/campaigns"
-                fullWidth
-                color="secondary"
-              >
-                Create New Campaign
-              </Button>
-              <Button variant="outlined" startIcon={<PlayIcon />} fullWidth disabled>
-                Run Test Campaign (Coming Soon)
-              </Button>
-            </Box>
-          </Paper>
         </Grid>
       </Grid>
 
