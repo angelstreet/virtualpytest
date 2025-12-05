@@ -29,7 +29,16 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
 
   // Use R2 URL hook for screenshot (handles public/private mode automatically)
   // The hook extracts path from full URL and generates signed URL if needed
-  const { url: r2ScreenshotUrl } = useR2Url(data.screenshot || null);
+  const { url: r2ScreenshotUrl, error: r2Error } = useR2Url(data.screenshot || null);
+
+  // Debug logging
+  useEffect(() => {
+    if (data.screenshot) {
+      console.log(`[@NavigationNode] Node ${id} screenshot:`, data.screenshot);
+      console.log(`[@NavigationNode] r2ScreenshotUrl:`, r2ScreenshotUrl);
+      if (r2Error) console.error(`[@NavigationNode] R2 Error:`, r2Error);
+    }
+  }, [id, data.screenshot, r2ScreenshotUrl, r2Error]);
 
   // Use screenshot URL with aggressive cache-busting
   const screenshotUrl = React.useMemo(() => {
@@ -512,7 +521,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         style={{
           flex: 1,
           backgroundColor: screenshotUrl ? 'transparent' : '#f5f5f5',
-          backgroundImage: screenshotUrl ? `url(${screenshotUrl})` : 'none',
+          backgroundImage: screenshotUrl ? `url("${screenshotUrl}")` : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           display: 'flex',
