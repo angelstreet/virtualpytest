@@ -36,6 +36,7 @@ echo "   Hosts: $HOST_MAX"
 echo "   Ports: ${HOST_START_PORT}-$((HOST_START_PORT + HOST_MAX - 1))"
 echo "   Domain: $DOMAIN"
 echo "   Grafana: ${ENABLE_GRAFANA:-false}"
+echo "   Langfuse: ${ENABLE_LANGFUSE:-false}"
 echo ""
 
 # Check if main .env exists
@@ -414,6 +415,25 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+EOF
+fi
+
+# Conditionally add Langfuse location if enabled
+if [ "${ENABLE_LANGFUSE}" = "true" ]; then
+    cat >> "$NGINX_FILE" <<EOF
+    # Langfuse LLM Observability
+    location /langfuse/ {
+        proxy_pass http://127.0.0.1:${LANGFUSE_PORT:-3001}/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_redirect off;
     }
 
 EOF
@@ -914,6 +934,15 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
 else
     echo ""
     echo "ℹ️  Grafana disabled (set ENABLE_GRAFANA=true in config.env to enable)"
+fi
+
+if [ "${ENABLE_LANGFUSE}" = "true" ]; then
+    echo ""
+    echo "🔍 Langfuse LLM Observability:"
+    echo "   https://${DOMAIN}/langfuse"
+else
+    echo ""
+    echo "ℹ️  Langfuse disabled (set ENABLE_LANGFUSE=true in config.env to enable)"
 fi
 echo ""
 

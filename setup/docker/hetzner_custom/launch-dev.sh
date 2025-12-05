@@ -93,6 +93,7 @@ echo ""
 echo "📋 Local Access:"
 echo "   Backend Server:  http://localhost:5109"
 echo "   Grafana:         http://localhost:3000"
+echo "   Langfuse:        http://localhost:3001 (if installed)"
 
 # Show host ports dynamically
 if [ -f "setup/docker/hetzner_custom/config.env" ]; then
@@ -111,6 +112,9 @@ if [ -f "setup/docker/hetzner_custom/config.env" ]; then
     for i in $(seq 1 $HOST_MAX); do
         echo "   VNC Host ${i}: https://${DOMAIN}/host${i}/vnc/vnc_lite.html"
     done
+    if [ "${ENABLE_LANGFUSE}" = "true" ]; then
+        echo "   Langfuse: https://${DOMAIN}/langfuse"
+    fi
 fi
 
 echo ""
