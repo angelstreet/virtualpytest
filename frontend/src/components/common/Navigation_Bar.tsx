@@ -5,7 +5,6 @@ import {
   Visibility as MonitorIcon,
   Assessment as ReportsIcon,
   AccountTree as TreeIcon,
-  Settings as SettingsIcon,
   Assignment as RequirementIcon,
   TrendingUp as CoverageIcon,
   Memory as ModelIcon,
@@ -14,7 +13,6 @@ import {
   Warning as IncidentIcon,
   GridView as HeatmapIcon,
   Dashboard as DashboardIcon,
-  SmartToy as AIIcon,
   Api as ApiIcon,
   Build as BuildIcon, // For Builder section
   SmartToy, // For MCP Playground
