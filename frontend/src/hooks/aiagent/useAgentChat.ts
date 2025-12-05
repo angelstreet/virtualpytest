@@ -24,6 +24,8 @@ export interface AgentEvent {
     duration_ms: number;
     input_tokens: number;
     output_tokens: number;
+    cache_read_tokens?: number;
+    cache_create_tokens?: number;
   };
 }
 
@@ -121,23 +123,12 @@ export const useAgentChat = () => {
   // Save conversations on change
   useEffect(() => {
     if (conversations.length > 0) {
-      const activeConvo = conversations.find(c => c.id === activeConversationId);
-      if (activeConvo) {
-        console.log('[CONVERSATIONS_STATE_CHANGE] Active conversation has', activeConvo.messages.length, 'messages');
-        const lastMsg = activeConvo.messages[activeConvo.messages.length - 1];
-        if (lastMsg?.role === 'agent' && lastMsg.events) {
-          console.log('[LAST_AGENT_MESSAGE] ID:', lastMsg.id, '| Events:', lastMsg.events.length,
-                      '| Thinking:', lastMsg.events.filter(e => e.type === 'thinking').length,
-                      '| Tool calls:', lastMsg.events.filter(e => e.type === 'tool_call').length);
-        }
-      }
       localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
     }
-  }, [conversations, activeConversationId]);
+  }, [conversations]);
 
   // Save active conversation ID and keep ref in sync
   useEffect(() => {
-    console.log('[ACTIVE_CONVO_ID_CHANGE] State:', activeConversationId, '-> Ref updated');
     activeConversationIdRef.current = activeConversationId;
     if (activeConversationId) {
       localStorage.setItem(STORAGE_KEY_ACTIVE_CONVERSATION, activeConversationId);
@@ -188,20 +179,6 @@ export const useAgentChat = () => {
     });
   }, [activeConversationId]);
 
-  const updateMessages = useCallback((newMessages: Message[]) => {
-    if (!activeConversationId) return;
-    
-    setConversations(prev => prev.map(c => {
-      if (c.id !== activeConversationId) return c;
-      return {
-        ...c,
-        messages: newMessages,
-        title: extractTitle(newMessages),
-        updatedAt: new Date().toISOString(),
-      };
-    }));
-  }, [activeConversationId]);
-
   // --- Socket Connection ---
 
   const connectSocket = useCallback((sessionId: string) => {
@@ -218,9 +195,10 @@ export const useAgentChat = () => {
     });
 
     socket.on('agent_event', (event: AgentEvent) => {
-      console.log('[AGENT_EVENT]', event.type, event.content?.substring(0, 50));
-      
-      setCurrentEvents(prev => [...prev, event]);
+      // Accumulate all events except terminal ones
+      if (event.type !== 'session_ended' && event.type !== 'complete') {
+        setCurrentEvents(prev => [...prev, event]);
+      }
       
       if (event.type === 'mode_detected') {
         setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
@@ -231,60 +209,47 @@ export const useAgentChat = () => {
         setSession(prev => prev ? { ...prev, active_agent: agentName } : null);
       }
 
-      if (event.type === 'message' || event.type === 'result') {
-        console.log('[MESSAGE_OR_RESULT_RECEIVED]', event.type, '| Content:', event.content?.substring(0, 50));
+      // Finalize message only when session ends or completes
+      if (event.type === 'session_ended' || event.type === 'complete') {
+        setIsProcessing(false);
         
-        setIsProcessing(false); // Allow user to reply
-        
-        // Clear timeout failsafe
         if (processingTimeoutRef.current) {
           clearTimeout(processingTimeoutRef.current);
           processingTimeoutRef.current = null;
         }
         
         setCurrentEvents(prevEvents => {
-          console.log('[BEFORE_MESSAGE_SAVE] prevEvents:', prevEvents.length);
-          // Accumulate content from all message/result/thinking events
-          const allEvents = [...prevEvents, event];
+          // Only create message if we have message/result events
+          const messageResultEvents = prevEvents.filter(e => e.type === 'message' || e.type === 'result');
+          if (messageResultEvents.length === 0) {
+            return [];
+          }
           
-          const thinkingEvents = allEvents.filter(e => e.type === 'thinking');
-          const messageEvents = allEvents.filter(e => e.type === 'message' || e.type === 'result');
-          
-          console.log('[MESSAGE_COMPLETE] Total events:', allEvents.length, 
-                      '| Thinking:', thinkingEvents.length, 
-                      '| Message/Result:', messageEvents.length);
-          
-          const accumulatedContent = allEvents
-            .filter(e => e.type === 'message' || e.type === 'result' || e.type === 'thinking')
+          // Accumulate content from message/result events only (thinking shown separately in UI)
+          const accumulatedContent = messageResultEvents
             .map(e => e.content)
             .filter(Boolean)
             .join('\n\n');
 
           // Find the last agent to attribute the message to
           const lastAgentEvent = [...prevEvents].reverse().find(e => e.agent);
-          const agentName = lastAgentEvent?.agent || event.agent || 'QA Manager';
+          const agentName = lastAgentEvent?.agent || 'QA Manager';
           
           const newMessage: Message = {
             id: `${Date.now()}-${Math.random()}`,
             role: 'agent',
-            content: accumulatedContent || event.content,
+            content: accumulatedContent,
             agent: agentName,
-            timestamp: event.timestamp,
-            events: allEvents,
+            timestamp: new Date().toISOString(),
+            events: prevEvents,
           };
-          
-          console.log('[MESSAGE_SAVED] Events in message:', newMessage.events.length,
-                      '| Thinking events:', newMessage.events.filter(e => e.type === 'thinking').length);
           
           // Update conversation with new message
           setConversations(prev => {
             const currentConvoId = activeConversationIdRef.current;
-            console.log('[UPDATING_CONVERSATIONS] Adding message to conversation:', currentConvoId);
             return prev.map(c => {
               if (c.id !== currentConvoId) return c;
               const updatedMessages = [...c.messages, newMessage];
-              console.log('[CONVERSATION_UPDATED] Total messages now:', updatedMessages.length, 
-                          '| Last message events:', newMessage.events.length);
               return {
                 ...c,
                 messages: updatedMessages,
@@ -294,20 +259,11 @@ export const useAgentChat = () => {
             });
           });
           
-          console.log('[CURRENT_EVENTS] Clearing currentEvents (message completed)');
           return [];
         });
       }
-
-      if (event.type === 'session_ended' || event.type === 'complete') {
-        setIsProcessing(false);
-        if (processingTimeoutRef.current) {
-          clearTimeout(processingTimeoutRef.current);
-          processingTimeoutRef.current = null;
-        }
-      }
       
-      // Failsafe: If we get an error or unknown terminal event, unstick processing
+      // Failsafe: If we get an error or failed event, unstick processing
       if (event.type === 'error' || event.type === 'failed') {
         setIsProcessing(false);
         if (processingTimeoutRef.current) {

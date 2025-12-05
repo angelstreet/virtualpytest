@@ -180,17 +180,6 @@ const AgentChat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentEvents]);
   
-  // Debug: Log messages when they change
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      console.log('[COMPONENT_MESSAGES_CHANGED] Total:', messages.length, 
-                  '| Last role:', lastMsg.role,
-                  '| Last events:', lastMsg.events?.length || 0,
-                  '| Last thinking:', lastMsg.events?.filter(e => e.type === 'thinking').length || 0);
-    }
-  }, [messages]);
-
   // Group conversations
   const groupedConversations = groupConversationsByTime(conversations);
 
@@ -614,17 +603,6 @@ const AgentChat: React.FC = () => {
             const isUser = msg.role === 'user';
             const agentColor = AGENT_CONFIG[msg.agent || 'QA Manager']?.color;
             
-            if (!isUser) {
-              const hasEvents = !!msg.events;
-              const thinkingCount = msg.events?.filter(e => e.type === 'thinking').length || 0;
-              const hasThinkingEvents = msg.events?.some(e => e.type === 'thinking') || false;
-              console.log('[RENDER_MESSAGE]', msg.id, 
-                          '| Has events:', hasEvents,
-                          '| Events count:', msg.events?.length || 0,
-                          '| Thinking count:', thinkingCount,
-                          '| Will show accordion:', hasThinkingEvents);
-            }
-
             return (
               <Box 
                 key={msg.id} 
@@ -682,39 +660,42 @@ const AgentChat: React.FC = () => {
                     </Box>
                   )}
                   
-                  {!isUser && msg.events && msg.events.some(e => e.type === 'thinking') ? (
+                  {!isUser && msg.events ? (
                     <Box>
+                      {/* Show thinking/reasoning accordion only if meaningful content exists */}
                       {(() => {
-                        const thinkingEvents = msg.events.filter(e => e.type === 'thinking');
-                        const messageEvents = msg.events.filter(e => e.type === 'message' || e.type === 'result');
-                        const thinkingContent = thinkingEvents.map(e => e.content).join('\n\n');
-                        const messageContent = messageEvents.map(e => e.content).join('\n\n');
-                        console.log('[RENDER_THINKING_ACCORDION]', msg.id, 
-                                    '| Total events:', msg.events.length,
-                                    '| Thinking events:', thinkingEvents.length,
-                                    '| Message events:', messageEvents.length,
-                                    '| Thinking length:', thinkingContent.length,
-                                    '| Message length:', messageContent.length);
-                        return null;
+                        const thinkingContent = msg.events
+                          .filter(e => e.type === 'thinking')
+                          .map(e => e.content)
+                          .join('\n\n')
+                          .replace(/\n{3,}/g, '\n\n')
+                          .trim();
+                        // Only show if there's real reasoning, not just placeholder
+                        const hasRealThinking = thinkingContent.length > 50 && 
+                          !thinkingContent.match(/^Analyzing your request\.{0,3}$/i);
+                        
+                        if (!hasRealThinking) return null;
+                        
+                        return (
+                          <Accordion elevation={0} disableGutters sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, mb: 1 }}>
+                            <AccordionSummary 
+                              expandIcon={<ExpandIcon sx={{ color: 'text.secondary' }} />}
+                              sx={{ minHeight: 'auto', p: 0, '& .MuiAccordionSummary-content': { m: 0, alignItems: 'center', gap: 1 } }}
+                            >
+                              <ThinkingIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.85rem' }}>
+                                View Reasoning
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ p: 0, pt: 1 }}>
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'text.secondary', fontSize: '0.85rem' }}>
+                                {thinkingContent}
+                              </Typography>
+                            </AccordionDetails>
+                          </Accordion>
+                        );
                       })()}
-                      {/* Show thinking/reasoning in accordion */}
-                      <Accordion elevation={0} disableGutters sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, mb: 1 }}>
-                        <AccordionSummary 
-                          expandIcon={<ExpandIcon sx={{ color: 'text.secondary' }} />}
-                          sx={{ minHeight: 'auto', p: 0, '& .MuiAccordionSummary-content': { m: 0, alignItems: 'center', gap: 1 } }}
-                        >
-                          <ThinkingIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.85rem' }}>
-                            View Reasoning
-                          </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails sx={{ p: 0, pt: 1 }}>
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'text.secondary', fontSize: '0.85rem' }}>
-                            {msg.events.filter(e => e.type === 'thinking').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
-                          </Typography>
-                        </AccordionDetails>
-                      </Accordion>
-                      {/* Show actual response - ONLY message/result events, NOT thinking */}
+                      {/* Show actual response - ONLY message/result events */}
                       <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
                         {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
                       </Typography>

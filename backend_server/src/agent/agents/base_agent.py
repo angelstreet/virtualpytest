@@ -2,6 +2,7 @@
 Base Agent Class
 
 Common functionality for all specialist agents.
+Uses Anthropic Prompt Caching to reduce token costs on repeated requests.
 """
 
 import logging
@@ -20,6 +21,7 @@ class BaseAgent(ABC):
     def __init__(self, tool_bridge: 'ToolBridge'):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.tool_bridge = tool_bridge
+        # Use beta client for prompt caching support
         self.client = anthropic.Anthropic(api_key=get_anthropic_api_key())
         
     @property
@@ -78,27 +80,60 @@ class BaseAgent(ABC):
         yield {
             "type": "thinking",
             "agent": self.name,
-            "content": f"Processing task with {len(tools)} available tools..."
+            "content": f"Analyzing your request..."
         }
+        
+        # Prepare system prompt with caching (reduces cost on subsequent requests)
+        # Cache control tells Anthropic to cache this large static content
+        system_with_cache = [
+            {
+                "type": "text",
+                "text": self.system_prompt,
+                "cache_control": {"type": "ephemeral"}
+            }
+        ]
+        
+        # Add cache control to the last tool (Anthropic caches tools up to and including marked tool)
+        tools_with_cache = None
+        if tools:
+            tools_with_cache = tools.copy()
+            if tools_with_cache:
+                # Mark last tool for caching - this caches ALL tools
+                tools_with_cache[-1] = {
+                    **tools_with_cache[-1],
+                    "cache_control": {"type": "ephemeral"}
+                }
         
         # Run agent loop
         while True:
             start_time = time.time()
-            # Call Claude
+            # Call Claude with prompt caching enabled
             response = self.client.messages.create(
                 model=DEFAULT_MODEL,
                 max_tokens=MAX_TOKENS,
-                system=self.system_prompt,
+                system=system_with_cache,
                 messages=messages,
-                tools=tools if tools else None,
+                tools=tools_with_cache,
             )
             duration_ms = int((time.time() - start_time) * 1000)
+            
+            # Track cache performance
+            cache_read = getattr(response.usage, 'cache_read_input_tokens', 0)
+            cache_create = getattr(response.usage, 'cache_creation_input_tokens', 0)
             
             metrics = {
                 "duration_ms": duration_ms,
                 "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens
+                "output_tokens": response.usage.output_tokens,
+                "cache_read_tokens": cache_read,
+                "cache_create_tokens": cache_create,
             }
+            
+            # Log cache performance
+            if cache_read > 0:
+                self.logger.info(f"[{self.name}] Cache HIT: {cache_read} tokens read from cache (90% cost reduction!)")
+            elif cache_create > 0:
+                self.logger.info(f"[{self.name}] Cache CREATED: {cache_create} tokens cached for future requests")
             
             # Process response
             assistant_content = []
