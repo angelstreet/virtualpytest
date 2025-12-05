@@ -39,7 +39,8 @@ Example:
             "name": "navigate_to_node",
             "description": """Navigate to target node in UI tree using pathfinding
 
-⚠️ PREREQUISITE: take_control(tree_id='<tree>') must be called ONCE first with the SAME tree_id.
+PREREQUISITE: take_control(tree_id='<tree>') must be called ONCE first with the SAME tree_id.
+If you get "cache not ready" error, call take_control() first then retry this tool.
 
 Can be called MULTIPLE times in the same session to navigate to different nodes.
 All parameters (device_id, tree_id, userinterface_name) MUST match the take_control call.
