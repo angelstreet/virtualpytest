@@ -95,8 +95,13 @@ MANAGER_TOOLS = [
     # Verifications
     "list_verifications",
     
-    # UI Control (New)
-    "navigate_to_page"
+    # UI Control / Page Interaction
+    "get_available_pages",
+    "get_page_schema",
+    "navigate_to_page",
+    "interact_with_element",
+    "highlight_element",
+    "show_toast",
 ]
 
 # Agent configuration

@@ -64,11 +64,14 @@ A transparent, click-through layer (`pointer-events: none`) fixed to the viewpor
    - `isProcessing` = true
    - `isPilotOpen` = true
 
-3. **Agent Execution (Future Implementation):**
-   - The `AIOrchestrator` (hook) listens to `activeTask` changes.
-   - Takes control of React Router -> `navigate('/device-control')`.
-   - Calls Device API -> `connectDevice('pixel-5')`.
-   - Updates `AIContext` with progress steps.
+3. **Agent Execution:**
+   - Message sent to backend via WebSocket (`send_message`)
+   - AI Agent processes request, calls `navigate_to_page("device control")`
+   - Backend emits `ui_action` event via WebSocket
+   - AIContext receives event, calls React Router `navigate('/device-control')`
+   - AI can then call `interact_with_element()` to interact with page elements
+
+> **See Also:** [AI_interactive_navigation.md](./AI_interactive_navigation.md) for full details on the page interaction system.
 
 ## File Structure
 

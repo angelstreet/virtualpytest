@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useCallback } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 
 // Toast configuration with predefined colors
@@ -75,6 +75,27 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       },
     });
   };
+
+  // Generic show function for AI integration
+  const showToast = useCallback((message: string, severity: 'info' | 'success' | 'warning' | 'error') => {
+    switch (severity) {
+      case 'error': showError(message); break;
+      case 'warning': showWarning(message); break;
+      case 'success': showSuccess(message); break;
+      default: showInfo(message);
+    }
+  }, []);
+
+  // Listen for AI toast events
+  useEffect(() => {
+    const handleAIToast = (e: CustomEvent<{ message: string; severity: string }>) => {
+      console.log('🤖 AI Toast:', e.detail);
+      showToast(e.detail.message, e.detail.severity as any);
+    };
+
+    window.addEventListener('ai-toast', handleAIToast as EventListener);
+    return () => window.removeEventListener('ai-toast', handleAIToast as EventListener);
+  }, [showToast]);
 
   const contextValue: ToastContextType = {
     showError,

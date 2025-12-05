@@ -47,11 +47,16 @@ The AI Agent system uses a **Hybrid QA Manager** orchestrator that handles simpl
 
 ### QA Manager (Hybrid Orchestrator)
 - **Role**: Senior QA Lead
-- **Tools**: 20+ Read-only tools (`list_testcases`, `get_coverage`, `list_userinterfaces`...)
+- **Tools**: 25+ tools including:
+  - **Data Tools**: `list_testcases`, `get_coverage`, `list_userinterfaces`...
+  - **UI Control Tools**: `navigate_to_page`, `interact_with_element`, `highlight_element`, `show_toast`
 - **Skills**: 
   - **Direct Answer**: Handles counts, lists, and status checks instantly.
+  - **UI Navigation**: Controls user's browser to navigate and interact with pages.
   - **Delegation**: Identifies mode and routes complex tasks to specialists.
   - **Human Communication**: Summarizes results and requests approvals.
+
+> **See Also:** [AI_interactive_navigation.md](./AI_interactive_navigation.md) for UI control details.
 
 ### Explorer Agent
 - **Role**: UI Discovery Specialist

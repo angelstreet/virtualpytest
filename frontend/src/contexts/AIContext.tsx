@@ -140,13 +140,44 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       }
     });
 
-    // Listen for UI Actions (Navigation)
+    // Listen for UI Actions (Navigation, Interaction, Highlight, Toast)
     socket.on('ui_action', (event: any) => {
       console.log('🤖 UI Action:', event);
       
+      // Navigation
       if (event.action === 'navigate' && event.payload?.path) {
         console.log(`🤖 Navigating to: ${event.payload.path}`);
         navigate(event.payload.path);
+      }
+      
+      // Element Interaction
+      if (event.action === 'interact' && event.payload?.element_id) {
+        const { element_id, action, params } = event.payload;
+        console.log(`🤖 Interacting with: ${element_id}, action: ${action}`);
+        // Dispatch custom event for element handlers
+        window.dispatchEvent(new CustomEvent('ai-interact', { 
+          detail: { element_id, action, params } 
+        }));
+      }
+      
+      // Element Highlight
+      if (event.action === 'highlight' && event.payload?.element_id) {
+        const { element_id, duration_ms = 2000 } = event.payload;
+        console.log(`🤖 Highlighting: ${element_id}`);
+        // Dispatch custom event for highlight effect
+        window.dispatchEvent(new CustomEvent('ai-highlight', { 
+          detail: { element_id, duration_ms } 
+        }));
+      }
+      
+      // Toast Notification
+      if (event.action === 'toast' && event.payload?.message) {
+        const { message, severity = 'info' } = event.payload;
+        console.log(`🤖 Toast: ${severity} - ${message}`);
+        // Dispatch custom event for toast
+        window.dispatchEvent(new CustomEvent('ai-toast', { 
+          detail: { message, severity } 
+        }));
       }
     });
 

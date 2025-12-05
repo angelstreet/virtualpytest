@@ -1,14 +1,22 @@
 """
 Tool Bridge
 
-Connects Claude Agent SDK to existing MCP tools.
+Connects Claude Agent SDK to existing MCP tools and UI interaction tools.
 """
 
 import logging
 from typing import Dict, Any, List
 
 from mcp.mcp_server import VirtualPyTestMCPServer
-from ..tools.ui_control import navigate_to_page
+from ..tools.page_interaction import (
+    get_available_pages,
+    get_page_schema,
+    navigate_to_page,
+    interact_with_element,
+    highlight_element,
+    show_toast,
+    PAGE_INTERACTION_TOOLS,
+)
 
 
 class ToolBridge:
@@ -42,29 +50,126 @@ class ToolBridge:
         
         result = []
         for name in tool_names:
+            # UI Interaction tools - manual definitions
+            if name == "get_available_pages":
+                result.append({
+                    "name": "get_available_pages",
+                    "description": "Returns a list of all navigable pages in the application with their descriptions. Use this to understand what pages exist.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                })
+                continue
+                
+            if name == "get_page_schema":
+                result.append({
+                    "name": "get_page_schema",
+                    "description": "Returns the interactive elements available on a specific page. Use this to understand what actions can be performed on a page.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "page_path": {
+                                "type": "string",
+                                "description": "The page path (e.g., '/device-control', '/test-results/reports')"
+                            }
+                        },
+                        "required": ["page_path"]
+                    }
+                })
+                continue
+                
             if name == "navigate_to_page":
-                # Manual definition for UI control tool
                 result.append({
                     "name": "navigate_to_page",
-                    "description": "Navigates the user's UI to a specific page.",
+                    "description": "Navigates the user's browser to a specific page. Available pages: dashboard, device control, run tests, campaigns, test cases, incidents, heatmap, reports, test builder, settings, ai agent",
                     "input_schema": {
                         "type": "object",
                         "properties": {
                             "page_name": {
                                 "type": "string",
-                                "enum": ["dashboard", "device_control", "reports", "campaigns", "settings", "monitor"],
-                                "description": "The identifier of the page to navigate to"
+                                "description": "Page name or path (e.g., 'dashboard', 'device control', 'reports', 'heatmap', 'incidents')"
                             },
                             "context": {
                                 "type": "object",
-                                "description": "Optional parameters context (e.g., device_id)"
+                                "description": "Optional parameters (e.g., {'device_id': 's21'})"
                             }
                         },
                         "required": ["page_name"]
                     }
                 })
                 continue
+                
+            if name == "interact_with_element":
+                result.append({
+                    "name": "interact_with_element",
+                    "description": "Interact with a specific element on the current page. Actions: click, select, filter, open, close, type, scroll_to",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "element_id": {
+                                "type": "string",
+                                "description": "The element ID from the page schema (e.g., 'reports-table', 'run-btn')"
+                            },
+                            "action": {
+                                "type": "string",
+                                "description": "The action to perform (click, select, filter, open, close, type, scroll_to)"
+                            },
+                            "params": {
+                                "type": "object",
+                                "description": "Optional parameters for the action (e.g., {'value': 'failed'})"
+                            }
+                        },
+                        "required": ["element_id", "action"]
+                    }
+                })
+                continue
+                
+            if name == "highlight_element":
+                result.append({
+                    "name": "highlight_element",
+                    "description": "Highlight an element on the page to draw user's attention",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "element_id": {
+                                "type": "string",
+                                "description": "The element ID to highlight"
+                            },
+                            "duration_ms": {
+                                "type": "integer",
+                                "description": "How long to show the highlight (default 2000ms)"
+                            }
+                        },
+                        "required": ["element_id"]
+                    }
+                })
+                continue
+                
+            if name == "show_toast":
+                result.append({
+                    "name": "show_toast",
+                    "description": "Show a toast notification to the user",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string",
+                                "description": "The message to display"
+                            },
+                            "severity": {
+                                "type": "string",
+                                "enum": ["info", "success", "warning", "error"],
+                                "description": "Toast severity level"
+                            }
+                        },
+                        "required": ["message"]
+                    }
+                })
+                continue
 
+            # MCP tools
             if name in tools_by_name:
                 mcp_tool = tools_by_name[name]
                 # Convert MCP format to Claude format
@@ -81,7 +186,7 @@ class ToolBridge:
     
     def execute(self, tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute an MCP tool
+        Execute an MCP tool or UI interaction tool
         
         Args:
             tool_name: Name of the tool
@@ -96,13 +201,45 @@ class ToolBridge:
         self.logger.info(f"Executing tool: {tool_name}")
         self.logger.debug(f"Params: {params}")
         
+        # UI Interaction tools
+        if tool_name == "get_available_pages":
+            result = get_available_pages()
+            return {"result": result}
+            
+        if tool_name == "get_page_schema":
+            result = get_page_schema(params.get("page_path", ""))
+            return {"result": result}
+            
         if tool_name == "navigate_to_page":
             result = navigate_to_page(
-                page_name=params.get("page_name"), 
+                page_name=params.get("page_name", ""), 
                 context=params.get("context")
             )
             return {"result": result}
+            
+        if tool_name == "interact_with_element":
+            result = interact_with_element(
+                element_id=params.get("element_id", ""),
+                action=params.get("action", ""),
+                params=params.get("params")
+            )
+            return {"result": result}
+            
+        if tool_name == "highlight_element":
+            result = highlight_element(
+                element_id=params.get("element_id", ""),
+                duration_ms=params.get("duration_ms", 2000)
+            )
+            return {"result": result}
+            
+        if tool_name == "show_toast":
+            result = show_toast(
+                message=params.get("message", ""),
+                severity=params.get("severity", "info")
+            )
+            return {"result": result}
 
+        # MCP tools
         result = self.mcp_server.handle_tool_call(tool_name, params)
         
         self.logger.info(f"Tool {tool_name} completed")
@@ -111,4 +248,4 @@ class ToolBridge:
     def get_available_tool_names(self) -> List[str]:
         """Get list of all available tool names"""
         base_tools = [t['name'] for t in self._get_all_tools()]
-        return base_tools + ["navigate_to_page"]
+        return base_tools + PAGE_INTERACTION_TOOLS
