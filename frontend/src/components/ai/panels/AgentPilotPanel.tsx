@@ -25,6 +25,12 @@ export const AgentPilotPanel: React.FC = () => {
     }
   };
 
+  // Truncate long details
+  const truncateDetail = (detail: string, maxLen = 120) => {
+    if (detail.length <= maxLen) return detail;
+    return detail.slice(0, maxLen) + '...';
+  };
+
   return (
     <Box
       sx={{
@@ -40,14 +46,23 @@ export const AgentPilotPanel: React.FC = () => {
         zIndex: 1200,
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden', // No scroll on outer container
         '@keyframes pulse': {
           '0%, 100%': { opacity: 1 },
           '50%': { opacity: 0.5 },
         },
       }}
     >
-      {/* Header */}
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+      {/* Header - Fixed */}
+      <Box sx={{ 
+        p: 2, 
+        display: 'flex', 
+        alignItems: 'center', 
+        borderBottom: '1px solid', 
+        borderColor: 'divider', 
+        bgcolor: 'action.hover',
+        flexShrink: 0
+      }}>
         <RobotIcon sx={{ mr: 1, color: isConnected ? 'success.main' : 'text.disabled' }} />
         <Typography variant="subtitle1" fontWeight="bold" sx={{ flex: 1 }}>
           Agent Pilot
@@ -57,50 +72,65 @@ export const AgentPilotPanel: React.FC = () => {
         </IconButton>
       </Box>
 
-      {/* Active Task Status */}
-      <Box sx={{ p: 2 }}>
+      {/* Task Status - Fixed */}
+      <Box sx={{ p: 2, flexShrink: 0 }}>
         <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ textTransform: 'uppercase' }}>
           Current Mission
         </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5, mb: 2, fontWeight: 500 }}>
+        <Typography variant="body2" sx={{ mt: 0.5, mb: 1, fontWeight: 500 }}>
           {activeTask || "Waiting for instructions..."}
         </Typography>
         
         {isProcessing && (
-          <Box sx={{ mb: 2 }}>
-             <LinearProgress sx={{ borderRadius: 1, height: 6 }} />
-             <Typography variant="caption" sx={{ mt: 0.5, display: 'block', textAlign: 'right', color: 'primary.main' }}>
-               Processing...
-             </Typography>
-          </Box>
+          <LinearProgress sx={{ borderRadius: 1, height: 4 }} />
         )}
       </Box>
 
       <Divider />
 
-      {/* Execution Steps - Now Dynamic */}
-      <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-         <Stack spacing={2}>
-            {executionSteps.length === 0 && !activeTask && (
-              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                Use Cmd+K to start a task
-              </Typography>
-            )}
-            
-            {executionSteps.map((step) => (
-              <Box key={step.id} sx={{ display: 'flex', gap: 1.5 }}>
+      {/* Execution Steps - ONLY this area scrolls */}
+      <Box 
+        sx={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          overflowX: 'hidden',
+          p: 2,
+          '&::-webkit-scrollbar': { width: 6 },
+          '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 3 },
+        }}
+      >
+        {executionSteps.length === 0 && !activeTask && (
+          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block', py: 4 }}>
+            Use Cmd+K to start a task
+          </Typography>
+        )}
+        
+        <Stack spacing={1.5}>
+          {executionSteps.map((step) => (
+            <Box key={step.id} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+              <Box sx={{ pt: 0.25, flexShrink: 0 }}>
                 {getStepIcon(step.status)}
-                <Box>
-                  <Typography variant="body2">{step.label}</Typography>
-                  {step.detail && (
-                    <Typography variant="caption" color="text.secondary">
-                      {step.detail}
-                    </Typography>
-                  )}
-                </Box>
               </Box>
-            ))}
-         </Stack>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="body2" fontWeight={500}>{step.label}</Typography>
+                {step.detail && (
+                  <Typography 
+                    variant="caption" 
+                    color="text.secondary"
+                    component="div"
+                    sx={{ 
+                      wordBreak: 'break-word',
+                      lineHeight: 1.4,
+                      mt: 0.25
+                    }}
+                  >
+                    {truncateDetail(step.detail)}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          ))}
+        </Stack>
       </Box>
     </Box>
   );

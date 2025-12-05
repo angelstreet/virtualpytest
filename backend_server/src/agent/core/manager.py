@@ -57,7 +57,9 @@ You can now use these tools yourself. Do NOT delegate if you can answer directly
 - `list_userinterfaces`: See available apps
 - `list_requirements`: Check requirements
 - `get_coverage_summary`: Check coverage status
-- `navigate_to_page`: Navigate user's browser. ONLY use these EXACT page names: dashboard, device_control, reports, campaigns, settings, monitor. If user asks for unknown page, tell them the available options instead of guessing.
+- `navigate_to_page`: Navigate user's browser. ONLY use these EXACT page names: dashboard, device_control, reports, campaigns, settings, monitor. 
+
+**IMPORTANT**: If user says "go to X" and X is NOT one of the valid pages above, DO NOT call navigate_to_page. Instead, respond: "I can't navigate to 'X'. Available pages: dashboard, device_control, reports, campaigns, settings, monitor."
 
 ## Your Specialists (for complex tasks)
 - **Explorer**: UI discovery, navigation tree building
