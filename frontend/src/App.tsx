@@ -265,8 +265,8 @@ const App: React.FC = () => {
                   <Route element={<ProtectedRoute />}>
                     <Route path="/" element={<Dashboard />} />
 
-                  {/* Rec Page */}
-                  <Route path="/rec" element={<Rec />} />
+                  {/* Device Control Page */}
+                  <Route path="/device-control" element={<Rec />} />
 
                   {/* AI Agent - Chat-based QA automation */}
                   <Route path="/ai-agent" element={<AgentChat />} />

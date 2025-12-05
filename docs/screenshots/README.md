@@ -7,9 +7,9 @@
       </a>
     </td>
     <td align="center" width="250">
-      <b>Remote Eye Controller</b>
+      <b>Device Control</b>
       <a href="../../frontend/public/screenshot/rec.png" target="_blank">
-        <img src="../../frontend/public/screenshot/rec.png" width="240" alt="Remote Eye Controller">
+        <img src="../../frontend/public/screenshot/rec.png" width="240" alt="Device Control">
       </a>
     </td>
     <td align="center" width="250">

@@ -56,9 +56,9 @@
   </div>
 
   <div class="screenshot-card">
-    <h3>Remote Eye Controller</h3>
+    <h3>Device Control</h3>
     <a href="/screenshot/rec.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/rec.png" alt="Remote Eye Controller">
+      <img src="/screenshot/rec.png" alt="Device Control">
     </a>
   </div>
 

@@ -440,7 +440,7 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
         {/* Left side - Title and description */}
         <Box sx={{ flex: 1, minWidth: 250 }}>
           <Typography variant="h5" component="h1" gutterBottom>
-            Remote Eye Controller
+            Device Control
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
             {isEditMode ? (

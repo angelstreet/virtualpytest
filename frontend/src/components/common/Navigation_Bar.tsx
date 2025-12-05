@@ -225,14 +225,14 @@ const NavigationBar: React.FC = () => {
         Dashboard
       </Button>
 
-      {/* Rec - Simple button */}
+      {/* Device Control - Simple button */}
       <Button
         component={Link}
-        to="/rec"
+        to="/device-control"
         startIcon={<MonitorIcon fontSize="small" />}
         sx={{
-          color: location.pathname === '/rec' ? 'secondary.main' : 'inherit',
-          fontWeight: location.pathname === '/rec' ? 600 : 400,
+          color: location.pathname === '/device-control' ? 'secondary.main' : 'inherit',
+          fontWeight: location.pathname === '/device-control' ? 600 : 400,
           textTransform: 'none',
           px: 1,
           py: 1,
@@ -241,7 +241,7 @@ const NavigationBar: React.FC = () => {
           },
         }}
       >
-        Rec
+        Device Control
       </Button>
 
       {/* AI Agent - Simple button */}
