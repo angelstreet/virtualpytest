@@ -454,6 +454,145 @@ class CloudflareUtils:
         base_url = public_url_base.rstrip('/')
         return f"{base_url}/{remote_path}"
     
+    def generate_presigned_url(self, remote_path: str, expires_in: int = 3600) -> Dict:
+        """
+        Generate a pre-signed URL for secure, time-limited access to a private R2 file.
+        
+        This method creates a cryptographically signed URL that grants temporary access
+        to a file in a private R2 bucket. The URL includes authentication parameters
+        that R2 validates, eliminating the need for the bucket to be public.
+        
+        Args:
+            remote_path: Path in R2 (e.g., 'captures/device1/capture_123.jpg')
+            expires_in: URL expiration time in seconds (default: 3600 = 1 hour)
+                       Common values: 1800 (30min), 3600 (1hr), 7200 (2hr), 86400 (24hr)
+        
+        Returns:
+            Dict with:
+                - success: bool - Whether URL generation succeeded
+                - url: str - Pre-signed URL (if success=True)
+                - expires_in: int - Seconds until expiration
+                - expires_at: str - ISO timestamp of expiration
+                - error: str - Error message (if success=False)
+        
+        Example:
+            result = uploader.generate_presigned_url('verification/test.jpg', expires_in=7200)
+            if result['success']:
+                url = result['url']  # Valid for 2 hours
+                # URL format: https://account.r2.cloudflarestorage.com/bucket/file.jpg?
+                #             X-Amz-Algorithm=AWS4-HMAC-SHA256&
+                #             X-Amz-Credential=...&
+                #             X-Amz-Date=...&
+                #             X-Amz-Expires=7200&
+                #             X-Amz-SignedHeaders=host&
+                #             X-Amz-Signature=...
+        
+        Notes:
+            - Works with both public and private buckets
+            - No API call to R2 - URL generated locally using credentials
+            - URL can be cached until near expiration (save backend calls)
+            - Free operation (no R2 API charges)
+            - Requires CLOUDFLARE_R2_ACCESS_KEY_ID and SECRET_ACCESS_KEY
+        """
+        try:
+            if not self.s3_client:
+                logger.error("S3 client not initialized")
+                return {
+                    'success': False,
+                    'error': 'R2 client not initialized'
+                }
+            
+            # Generate pre-signed URL using boto3
+            # This creates a URL with AWS Signature Version 4 authentication
+            presigned_url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': remote_path
+                },
+                ExpiresIn=expires_in
+            )
+            
+            # Calculate expiration timestamp
+            from datetime import datetime, timedelta
+            expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            
+            logger.info(f"Generated pre-signed URL for {remote_path} (expires in {expires_in}s)")
+            
+            return {
+                'success': True,
+                'url': presigned_url,
+                'expires_in': expires_in,
+                'expires_at': expires_at.isoformat() + 'Z',
+                'remote_path': remote_path
+            }
+            
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_msg = e.response['Error']['Message']
+            logger.error(f"Failed to generate pre-signed URL for {remote_path}: {error_code} - {error_msg}")
+            return {
+                'success': False,
+                'error': f"R2 error: {error_code} - {error_msg}"
+            }
+        except Exception as e:
+            logger.error(f"Failed to generate pre-signed URL for {remote_path}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def generate_presigned_urls_batch(self, remote_paths: List[str], expires_in: int = 3600) -> Dict:
+        """
+        Generate multiple pre-signed URLs in a single call (for efficiency).
+        
+        Args:
+            remote_paths: List of R2 paths
+            expires_in: URL expiration time in seconds (default: 3600 = 1 hour)
+        
+        Returns:
+            Dict with:
+                - success: bool - Whether all URLs generated successfully
+                - urls: List[Dict] - List of {path, url, expires_at} for successful URLs
+                - failed: List[Dict] - List of {path, error} for failed URLs
+                - generated_count: int
+                - failed_count: int
+        
+        Example:
+            paths = ['capture1.jpg', 'capture2.jpg', 'capture3.jpg']
+            result = uploader.generate_presigned_urls_batch(paths, expires_in=3600)
+            for item in result['urls']:
+                print(f"{item['path']} -> {item['url']}")
+        """
+        urls = []
+        failed = []
+        
+        for remote_path in remote_paths:
+            result = self.generate_presigned_url(remote_path, expires_in)
+            
+            if result['success']:
+                urls.append({
+                    'path': remote_path,
+                    'url': result['url'],
+                    'expires_at': result['expires_at'],
+                    'expires_in': expires_in
+                })
+            else:
+                failed.append({
+                    'path': remote_path,
+                    'error': result.get('error', 'Unknown error')
+                })
+        
+        logger.info(f"Generated {len(urls)}/{len(remote_paths)} pre-signed URLs (batch)")
+        
+        return {
+            'success': len(failed) == 0,
+            'urls': urls,
+            'failed': failed,
+            'generated_count': len(urls),
+            'failed_count': len(failed)
+        }
+    
     def delete_file(self, remote_path: str) -> bool:
         """Delete a file from R2."""
         try:

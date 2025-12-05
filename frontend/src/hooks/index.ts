@@ -21,6 +21,9 @@ export * from './validation';
 // Script Hooks
 export * from './script';
 
+// Storage Hooks (R2 URL management)
+export * from './storage';
+
 // Page Hooks (domain-specific for pages)
 export * from './pages/useScreenEditor';
 

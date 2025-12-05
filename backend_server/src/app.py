@@ -289,6 +289,10 @@ def register_all_server_routes(app):
         from routes import server_auth_routes
         print("[@backend_server:routes] ✅ server_auth_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_storage_routes...")
+        from routes import server_storage_routes
+        print("[@backend_server:routes] ✅ server_storage_routes imported successfully")
+        
         print("[@backend_server:routes] 🔍 Importing server_teams_routes...")
         from routes import server_teams_routes
         print("[@backend_server:routes] ✅ server_teams_routes imported successfully")
@@ -350,6 +354,7 @@ def register_all_server_routes(app):
             (server_postman_routes.server_postman_bp, 'User Postman workspace API testing'),
             (server_integrations_routes.server_integrations_bp, 'Third-party integrations (JIRA, etc.)'),
             (server_auth_routes.server_auth_bp, 'User authentication and authorization'),
+            (server_storage_routes.server_storage_bp, 'R2 storage pre-signed URLs (authenticated)'),
             (server_teams_routes.server_teams_bp, 'Teams management'),
             (server_users_routes.server_users_bp, 'Users management'),
             
