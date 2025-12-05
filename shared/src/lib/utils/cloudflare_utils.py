@@ -121,12 +121,15 @@ class CloudflareUtils:
             logger.error(f"Failed to initialize Cloudflare R2 client: {str(e)}")
             raise
     
-    def upload_files(self, file_mappings: List[Dict], max_workers: int = 10, auto_delete_cold: bool = True) -> Dict:
+    def upload_files(self, file_mappings: List[Dict], max_workers: int = 10, auto_delete_cold: bool = True, for_report_assets: bool = False) -> Dict:
         """
         Upload files concurrently.
         
         Args:
             file_mappings: List of dicts with 'local_path' and 'remote_path' keys
+            max_workers: Max concurrent uploads
+            auto_delete_cold: Whether to delete cold storage files after upload
+            for_report_assets: If True, return URLs suitable for HTML reports (14-day signed URLs in private mode)
             Optional 'content_type' key to override auto-detection
             max_workers: Maximum number of concurrent upload threads
             auto_delete_cold: If True, automatically delete files from cold storage after successful upload
@@ -198,7 +201,13 @@ class CloudflareUtils:
                         ExtraArgs=extra_args
                     )
                 
-                file_url = self.get_public_url(remote_path)
+                # Get URL based on use case
+                if for_report_assets:
+                    # Report assets need long-lived URLs (14-day signed URLs in private mode)
+                    file_url = self.get_url_for_report_asset(remote_path)
+                else:
+                    # Normal uploads use public URL or path
+                    file_url = self.get_public_url(remote_path)
                 
                 result = {
                     'success': True,
@@ -493,6 +502,42 @@ class CloudflareUtils:
         # Delegate to new mode-aware method
         return self.get_file_url_or_path(remote_path)
     
+    def get_url_for_report_asset(self, remote_path: str) -> str:
+        """
+        Get URL for assets embedded in HTML reports (screenshots, videos).
+        
+        In PUBLIC mode: Returns public URL
+        In PRIVATE mode: Returns signed URL with 14-day expiry
+        
+        This is specifically for HTML reports where we need working URLs
+        that last longer than the typical 1-hour signed URL expiry.
+        
+        Args:
+            remote_path: Path in R2 (e.g., 'script-reports/device/report/screenshot.jpg')
+            
+        Returns:
+            URL string that works for 14 days (public URL or long-expiry signed URL)
+        """
+        if self.is_public_mode():
+            # PUBLIC MODE: Return full public URL
+            public_url_base = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', '').strip()
+            base_url = public_url_base.rstrip('/')
+            return f"{base_url}/{remote_path}"
+        else:
+            # PRIVATE MODE: Return signed URL with 14-day expiry
+            # 14 days = 14 * 24 * 60 * 60 = 1,209,600 seconds
+            FOURTEEN_DAYS_SECONDS = 14 * 24 * 60 * 60
+            
+            result = self.generate_presigned_url(remote_path, expires_in=FOURTEEN_DAYS_SECONDS)
+            
+            if result.get('success'):
+                logger.debug(f"Generated 14-day signed URL for report asset: {remote_path}")
+                return result['url']
+            else:
+                # Fallback to path (will fail in browser but at least report generates)
+                logger.warning(f"Failed to generate signed URL for {remote_path}, using path")
+                return remote_path
+    
     def generate_presigned_url(self, remote_path: str, expires_in: int = 3600) -> Dict:
         """
         Generate a pre-signed URL for secure, time-limited access to a private R2 file.
@@ -786,9 +831,9 @@ def upload_heatmap_html(html_content: str, timestamp: str) -> Dict:
             temp_file_path = temp_file.name
         
         try:
-            # Upload HTML file
+            # Upload HTML file with 14-day signed URL in private mode
             file_mappings = [{'local_path': temp_file_path, 'remote_path': html_path}]
-            upload_result = uploader.upload_files(file_mappings)
+            upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
             
             # Convert to single file result
             if upload_result['uploaded_files']:
@@ -847,9 +892,9 @@ def upload_script_report(html_content: str, device_model: str, script_name: str,
             temp_file_path = temp_file.name
         
         try:
-            # Upload HTML report
+            # Upload HTML report with 14-day signed URL in private mode
             file_mappings = [{'local_path': temp_file_path, 'remote_path': report_path}]
-            upload_result = uploader.upload_files(file_mappings)
+            upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
             
             # Convert to single file result
             if upload_result['uploaded_files']:
@@ -900,14 +945,14 @@ def upload_test_video(local_video_path: str, device_model: str, script_name: str
         folder_name = f"{script_name}_{date_str}_{timestamp}"
         video_path = f"script-reports/{device_model}/{folder_name}/video.mp4"
         
-        # Upload video file with proper content type
+        # Upload video file with proper content type (14-day signed URL in private mode)
         file_mappings = [{
             'local_path': local_video_path,
             'remote_path': video_path,
             'content_type': 'video/mp4'
         }]
         
-        upload_result = uploader.upload_files(file_mappings)
+        upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
         
         # Convert to single file result
         if upload_result['uploaded_files']:
@@ -943,14 +988,14 @@ def upload_restart_video(local_video_path: str, timestamp: str) -> Dict:
         # Create video path in same folder as report: restart-reports/{timestamp}/video.mp4
         video_path = f"restart-reports/{timestamp}/video.mp4"
         
-        # Upload video file with proper content type
+        # Upload video file with proper content type (14-day signed URL in private mode)
         file_mappings = [{
             'local_path': local_video_path,
             'remote_path': video_path,
             'content_type': 'video/mp4'
         }]
         
-        upload_result = uploader.upload_files(file_mappings)
+        upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
         
         # Convert to single file result
         if upload_result['uploaded_files']:
@@ -996,9 +1041,9 @@ def upload_restart_report(html_content: str, host_name: str, device_id: str, tim
             temp_file_path = temp_file.name
         
         try:
-            # Upload HTML report
+            # Upload HTML report with 14-day signed URL in private mode
             file_mappings = [{'local_path': temp_file_path, 'remote_path': report_path}]
-            upload_result = uploader.upload_files(file_mappings)
+            upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
             
             # Convert to single file result
             if upload_result['uploaded_files']:
@@ -1059,12 +1104,13 @@ def upload_script_logs(log_content: str, device_model: str, script_name: str, ti
         
         try:
             # Upload with explicit text/plain content type for inline browser display
+            # Use 14-day signed URL in private mode (report asset)
             file_mappings = [{
                 'local_path': temp_log_path, 
                 'remote_path': remote_path,
                 'content_type': 'text/plain; charset=utf-8'
             }]
-            upload_result = uploader.upload_files(file_mappings)
+            upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
             
             # Clean up temporary file
             os.unlink(temp_log_path)
@@ -1143,8 +1189,8 @@ def upload_validation_screenshots(screenshot_paths: list, device_model: str, scr
             'failed_uploads': []
         }
     
-    # Upload all files
-    batch_result = uploader.upload_files(file_mappings)
+    # Upload all files with report asset URLs (14-day signed URLs in private mode)
+    batch_result = uploader.upload_files(file_mappings, for_report_assets=True)
     
     return {
         'success': batch_result['success'],
@@ -1208,8 +1254,8 @@ def upload_kpi_thumbnails(thumbnails: Dict[str, str], execution_result_id: str, 
             logger.warning(f"⚠️  No images to upload for {execution_result_id[:8]}")
             return {}
         
-        # Batch upload
-        upload_result = uploader.upload_files(file_mappings)
+        # Batch upload with 14-day signed URLs in private mode
+        upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
         
         # Extract URLs and log them
         urls = {}
@@ -1260,13 +1306,13 @@ def upload_kpi_report(html_content: str, execution_result_id: str, timestamp: st
             temp_file_path = temp_file.name
         
         try:
-            # Upload HTML report
+            # Upload HTML report with 14-day signed URL in private mode
             file_mappings = [{
                 'local_path': temp_file_path, 
                 'remote_path': report_path,
                 'content_type': 'text/html; charset=utf-8'
             }]
-            upload_result = uploader.upload_files(file_mappings)
+            upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
             
             # Convert to single file result
             if upload_result['uploaded_files']:
