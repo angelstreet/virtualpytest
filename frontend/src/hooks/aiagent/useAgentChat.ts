@@ -5,7 +5,8 @@ import { buildServerUrl, getServerBaseUrl } from '../../utils/buildUrlUtils';
 // --- Constants ---
 
 const STORAGE_KEY_API = 'virtualpytest_anthropic_key';
-const STORAGE_KEY_MESSAGES = 'virtualpytest_agent_messages';
+const STORAGE_KEY_CONVERSATIONS = 'virtualpytest_agent_conversations';
+const STORAGE_KEY_ACTIVE_CONVERSATION = 'virtualpytest_active_conversation';
 
 // --- Types ---
 
@@ -35,6 +36,14 @@ export interface Message {
   events?: AgentEvent[];
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Session {
   id: string;
   mode?: string;
@@ -43,13 +52,32 @@ export interface Session {
 
 export type Status = 'checking' | 'ready' | 'needs_key' | 'error';
 
+// --- Utilities ---
+
+const generateId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+const extractTitle = (messages: Message[]): string => {
+  const firstUserMsg = messages.find(m => m.role === 'user');
+  if (!firstUserMsg) return 'New Chat';
+  // Take first 40 chars, truncate at word boundary
+  const text = firstUserMsg.content.slice(0, 50);
+  return text.length < firstUserMsg.content.length ? text.replace(/\s+\S*$/, '...') : text;
+};
+
 // --- Hook ---
 
 export const useAgentChat = () => {
-  // State
+  // Conversations state
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  
+  // Current conversation messages (derived)
+  const activeConversation = conversations.find(c => c.id === activeConversationId);
+  const messages = activeConversation?.messages || [];
+  
+  // Session & UI state
   const [status, setStatus] = useState<Status>('checking');
   const [session, setSession] = useState<Session | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentEvents, setCurrentEvents] = useState<AgentEvent[]>([]);
@@ -63,26 +91,97 @@ export const useAgentChat = () => {
   // Refs
   const socketRef = useRef<Socket | null>(null);
 
-  // --- Message Persistence ---
+  // --- Conversation Persistence ---
 
-  // Load messages on mount
+  // Load conversations on mount
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_MESSAGES);
-    if (saved) {
+    const savedConvos = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
+    const savedActiveId = localStorage.getItem(STORAGE_KEY_ACTIVE_CONVERSATION);
+    
+    if (savedConvos) {
       try {
-        setMessages(JSON.parse(saved));
+        const parsed = JSON.parse(savedConvos);
+        setConversations(parsed);
+        // Restore active conversation or use most recent
+        if (savedActiveId && parsed.find((c: Conversation) => c.id === savedActiveId)) {
+          setActiveConversationId(savedActiveId);
+        } else if (parsed.length > 0) {
+          setActiveConversationId(parsed[0].id);
+        }
       } catch (err) {
-        console.error('Failed to load messages:', err);
+        console.error('Failed to load conversations:', err);
       }
     }
   }, []);
 
-  // Save messages on change
+  // Save conversations on change
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages));
+    if (conversations.length > 0) {
+      localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
     }
-  }, [messages]);
+  }, [conversations]);
+
+  // Save active conversation ID
+  useEffect(() => {
+    if (activeConversationId) {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_CONVERSATION, activeConversationId);
+    }
+  }, [activeConversationId]);
+
+  // --- Conversation Management ---
+
+  const createNewConversation = useCallback(() => {
+    const newConvo: Conversation = {
+      id: generateId(),
+      title: 'New Chat',
+      messages: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setConversations(prev => [newConvo, ...prev]);
+    setActiveConversationId(newConvo.id);
+    setCurrentEvents([]);
+    initializeSession();
+    return newConvo.id;
+  }, []);
+
+  const switchConversation = useCallback((conversationId: string) => {
+    setActiveConversationId(conversationId);
+    setCurrentEvents([]);
+    setIsProcessing(false);
+  }, []);
+
+  const deleteConversation = useCallback((conversationId: string) => {
+    setConversations(prev => {
+      const filtered = prev.filter(c => c.id !== conversationId);
+      // If deleting active, switch to most recent
+      if (conversationId === activeConversationId && filtered.length > 0) {
+        setActiveConversationId(filtered[0].id);
+      } else if (filtered.length === 0) {
+        setActiveConversationId(null);
+      }
+      // Clean up localStorage if empty
+      if (filtered.length === 0) {
+        localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
+        localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
+      }
+      return filtered;
+    });
+  }, [activeConversationId]);
+
+  const updateMessages = useCallback((newMessages: Message[]) => {
+    if (!activeConversationId) return;
+    
+    setConversations(prev => prev.map(c => {
+      if (c.id !== activeConversationId) return c;
+      return {
+        ...c,
+        messages: newMessages,
+        title: extractTitle(newMessages),
+        updatedAt: new Date().toISOString(),
+      };
+    }));
+  }, [activeConversationId]);
 
   // --- Socket Connection ---
 
@@ -92,7 +191,7 @@ export const useAgentChat = () => {
     const serverBaseUrl = getServerBaseUrl();
     const socket = io(`${serverBaseUrl}/agent`, {
       path: '/server/socket.io',
-      transports: ['polling'], // Use polling only to avoid WebSocket errors
+      transports: ['polling'],
     });
 
     socket.on('connect', () => {
@@ -102,18 +201,15 @@ export const useAgentChat = () => {
     socket.on('agent_event', (event: AgentEvent) => {
       setCurrentEvents(prev => [...prev, event]);
       
-      // Mode Detection
       if (event.type === 'mode_detected') {
         setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
       }
 
-      // Agent Delegation
       if (event.type === 'agent_delegated') {
         const agentName = event.content.replace('Delegating to ', '').replace(' agent...', '');
         setSession(prev => prev ? { ...prev, active_agent: agentName } : null);
       }
 
-      // Message Completion
       if (event.type === 'message' || event.type === 'result') {
         setCurrentEvents(prevEvents => {
           const newMessage: Message = {
@@ -124,8 +220,20 @@ export const useAgentChat = () => {
             timestamp: event.timestamp,
             events: [...prevEvents, event],
           };
-          setMessages(prev => [...prev, newMessage]);
-          return []; // Clear current events buffer
+          
+          // Update conversation with new message
+          setConversations(prev => prev.map(c => {
+            if (c.id !== activeConversationId) return c;
+            const updatedMessages = [...c.messages, newMessage];
+            return {
+              ...c,
+              messages: updatedMessages,
+              title: extractTitle(updatedMessages),
+              updatedAt: new Date().toISOString(),
+            };
+          }));
+          
+          return [];
         });
       }
       
@@ -144,7 +252,7 @@ export const useAgentChat = () => {
     });
 
     socketRef.current = socket;
-  }, []);
+  }, [activeConversationId]);
 
   // --- Session Management ---
 
@@ -210,6 +318,21 @@ export const useAgentChat = () => {
   const sendMessage = useCallback(() => {
     if (!input.trim() || isProcessing) return;
 
+    // Create new conversation if none exists
+    let targetConvoId = activeConversationId;
+    if (!targetConvoId) {
+      const newConvo: Conversation = {
+        id: generateId(),
+        title: 'New Chat',
+        messages: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setConversations(prev => [newConvo, ...prev]);
+      setActiveConversationId(newConvo.id);
+      targetConvoId = newConvo.id;
+    }
+
     const userMsg: Message = {
       id: `${Date.now()}-user`,
       role: 'user',
@@ -217,7 +340,18 @@ export const useAgentChat = () => {
       timestamp: new Date().toISOString(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    // Add user message to conversation
+    setConversations(prev => prev.map(c => {
+      if (c.id !== targetConvoId) return c;
+      const updatedMessages = [...c.messages, userMsg];
+      return {
+        ...c,
+        messages: updatedMessages,
+        title: extractTitle(updatedMessages),
+        updatedAt: new Date().toISOString(),
+      };
+    }));
+
     setInput('');
     setIsProcessing(true);
     setCurrentEvents([]);
@@ -227,7 +361,7 @@ export const useAgentChat = () => {
       session_id: session?.id,
       message: input.trim(),
     });
-  }, [input, isProcessing, session?.id]);
+  }, [input, isProcessing, session?.id, activeConversationId]);
 
   const handleApproval = useCallback((approved: boolean) => {
     socketRef.current?.emit('approve', { session_id: session?.id, approved });
@@ -236,25 +370,35 @@ export const useAgentChat = () => {
   const stopGeneration = useCallback(() => {
     if (!session?.id) return;
     
-    setIsProcessing(false); // Optimistic update
-    setCurrentEvents([]); // Clear current stream
+    setIsProcessing(false);
+    setCurrentEvents([]);
     
-    // Send stop signal to backend
     socketRef.current?.emit('stop_generation', { session_id: session.id });
     
-    // Add system message
-    setMessages(prev => [...prev, {
-      id: `${Date.now()}-stop`,
-      role: 'agent',
-      agent: 'System',
-      content: '🛑 Generation stopped by user.',
-      timestamp: new Date().toISOString(),
-    }]);
-  }, [session?.id]);
+    // Add system message to current conversation
+    if (activeConversationId) {
+      setConversations(prev => prev.map(c => {
+        if (c.id !== activeConversationId) return c;
+        return {
+          ...c,
+          messages: [...c.messages, {
+            id: `${Date.now()}-stop`,
+            role: 'agent' as const,
+            agent: 'System',
+            content: '🛑 Generation stopped by user.',
+            timestamp: new Date().toISOString(),
+          }],
+          updatedAt: new Date().toISOString(),
+        };
+      }));
+    }
+  }, [session?.id, activeConversationId]);
 
   const clearHistory = useCallback(() => {
-    setMessages([]);
-    localStorage.removeItem(STORAGE_KEY_MESSAGES);
+    setConversations([]);
+    setActiveConversationId(null);
+    localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
     initializeSession();
   }, [initializeSession]);
 
@@ -280,6 +424,10 @@ export const useAgentChat = () => {
     showApiKey,
     isValidating,
     
+    // Conversations
+    conversations,
+    activeConversationId,
+    
     // Actions
     setInput,
     setShowApiKey,
@@ -290,6 +438,10 @@ export const useAgentChat = () => {
     handleApproval,
     stopGeneration,
     clearHistory,
+    
+    // Conversation Actions
+    createNewConversation,
+    switchConversation,
+    deleteConversation,
   };
 };
-

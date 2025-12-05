@@ -6,4 +6,4 @@ export { useAICacheReset } from './useAICacheReset';
 
 // AI Agent Chat
 export { useAgentChat } from './useAgentChat';
-export type { AgentEvent, Message, Session, Status } from './useAgentChat';
+export type { AgentEvent, Message, Session, Status, Conversation } from './useAgentChat';

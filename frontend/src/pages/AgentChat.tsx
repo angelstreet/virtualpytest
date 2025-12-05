@@ -1,17 +1,13 @@
 /**
- * AI Agent Chat Page
+ * AI Agent Chat Page - 3-Column Layout
  * 
- * Professional QA Assistant Interface - "Sober Dark" Edition
- * Inspired by Claude/Linear aesthetics.
- * 
- * Features:
- * - Dark-first professional UI
- * - Focus-mode input (center initially, bottom when chatting)
- * - Minimalist message stream
- * - No double scrollbars
+ * Layout:
+ * - Left: Conversation history sidebar (collapsible)
+ * - Center: Main chat area
+ * - Right: Device execution panel (collapsible, prepared for future)
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -25,9 +21,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Container,
   useTheme,
   Fade,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowUpward as SendIcon,
@@ -46,30 +42,39 @@ import {
   AccessTime as TimeIcon,
   DataUsage as TokenIcon,
   Person as PersonIcon,
+  Add as AddIcon,
+  ChatBubbleOutline as ChatIcon,
+  ChevronLeft as CollapseLeftIcon,
+  ChevronRight as ExpandLeftIcon,
+  Devices as DevicesIcon,
 } from '@mui/icons-material';
-import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
+import { useAgentChat, type AgentEvent, type Conversation } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 
 // --- Constants & Configuration ---
 
-// Refined Palette (Claude-inspired warmth)
 const PALETTE = {
   background: '#1a1a1a',
   surface: '#242424',
   inputBg: '#2a2a2a',
+  sidebarBg: '#1e1e1e',
   textPrimary: '#f0f0f0',
   textSecondary: '#9a9a9a',
-  accent: '#d4a574',     // Warm earthy tone
+  textMuted: '#666666',
+  accent: '#d4a574',
   accentHover: '#c49464',
   agentBubble: '#262626',
   agentBorder: '#333333',
   userBubble: '#3a3a3a',
   userBorder: '#4a4a4a',
   borderColor: '#383838',
+  hoverBg: '#2a2a2a',
   cardShadow: '0 2px 8px rgba(0,0,0,0.3)',
 };
 
-// Agent Identities (Subtle Colors)
+const SIDEBAR_WIDTH = 240;
+const RIGHT_PANEL_WIDTH = 320;
+
 const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
   'QA Manager': { color: '#607d8b', label: 'Orchestrator' },
   'Explorer': { color: '#81c784', label: 'Explorer' },
@@ -87,7 +92,6 @@ const mergeToolEvents = (events: AgentEvent[]): AgentEvent[] => {
   const toolResults = events.filter(e => e.type === 'tool_result');
   
   return toolCalls.map(call => {
-    // Find matching result by tool_name
     const result = toolResults.find(r => r.tool_name === call.tool_name);
     return {
       ...call,
@@ -97,6 +101,40 @@ const mergeToolEvents = (events: AgentEvent[]): AgentEvent[] => {
   });
 };
 
+// Group conversations by time period
+const groupConversationsByTime = (conversations: Conversation[]) => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const thisMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const groups: { label: string; items: Conversation[] }[] = [
+    { label: 'Today', items: [] },
+    { label: 'Yesterday', items: [] },
+    { label: 'This Week', items: [] },
+    { label: 'This Month', items: [] },
+    { label: 'Older', items: [] },
+  ];
+
+  conversations.forEach(conv => {
+    const date = new Date(conv.updatedAt);
+    if (date >= today) {
+      groups[0].items.push(conv);
+    } else if (date >= yesterday) {
+      groups[1].items.push(conv);
+    } else if (date >= thisWeek) {
+      groups[2].items.push(conv);
+    } else if (date >= thisMonth) {
+      groups[3].items.push(conv);
+    } else {
+      groups[4].items.push(conv);
+    }
+  });
+
+  return groups.filter(g => g.items.length > 0);
+};
+
 // --- Components ---
 
 const AgentChat: React.FC = () => {
@@ -104,7 +142,10 @@ const AgentChat: React.FC = () => {
   const isDarkMode = theme.palette.mode === 'dark';
   const { profile } = useProfile();
   
-  // Use the extracted hook
+  // Layout state
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  
   const {
     status,
     messages,
@@ -115,6 +156,8 @@ const AgentChat: React.FC = () => {
     apiKeyInput,
     showApiKey,
     isValidating,
+    conversations,
+    activeConversationId,
     setInput,
     setShowApiKey,
     setApiKeyInput,
@@ -124,52 +167,19 @@ const AgentChat: React.FC = () => {
     handleApproval,
     stopGeneration,
     clearHistory,
+    createNewConversation,
+    switchConversation,
+    deleteConversation,
   } = useAgentChat();
   
-  // Refs for UI
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentEvents]);
 
-  // --- Utility Functions ---
-
-  // Format messages for export/copy
-  const formatConversation = (): string => {
-    return messages.map(msg => {
-      const sender = msg.role === 'user' ? 'You' : (msg.agent || 'QA Assistant');
-      const timestamp = new Date(msg.timestamp || Date.now()).toLocaleString();
-      return `[${timestamp}] ${sender}:\n${msg.content}\n`;
-    }).join('\n---\n\n');
-  };
-
-  // Copy conversation to clipboard
-  const copyToClipboard = async () => {
-    const text = formatConversation();
-    try {
-      await navigator.clipboard.writeText(text);
-      // Could add a toast notification here
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  // Export conversation as file
-  const exportConversation = () => {
-    const text = formatConversation();
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `qa-chat-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  // Group conversations
+  const groupedConversations = groupConversationsByTime(conversations);
 
   // --- Renderers ---
 
@@ -196,15 +206,14 @@ const AgentChat: React.FC = () => {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-           <ConsoleIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-           <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', flex: 1 }}>
-             {event.tool_name}
-           </Typography>
-           {/* Only show error icon when explicitly failed (success === false), otherwise show success */}
-           {event.success === false ? 
-             <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
-             <SuccessIcon sx={{ fontSize: 12, color: PALETTE.accent }} />
-           }
+          <ConsoleIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', flex: 1 }}>
+            {event.tool_name}
+          </Typography>
+          {event.success === false ? 
+            <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
+            <SuccessIcon sx={{ fontSize: 12, color: PALETTE.accent }} />
+          }
         </Box>
       </AccordionSummary>
       <AccordionDetails sx={{ p: 0, pl: 3 }}>
@@ -217,247 +226,375 @@ const AgentChat: React.FC = () => {
             borderRadius: 2
           }}
         >
-           <Typography variant="caption" display="block" color="text.secondary" gutterBottom>Input</Typography>
-           <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 150 }}>
-             {event.tool_params ? JSON.stringify(event.tool_params, null, 2) : '{}'}
-           </Box>
-           
-           <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>Result</Typography>
-           <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 300 }}>
-              {event.tool_result === undefined || event.tool_result === null 
-                ? <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>No result data</Typography>
-                : typeof event.tool_result === 'string' 
-                  ? event.tool_result 
-                  : JSON.stringify(event.tool_result, null, 2)
-              }
-           </Box>
+          <Typography variant="caption" display="block" color="text.secondary" gutterBottom>Input</Typography>
+          <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 150 }}>
+            {event.tool_params ? JSON.stringify(event.tool_params, null, 2) : '{}'}
+          </Box>
+          
+          <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>Result</Typography>
+          <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 300 }}>
+            {event.tool_result === undefined || event.tool_result === null 
+              ? <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>No result data</Typography>
+              : typeof event.tool_result === 'string' 
+                ? event.tool_result 
+                : JSON.stringify(event.tool_result, null, 2)
+            }
+          </Box>
         </Paper>
       </AccordionDetails>
     </Accordion>
   );
 
-  // Empty State / Focus Mode
-  if (status === 'ready' && messages.length === 0) {
-    return (
-      <Box sx={{ 
-        height: 'calc(100vh - 64px)', // Adjust based on your app header
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        bgcolor: 'background.default'
-      }}>
-        <Fade in timeout={800}>
-          <Box sx={{ textAlign: 'center', maxWidth: 640, width: '100%', p: 4 }}>
-             {/* Logo/Icon */}
-             <Box sx={{ 
-               display: 'inline-flex',
-               alignItems: 'center',
-               justifyContent: 'center',
-               width: 72,
-               height: 72,
-               borderRadius: '50%',
-               bgcolor: `${PALETTE.accent}15`,
-               mb: 3
-             }}>
-               <SparkleIcon sx={{ fontSize: 36, color: PALETTE.accent }} />
-             </Box>
-             
-             <Typography 
-               variant="h4" 
-               sx={{ 
-                 fontWeight: 500, 
-                 mb: 1.5, 
-                 color: 'text.primary',
-                 letterSpacing: '-0.02em'
-               }}
-             >
-               QA Assistant
-             </Typography>
-             <Typography 
-               variant="body1" 
-               sx={{ 
-                 mb: 4, 
-                 color: 'text.secondary',
-                 maxWidth: 400,
-                 mx: 'auto'
-               }}
-             >
-               I can help you automate tests, run regressions, and analyze failures.
-             </Typography>
-             
-             {/* Input Card */}
-             <Paper
-                elevation={0}
+  // --- Left Sidebar ---
+  const renderLeftSidebar = () => (
+    <Box
+      sx={{
+        width: leftSidebarOpen ? SIDEBAR_WIDTH : 0,
+        minWidth: leftSidebarOpen ? SIDEBAR_WIDTH : 0,
+        height: '100%',
+        bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
+        borderRight: leftSidebarOpen ? '1px solid' : 'none',
+        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        transition: 'width 0.2s, min-width 0.2s',
+      }}
+    >
+      {leftSidebarOpen && (
+        <>
+          {/* New Chat Button */}
+          <Box sx={{ p: 1.5, pb: 1 }}>
+            <Button
+              fullWidth
+              startIcon={<AddIcon />}
+              onClick={createNewConversation}
+              sx={{
+                justifyContent: 'flex-start',
+                color: 'text.primary',
+                bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.100',
+                border: '1px solid',
+                borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 500,
+                py: 1,
+                '&:hover': {
+                  bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.200',
+                  borderColor: PALETTE.accent,
+                },
+              }}
+            >
+              New Chat
+            </Button>
+          </Box>
+
+          {/* Conversation History */}
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              px: 1,
+              pb: 2,
+              scrollbarWidth: 'thin',
+              scrollbarColor: isDarkMode ? `${PALETTE.borderColor} transparent` : '#c1c1c1 transparent',
+              '&::-webkit-scrollbar': { width: 4 },
+              '&::-webkit-scrollbar-track': { background: 'transparent' },
+              '&::-webkit-scrollbar-thumb': {
+                background: isDarkMode ? PALETTE.borderColor : '#c1c1c1',
+                borderRadius: 2,
+              },
+            }}
+          >
+            {groupedConversations.map((group) => (
+              <Box key={group.label} sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    px: 1,
+                    py: 0.75,
+                    color: PALETTE.textMuted,
+                    fontWeight: 600,
+                    fontSize: '0.7rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {group.label}
+                </Typography>
+                {group.items.map((conv) => (
+                  <Box
+                    key={conv.id}
+                    onClick={() => switchConversation(conv.id)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 1.5,
+                      cursor: 'pointer',
+                      bgcolor: conv.id === activeConversationId 
+                        ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
+                        : 'transparent',
+                      '&:hover': {
+                        bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
+                      },
+                      transition: 'background-color 0.15s',
+                    }}
+                  >
+                    <ChatIcon sx={{ fontSize: 14, color: PALETTE.textMuted, flexShrink: 0 }} />
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        color: conv.id === activeConversationId ? 'text.primary' : 'text.secondary',
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      {conv.title}
+                    </Typography>
+                    {conv.id === activeConversationId && (
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteConversation(conv.id);
+                          }}
+                          sx={{
+                            p: 0.25,
+                            opacity: 0.5,
+                            '&:hover': { opacity: 1, color: 'error.main' },
+                          }}
+                        >
+                          <ClearIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            ))}
+
+            {conversations.length === 0 && (
+              <Typography
+                variant="caption"
                 sx={{
-                  p: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  bgcolor: isDarkMode ? PALETTE.inputBg : '#fff',
-                  border: '1px solid',
-                  borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
-                  borderRadius: 3,
-                  boxShadow: isDarkMode ? PALETTE.cardShadow : '0 2px 8px rgba(0,0,0,0.08)',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                     borderColor: PALETTE.accent,
-                     boxShadow: isDarkMode ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.12)'
-                  },
-                  '&:focus-within': {
-                     borderColor: PALETTE.accent,
-                  }
+                  display: 'block',
+                  textAlign: 'center',
+                  color: PALETTE.textMuted,
+                  py: 4,
                 }}
               >
-                <TextField
-                  autoFocus
-                  fullWidth
-                  placeholder="What would you like to test?"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  sx={{ ml: 1.5, flex: 1 }}
-                  variant="standard"
-                  autoComplete="off"
-                  InputProps={{ 
-                    disableUnderline: true,
-                    sx: { fontSize: '1rem' }
-                  }}
-                />
-                <IconButton 
-                   onClick={sendMessage}
-                   disabled={!input.trim()}
-                   sx={{ 
-                     m: 0.5, 
-                     width: 40,
-                     height: 40,
-                     bgcolor: input.trim() ? PALETTE.accent : 'transparent',
-                     color: input.trim() ? '#fff' : 'text.disabled',
-                     transition: 'all 0.2s',
-                     '&:hover': { 
-                       bgcolor: input.trim() ? PALETTE.accentHover : 'transparent',
-                       transform: input.trim() ? 'scale(1.05)' : 'none'
-                     }
-                   }}
-                >
-                  <SendIcon fontSize="small" />
-                </IconButton>
-              </Paper>
-              
-              {/* Suggestion Chips */}
-              <Box sx={{ mt: 4, display: 'flex', gap: 1.5, justifyContent: 'center', flexWrap: 'wrap' }}>
-                 {[
-                   '🚀 Automate web app https://sauce-demo.myshopify.com', 
-                   '🧪 Run goto test case', 
-                   '🔍 How many test cases are there?'
-                 ].map((suggestion) => (
-                    <Chip 
-                      key={suggestion} 
-                      label={suggestion} 
-                      onClick={() => setInput(suggestion.replace(/^[^\s]+\s/, ''))}
-                      sx={{ 
-                        bgcolor: isDarkMode ? PALETTE.surface : 'grey.100', 
-                        border: '1px solid', 
-                        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
-                        borderRadius: 2,
-                        py: 2.5,
-                        px: 0.5,
-                        fontSize: '0.875rem',
-                        transition: 'all 0.2s',
-                        '&:hover': { 
-                          borderColor: PALETTE.accent, 
-                          bgcolor: isDarkMode ? PALETTE.agentBubble : 'grey.50',
-                          cursor: 'pointer' 
-                        }
-                      }} 
-                    />
-                 ))}
-              </Box>
+                No conversations yet
+              </Typography>
+            )}
           </Box>
-        </Fade>
-      </Box>
-    );
-  }
+        </>
+      )}
+    </Box>
+  );
 
-  // Main Chat Interface
-  return (
+  // --- Right Panel (Device Execution - Placeholder) ---
+  const renderRightPanel = () => (
+    <Box
+      sx={{
+        width: rightPanelOpen ? RIGHT_PANEL_WIDTH : 0,
+        minWidth: rightPanelOpen ? RIGHT_PANEL_WIDTH : 0,
+        height: '100%',
+        bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
+        borderLeft: rightPanelOpen ? '1px solid' : 'none',
+        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        transition: 'width 0.2s, min-width 0.2s',
+      }}
+    >
+      {rightPanelOpen && (
+        <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <DevicesIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
+            <Typography variant="subtitle2" fontWeight={600}>
+              Device Execution
+            </Typography>
+          </Box>
+          
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 2,
+              border: '1px dashed',
+              borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+            }}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+              Device execution panel
+              <br />
+              <Typography variant="caption" color="text.disabled">
+                Coming soon
+              </Typography>
+            </Typography>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+
+  // --- Empty State / Focus Mode ---
+  const renderEmptyState = () => (
     <Box sx={{ 
-      height: 'calc(93vh - 64px)', 
+      flex: 1,
       display: 'flex', 
       flexDirection: 'column', 
-      bgcolor: 'background.default',
-      overflow: 'hidden' // Prevent outer scroll
+      alignItems: 'center', 
+      justifyContent: 'center',
+      p: 4,
     }}>
-      {/* Discreet Header */}
-      <Box sx={{ 
-        py: 1, 
-        px: 20, 
-        borderBottom: '0.5px solid',
-        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 3
-      }}>
-        <SparkleIcon sx={{ fontSize: 16, color: PALETTE.accent, opacity: 0.8 }} />
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            color: PALETTE.accent, 
-            fontWeight: 500,
-            letterSpacing: '0.5px',
-            opacity: 0.9
-          }}
-        >
-          Agentic AI
-        </Typography>
-      </Box>
+      <Fade in timeout={800}>
+        <Box sx={{ textAlign: 'center', maxWidth: 560, width: '100%' }}>
+          <Box sx={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            bgcolor: `${PALETTE.accent}15`,
+            mb: 3
+          }}>
+            <SparkleIcon sx={{ fontSize: 32, color: PALETTE.accent }} />
+          </Box>
+          
+          <Typography 
+            variant="h5" 
+            sx={{ fontWeight: 500, mb: 1, color: 'text.primary', letterSpacing: '-0.01em' }}
+          >
+            QA Assistant
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 4, color: 'text.secondary', maxWidth: 360, mx: 'auto' }}>
+            Automate tests, run regressions, and analyze failures.
+          </Typography>
+          
+          {/* Input Card */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 1,
+              display: 'flex',
+              alignItems: 'center',
+              bgcolor: isDarkMode ? PALETTE.inputBg : '#fff',
+              border: '1px solid',
+              borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+              borderRadius: 3,
+              boxShadow: isDarkMode ? PALETTE.cardShadow : '0 2px 8px rgba(0,0,0,0.08)',
+              transition: 'all 0.2s',
+              '&:hover': { borderColor: PALETTE.accent },
+              '&:focus-within': { borderColor: PALETTE.accent },
+            }}
+          >
+            <TextField
+              autoFocus
+              fullWidth
+              placeholder="What would you like to test?"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              sx={{ ml: 1.5, flex: 1 }}
+              variant="standard"
+              autoComplete="off"
+              InputProps={{ disableUnderline: true, sx: { fontSize: '0.95rem' } }}
+            />
+            <IconButton 
+              onClick={sendMessage}
+              disabled={!input.trim()}
+              sx={{ 
+                m: 0.5, width: 36, height: 36,
+                bgcolor: input.trim() ? PALETTE.accent : 'transparent',
+                color: input.trim() ? '#fff' : 'text.disabled',
+                '&:hover': { bgcolor: input.trim() ? PALETTE.accentHover : 'transparent' },
+              }}
+            >
+              <SendIcon fontSize="small" />
+            </IconButton>
+          </Paper>
+          
+          {/* Suggestion Chips */}
+          <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {['Automate web app', 'Run goto test', 'How many test cases?'].map((suggestion) => (
+              <Chip 
+                key={suggestion} 
+                label={suggestion} 
+                onClick={() => setInput(suggestion)}
+                size="small"
+                sx={{ 
+                  bgcolor: isDarkMode ? PALETTE.surface : 'grey.100', 
+                  border: '1px solid', 
+                  borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+                  borderRadius: 2,
+                  fontSize: '0.8rem',
+                  '&:hover': { borderColor: PALETTE.accent, cursor: 'pointer' },
+                }} 
+              />
+            ))}
+          </Box>
+        </Box>
+      </Fade>
+    </Box>
+  );
 
+  // --- Main Chat Content ---
+  const renderChatContent = () => (
+    <>
       {/* Chat Stream */}
       <Box sx={{ 
         flex: 1, 
         overflowY: 'auto',
         overflowX: 'hidden',
-        p: 3,
+        px: 3,
+        py: 2,
         display: 'flex',
         flexDirection: 'column',
         gap: 2,
-        // Styled scrollbar - thin and subtle
-        scrollbarWidth: 'thin', // Firefox
+        scrollbarWidth: 'thin',
         scrollbarColor: isDarkMode ? `${PALETTE.borderColor} transparent` : '#c1c1c1 transparent',
-        '&::-webkit-scrollbar': {
-          width: 8,
-        },
-        '&::-webkit-scrollbar-track': {
-          background: 'transparent',
-        },
+        '&::-webkit-scrollbar': { width: 6 },
+        '&::-webkit-scrollbar-track': { background: 'transparent' },
         '&::-webkit-scrollbar-thumb': {
           background: isDarkMode ? PALETTE.borderColor : '#c1c1c1',
-          borderRadius: 4,
-          '&:hover': {
-            background: isDarkMode ? PALETTE.accent : '#a1a1a1',
-          }
+          borderRadius: 3,
         },
       }}>
-        <Container maxWidth="md">
+        <Box sx={{ maxWidth: 720, width: '100%', mx: 'auto' }}>
           
           {status === 'needs_key' && (
-             <Box sx={{ textAlign: 'center', mb: 2 }}>
-               <Alert severity="info" sx={{ mb: 2 }}>Please configure your Anthropic API Key to proceed.</Alert>
-               <Box sx={{ display: 'flex', gap: 1 }}>
-                 <TextField 
-                   size="small" 
-                   placeholder="sk-ant-..." 
-                   value={apiKeyInput} 
-                   onChange={(e) => setApiKeyInput(e.target.value)} 
-                   type={showApiKey ? "text" : "password"}
-                   autoComplete="off"
-                 />
-                 <Button variant="contained" onClick={saveApiKey} disabled={isValidating}>Save</Button>
-                 <IconButton onClick={() => setShowApiKey(!showApiKey)}>
-                   {showApiKey ? <VisibilityOff /> : <Visibility />}
-                 </IconButton>
-               </Box>
-               {error && <Typography color="error" variant="caption">{error}</Typography>}
-             </Box>
+            <Box sx={{ textAlign: 'center', mb: 2 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>Please configure your Anthropic API Key.</Alert>
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                <TextField 
+                  size="small" 
+                  placeholder="sk-ant-..." 
+                  value={apiKeyInput} 
+                  onChange={(e) => setApiKeyInput(e.target.value)} 
+                  type={showApiKey ? "text" : "password"}
+                  autoComplete="off"
+                />
+                <Button variant="contained" onClick={saveApiKey} disabled={isValidating}>Save</Button>
+                <IconButton onClick={() => setShowApiKey(!showApiKey)} size="small">
+                  {showApiKey ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </Box>
+              {error && <Typography color="error" variant="caption">{error}</Typography>}
+            </Box>
           )}
 
           {messages.map((msg) => {
@@ -471,178 +608,109 @@ const AgentChat: React.FC = () => {
                   display: 'flex', 
                   gap: 1.5,
                   flexDirection: isUser ? 'row-reverse' : 'row',
-                  justifyContent: isUser ? 'flex-start' : 'flex-start', // Flex direction handles the side
                   alignSelf: isUser ? 'flex-end' : 'flex-start',
-                  maxWidth: '85%',
-                  mb: 2
+                  maxWidth: '88%',
+                  mb: 1
                 }}
               >
-                 {/* Identity Column (Avatar) */}
-                 <Box sx={{ 
-                   display: 'flex', 
-                   flexDirection: 'column', 
-                   alignItems: 'center', 
-                   pt: 0.5 
-                 }}>
-                   {isUser ? (
-                     <Avatar 
-                       src={profile?.avatar_url || undefined}
-                       alt={profile?.full_name || 'You'}
-                       sx={{ 
-                         width: 32, 
-                         height: 32, 
-                         fontSize: 13, 
-                         bgcolor: isDarkMode ? '#5c6bc0' : '#3f51b5', // Indigo for user
-                         fontWeight: 600,
-                         boxShadow: isDarkMode ? '0 2px 4px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.1)'
-                       }}
-                     >
-                       {!profile?.avatar_url && (profile?.full_name ? getInitials(profile.full_name) : <PersonIcon sx={{ fontSize: 18 }} />)}
-                     </Avatar>
-                   ) : (
-                     <Avatar 
-                       sx={{ 
-                         width: 32, 
-                         height: 32, 
-                         fontSize: 13, 
-                         bgcolor: agentColor, 
-                         fontWeight: 600,
-                         boxShadow: isDarkMode ? '0 2px 4px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.1)'
-                       }}
-                     >
-                       {getInitials(msg.agent || 'QA')}
-                     </Avatar>
-                   )}
-                 </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 0.5 }}>
+                  {isUser ? (
+                    <Avatar 
+                      src={profile?.avatar_url || undefined}
+                      alt={profile?.full_name || 'You'}
+                      sx={{ width: 28, height: 28, fontSize: 12, bgcolor: isDarkMode ? '#5c6bc0' : '#3f51b5', fontWeight: 600 }}
+                    >
+                      {!profile?.avatar_url && (profile?.full_name ? getInitials(profile.full_name) : <PersonIcon sx={{ fontSize: 16 }} />)}
+                    </Avatar>
+                  ) : (
+                    <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: agentColor, fontWeight: 600 }}>
+                      {getInitials(msg.agent || 'QA')}
+                    </Avatar>
+                  )}
+                </Box>
 
-                 {/* Message Card */}
-                 <Paper 
-                   elevation={0}
-                   sx={{ 
-                     p: 1.5,
-                     flex: 1,
-                     bgcolor: isDarkMode  
-                       ? (isUser ? PALETTE.userBubble : PALETTE.agentBubble)
-                       : (isUser ? 'grey.100' : 'grey.50'),
-                     // User: Gold accent border, Agent: Standard grey
-                     border: isUser 
-                       ? `1px solid ${isDarkMode ? `${PALETTE.accent}50` : `${PALETTE.accent}40`}` 
-                       : `1px solid ${isDarkMode ? PALETTE.agentBorder : 'grey.200'}`,
-                     borderRadius: 3,
-                     // Add specific corner rounding for chat bubble effect
-                     borderTopRightRadius: isUser ? 4 : 12,
-                     borderTopLeftRadius: !isUser ? 4 : 12,
-                     boxShadow: isDarkMode ? PALETTE.cardShadow : '0 1px 3px rgba(0,0,0,0.1)',
-                     minWidth: 0, // Fix flex overflow
-                   }}
-                 >
-                    {/* Sender Info (only for agent, kept compact) */}
-                    {!isUser && (
-                      <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.5, fontSize: '0.85rem' }}>
-                        {msg.agent || 'QA Manager'}
-                      </Typography>
-                    )}
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 1.5,
+                    flex: 1,
+                    bgcolor: isDarkMode  
+                      ? (isUser ? PALETTE.userBubble : PALETTE.agentBubble)
+                      : (isUser ? 'grey.100' : 'grey.50'),
+                    border: isUser 
+                      ? `1px solid ${isDarkMode ? `${PALETTE.accent}50` : `${PALETTE.accent}40`}` 
+                      : `1px solid ${isDarkMode ? PALETTE.agentBorder : 'grey.200'}`,
+                    borderRadius: 2.5,
+                    borderTopRightRadius: isUser ? 4 : 10,
+                    borderTopLeftRadius: !isUser ? 4 : 10,
+                    minWidth: 0,
+                  }}
+                >
+                  {!isUser && (
+                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.5, fontSize: '0.8rem' }}>
+                      {msg.agent || 'QA Manager'}
+                    </Typography>
+                  )}
 
-                    {/* Tool Logs */}
-                    {!isUser && msg.events && msg.events.filter(e => e.type === 'tool_call').length > 0 && (
-                       <Box sx={{ mb: 1, p: 1, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 2 }}>
-                          {mergeToolEvents(msg.events).map(renderToolActivity)}
-                       </Box>
-                    )}
+                  {!isUser && msg.events && msg.events.filter(e => e.type === 'tool_call').length > 0 && (
+                    <Box sx={{ mb: 1, p: 1, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 1.5 }}>
+                      {mergeToolEvents(msg.events).map(renderToolActivity)}
+                    </Box>
+                  )}
+                  
+                  {!isUser && msg.agent === 'QA Manager' && (msg.content.toLowerCase().includes('**plan**') || msg.content.toLowerCase().includes('**mode confirmed**')) ? (
+                    <Accordion elevation={0} disableGutters sx={{ bgcolor: 'transparent', '&:before': { display: 'none' } }}>
+                      <AccordionSummary 
+                        expandIcon={<ExpandIcon sx={{ color: 'text.secondary' }} />}
+                        sx={{ minHeight: 'auto', p: 0, '& .MuiAccordionSummary-content': { m: 0, alignItems: 'center', gap: 1 } }}
+                      >
+                        <ThinkingIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.85rem' }}>
+                          View Reasoning & Plan
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: 0, pt: 1 }}>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'text.secondary', fontSize: '0.85rem' }}>
+                          {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
+                        </Typography>
+                      </AccordionDetails>
+                    </Accordion>
+                  ) : (
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
+                      {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
+                    </Typography>
+                  )}
+
+                  {!isUser && msg.events && (() => {
+                    const metrics = msg.events.reduce((acc, e) => {
+                      if (e.metrics) {
+                        acc.duration += e.metrics.duration_ms;
+                        acc.input += e.metrics.input_tokens;
+                        acc.output += e.metrics.output_tokens;
+                      }
+                      return acc;
+                    }, { duration: 0, input: 0, output: 0 });
                     
-                    {/* Content */}
-                    {!isUser && msg.agent === 'QA Manager' && (msg.content.toLowerCase().includes('**plan**') || msg.content.toLowerCase().includes('**mode confirmed**') || msg.content.toLowerCase().includes('session summary')) ? (
-                      <Accordion 
-                        elevation={0} 
-                        disableGutters
-                        sx={{ 
-                          bgcolor: 'transparent', 
-                          '&:before': { display: 'none' },
-                        }}
-                      >
-                        <AccordionSummary 
-                          expandIcon={<ExpandIcon sx={{ color: 'text.secondary' }} />}
-                          sx={{ 
-                            minHeight: 'auto', 
-                            p: 0,
-                            '& .MuiAccordionSummary-content': { m: 0, alignItems: 'center', gap: 1 }
-                          }}
-                        >
-                          <ThinkingIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                            View Reasoning & Plan
+                    if (metrics.duration === 0 && metrics.input === 0) return null;
+                    
+                    return (
+                      <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', gap: 2, opacity: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <TimeIcon sx={{ fontSize: 10 }} />
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                            {(metrics.duration / 1000).toFixed(1)}s
                           </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails sx={{ p: 0, pt: 1 }}>
-                           <Typography 
-                             variant="body1" 
-                             sx={{ 
-                               whiteSpace: 'pre-wrap',
-                               lineHeight: 1,
-                               color: 'text.secondary', 
-                               fontSize: '0.9rem',
-                               '& p': { mb: 0 }
-                             }}
-                           >
-                              {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
-                           </Typography>
-                        </AccordionDetails>
-                      </Accordion>
-                    ) : (
-                      <Typography 
-                        variant="body1" 
-                        sx={{ 
-                          whiteSpace: 'pre-wrap',
-                          lineHeight: 1.6,
-                          color: 'text.primary',
-                          fontSize: '0.95rem',
-                          '& p': { mb: 1 }
-                        }}
-                      >
-                         {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
-                      </Typography>
-                    )}
-
-                    {/* Metrics Footer */}
-                    {!isUser && msg.events && (() => {
-                       const metrics = msg.events.reduce((acc, e) => {
-                         if (e.metrics) {
-                           acc.duration += e.metrics.duration_ms;
-                           acc.input += e.metrics.input_tokens;
-                           acc.output += e.metrics.output_tokens;
-                         }
-                         return acc;
-                       }, { duration: 0, input: 0, output: 0 });
-                       
-                       if (metrics.duration === 0 && metrics.input === 0) return null;
-                       
-                       return (
-                         <Box sx={{ 
-                           mt: 1.5, 
-                           pt: 1, 
-                           borderTop: '1px solid', 
-                           borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                           display: 'flex', 
-                           gap: 2,
-                           opacity: 0.6,
-                           color: 'text.secondary'
-                         }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                               <TimeIcon sx={{ fontSize: 12 }} />
-                               <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-                                 {(metrics.duration / 1000).toFixed(2)}s
-                               </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                               <TokenIcon sx={{ fontSize: 12 }} />
-                               <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-                                 {metrics.input} in / {metrics.output} out
-                               </Typography>
-                            </Box>
-                         </Box>
-                       );
-                    })()}
-                 </Paper>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <TokenIcon sx={{ fontSize: 10 }} />
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                            {metrics.input}/{metrics.output}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })()}
+                </Paper>
               </Box>
             );
           })}
@@ -652,301 +720,223 @@ const AgentChat: React.FC = () => {
             <Paper 
               elevation={0}
               sx={{ 
-                p: 2.5,
+                p: 2,
                 bgcolor: isDarkMode ? PALETTE.agentBubble : 'grey.50',
                 border: '1px solid',
                 borderColor: isDarkMode ? PALETTE.agentBorder : 'grey.200',
-                borderRadius: 3,
+                borderRadius: 2.5,
                 maxWidth: '90%',
-                minWidth: '60%',
-                boxShadow: isDarkMode ? PALETTE.cardShadow : '0 1px 3px rgba(0,0,0,0.1)',
               }}
             >
-               {/* Thinking Header */}
-               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200' }}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    width: 28, 
-                    height: 28, 
-                    borderRadius: '50%',
-                    bgcolor: `${PALETTE.accent}20`,
-                  }}>
-                    <ThinkingIcon sx={{ 
-                      animation: 'pulse 1.5s infinite', 
-                      color: PALETTE.accent, 
-                      fontSize: 16 
-                    }} />
-                  </Box>
-                  <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-                     Processing...
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: currentEvents.length > 0 ? 1.5 : 0 }}>
+                <ThinkingIcon sx={{ animation: 'pulse 1.5s infinite', color: PALETTE.accent, fontSize: 18 }} />
+                <Typography variant="body2" fontWeight={500}>Processing...</Typography>
+              </Box>
+                
+              {currentEvents.length > 0 && (
+                <Box sx={{ pl: 2, borderLeft: `2px solid ${PALETTE.accent}40` }}>
+                  {mergeToolEvents(currentEvents).map(renderToolActivity)}
+                  {currentEvents.filter(e => e.type === 'thinking').map((event, idx) => (
+                    <Typography key={`thinking-${idx}`} variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
+                      {event.content}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
+
+              {currentEvents.length === 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {[0, 1, 2].map((i) => (
+                    <Box 
+                      key={i}
+                      sx={{ 
+                        width: 5, height: 5, borderRadius: '50%', bgcolor: PALETTE.accent,
+                        animation: 'bounce 1.4s ease-in-out infinite',
+                        animationDelay: `${i * 0.16}s`,
+                        '@keyframes bounce': {
+                          '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
+                          '40%': { transform: 'scale(1)', opacity: 1 },
+                        },
+                      }} 
+                    />
+                  ))}
+                </Box>
+              )}
+
+              {currentEvents.some(e => e.type === 'approval_required') && (
+                <Box sx={{ p: 1.5, mt: 1.5, border: '1px solid', borderColor: PALETTE.accent, borderRadius: 1.5, bgcolor: `${PALETTE.accent}10` }}>
+                  <Typography variant="subtitle2" sx={{ color: PALETTE.accent, fontWeight: 600 }} gutterBottom>
+                    🔐 Permission Request
                   </Typography>
-               </Box>
-                  
-               {/* Live Tool Stream */}
-               {currentEvents.length > 0 && (
-                 <Box sx={{ pl: 2, borderLeft: `2px solid ${PALETTE.accent}40`, mb: 2 }}>
-                    {/* Render merged tool events */}
-                    {mergeToolEvents(currentEvents).map(renderToolActivity)}
-                    
-                    {/* Render thinking events */}
-                    {currentEvents.filter(e => e.type === 'thinking').map((event, idx) => (
-                      <Typography 
-                        key={`thinking-${idx}`} 
-                        variant="body2" 
-                        display="block" 
-                        color="text.secondary" 
-                        sx={{ 
-                          mb: 0.5, 
-                          fontSize: '0.875rem',
-                          animation: 'slideIn 0.3s ease-out',
-                          '@keyframes slideIn': {
-                            '0%': { opacity: 0, transform: 'translateX(-8px)' },
-                            '100%': { opacity: 1, transform: 'translateX(0)' },
-                          },
-                        }}
-                      >
-                        {event.content}
-                      </Typography>
-                    ))}
-                 </Box>
-               )}
-
-               {/* Waiting indicator when no events yet */}
-               {currentEvents.length === 0 && (
-                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary' }}>
-                   {/* Animated dots */}
-                   <Box sx={{ display: 'flex', gap: 0.5 }}>
-                     {[0, 1, 2].map((i) => (
-                       <Box 
-                         key={i}
-                         sx={{ 
-                           width: 6, 
-                           height: 6, 
-                           borderRadius: '50%', 
-                           bgcolor: PALETTE.accent,
-                           animation: 'bounce 1.4s ease-in-out infinite',
-                           animationDelay: `${i * 0.16}s`,
-                           '@keyframes bounce': {
-                             '0%, 80%, 100%': { 
-                               transform: 'scale(0.6)',
-                               opacity: 0.4 
-                             },
-                             '40%': { 
-                               transform: 'scale(1)',
-                               opacity: 1 
-                             },
-                           },
-                         }} 
-                       />
-                     ))}
-                   </Box>
-                   <Typography 
-                     variant="body2" 
-                     sx={{ 
-                       fontStyle: 'italic',
-                       animation: 'fadeInOut 2s ease-in-out infinite',
-                       '@keyframes fadeInOut': {
-                         '0%, 100%': { opacity: 0.5 },
-                         '50%': { opacity: 1 },
-                       },
-                     }}
-                   >
-                     Analyzing your request
-                   </Typography>
-                 </Box>
-               )}
-
-               {/* Approval Card */}
-               {currentEvents.some(e => e.type === 'approval_required') && (
-                  <Box sx={{ 
-                    p: 2, 
-                    mt: 2, 
-                    border: '1px solid',
-                    borderColor: PALETTE.accent,
-                    borderRadius: 2,
-                    bgcolor: `${PALETTE.accent}10`
-                  }}>
-                     <Typography variant="subtitle2" sx={{ color: PALETTE.accent, fontWeight: 600 }} gutterBottom>
-                        🔐 Permission Request
-                     </Typography>
-                     <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-                       The agent wants to perform a critical action.
-                     </Typography>
-                     <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button 
-                          variant="contained" 
-                          size="small" 
-                          onClick={() => handleApproval(true)} 
-                          sx={{ 
-                            bgcolor: PALETTE.accent, 
-                            '&:hover': { bgcolor: PALETTE.accentHover },
-                            textTransform: 'none',
-                            fontWeight: 600
-                          }}
-                        >
-                           Approve
-                        </Button>
-                        <Button 
-                          variant="outlined" 
-                          size="small" 
-                          color="inherit" 
-                          onClick={() => handleApproval(false)}
-                          sx={{ textTransform: 'none' }}
-                        >
-                           Deny
-                        </Button>
-                     </Box>
+                  <Typography variant="caption" sx={{ mb: 1.5, display: 'block', color: 'text.secondary' }}>
+                    The agent wants to perform a critical action.
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button variant="contained" size="small" onClick={() => handleApproval(true)} sx={{ bgcolor: PALETTE.accent, '&:hover': { bgcolor: PALETTE.accentHover }, textTransform: 'none', fontWeight: 600 }}>
+                      Approve
+                    </Button>
+                    <Button variant="outlined" size="small" color="inherit" onClick={() => handleApproval(false)} sx={{ textTransform: 'none' }}>
+                      Deny
+                    </Button>
                   </Box>
-               )}
+                </Box>
+              )}
             </Paper>
           )}
 
-          {/* Error Display */}
           {error && (
-            <Alert 
-              severity="error" 
-              sx={{ mt: 2 }}
-              onClose={() => setError(null)}
-            >
+            <Alert severity="error" sx={{ mt: 1 }} onClose={() => setError(null)}>
               {error}
             </Alert>
           )}
           
           <div ref={messagesEndRef} />
-        </Container>
+        </Box>
       </Box>
 
-      {/* Input Area (Fixed Bottom) */}
-      <Box sx={{ 
-        px: 3,
-        py: 2,
-        flexShrink: 0,
-      }}>
-        <Container maxWidth="md">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {/* Input Box */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 1,
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                bgcolor: isDarkMode ? PALETTE.inputBg : '#fff',
-                border: '1px solid',
-                borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
-                borderRadius: 3,
-                boxShadow: isDarkMode ? PALETTE.cardShadow : '0 1px 3px rgba(0,0,0,0.08)',
-                transition: 'all 0.2s',
-                '&:focus-within': {
-                  borderColor: PALETTE.accent,
-                  boxShadow: isDarkMode 
-                    ? `0 0 0 2px ${PALETTE.accent}30` 
-                    : `0 0 0 2px ${PALETTE.accent}20`,
-                }
+      {/* Input Area */}
+      <Box sx={{ px: 3, py: 1.5, flexShrink: 0 }}>
+        <Box sx={{ maxWidth: 720, mx: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 0.75,
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              bgcolor: isDarkMode ? PALETTE.inputBg : '#fff',
+              border: '1px solid',
+              borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+              borderRadius: 2.5,
+              transition: 'all 0.2s',
+              '&:focus-within': { borderColor: PALETTE.accent },
+            }}
+          >
+            <TextField
+              fullWidth
+              multiline
+              maxRows={4}
+              placeholder="Message..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              sx={{ ml: 1.5, flex: 1, py: 0.25 }}
+              variant="standard"
+              autoComplete="off"
+              InputProps={{ disableUnderline: true, sx: { fontSize: '0.9rem' } }}
+            />
+            <IconButton 
+              onClick={isProcessing ? stopGeneration : sendMessage}
+              disabled={!input.trim() && !isProcessing}
+              sx={{  
+                m: 0.25, 
+                bgcolor: input.trim() ? PALETTE.accent : 'transparent',
+                color: input.trim() ? '#fff' : 'text.disabled',
+                width: 32, height: 32,
+                '&:hover': { bgcolor: input.trim() ? PALETTE.accentHover : 'transparent' },
               }}
             >
-              <TextField
-                inputRef={inputRef}
-                fullWidth
-                multiline
-                maxRows={4}
-                placeholder="Message QA Assistant..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                sx={{ ml: 1.5, flex: 1, py: 0.5 }}
-                variant="standard"
-                autoComplete="off"
-                InputProps={{ 
-                  disableUnderline: true,
-                  sx: { fontSize: '0.95rem' }
-                }}
-              />
-              <IconButton 
-                onClick={isProcessing ? stopGeneration : sendMessage}
-                disabled={!input.trim() && !isProcessing}
-                sx={{  
-                  m: 0.5, 
-                  bgcolor: input.trim() ? PALETTE.accent : 'transparent',
-                  color: input.trim() ? '#fff' : 'text.disabled',
-                  width: 36,
-                  height: 36,
-                  transition: 'all 0.2s',
-                  '&:hover': { 
-                    bgcolor: input.trim() ? PALETTE.accentHover : 'transparent',
-                    transform: input.trim() ? 'scale(1.05)' : 'none'
-                  }
-                }}
-              >
-                {isProcessing ? <StopIcon fontSize="small" /> : <SendIcon fontSize="small" />}
+              {isProcessing ? <StopIcon sx={{ fontSize: 18 }} /> : <SendIcon sx={{ fontSize: 18 }} />}
+            </IconButton>
+          </Paper>
+          
+          <Box sx={{ display: 'flex', gap: 0.25 }}>
+            <Tooltip title="Copy conversation">
+              <IconButton size="small" disabled={messages.length === 0} sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}>
+                <CopyIcon sx={{ fontSize: 16 }} />
               </IconButton>
-            </Paper>
-            
-            {/* Action Icons */}
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              {/* Copy to Clipboard */}
-              <IconButton
-                size="small"
-                onClick={copyToClipboard}
-                disabled={messages.length === 0}
-                title="Copy conversation"
-                sx={{ 
-                  opacity: messages.length > 0 ? 0.6 : 0.3,
-                  color: 'text.secondary',
-                  '&:hover': { 
-                    opacity: 1,
-                    color: PALETTE.accent,
-                    bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                  }
-                }}
-              >
-                <CopyIcon fontSize="small" />
+            </Tooltip>
+            <Tooltip title="Export">
+              <IconButton size="small" disabled={messages.length === 0} sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}>
+                <ExportIcon sx={{ fontSize: 16 }} />
               </IconButton>
-              
-              {/* Export */}
-              <IconButton
-                size="small"
-                onClick={exportConversation}
-                disabled={messages.length === 0}
-                title="Export conversation"
-                sx={{ 
-                  opacity: messages.length > 0 ? 0.6 : 0.3,
-                  color: 'text.secondary',
-                  '&:hover': { 
-                    opacity: 1,
-                    color: PALETTE.accent,
-                    bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                  }
-                }}
-              >
-                <ExportIcon fontSize="small" />
+            </Tooltip>
+            <Tooltip title="Clear all">
+              <IconButton size="small" onClick={clearHistory} disabled={conversations.length === 0} sx={{ opacity: conversations.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1, color: 'error.main' } }}>
+                <ClearIcon sx={{ fontSize: 16 }} />
               </IconButton>
-              
-              {/* Clear */}
-              <IconButton
-                size="small"
-                onClick={clearHistory}
-                disabled={messages.length === 0}
-                title="Clear conversation"
-                sx={{ 
-                  opacity: messages.length > 0 ? 0.6 : 0.3,
-                  color: 'text.secondary',
-                  '&:hover': { 
-                    opacity: 1,
-                    color: 'error.main',
-                    bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                  }
-                }}
-              >
-                <ClearIcon fontSize="small" />
-              </IconButton>
-            </Box>
+            </Tooltip>
           </Box>
-        </Container>
+        </Box>
       </Box>
+    </>
+  );
+
+  // --- Main Render ---
+  return (
+    <Box sx={{ 
+      height: 'calc(100vh - 64px)', 
+      display: 'flex', 
+      bgcolor: 'background.default',
+      overflow: 'hidden',
+    }}>
+      {/* Sidebar Toggle (when collapsed) */}
+      {!leftSidebarOpen && (
+        <Box sx={{ position: 'absolute', left: 8, top: 72, zIndex: 10 }}>
+          <Tooltip title="Show history">
+            <IconButton 
+              size="small" 
+              onClick={() => setLeftSidebarOpen(true)}
+              sx={{ 
+                bgcolor: isDarkMode ? PALETTE.surface : 'grey.100',
+                '&:hover': { bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.200' },
+              }}
+            >
+              <ExpandLeftIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
+
+      {/* Left Sidebar */}
+      {renderLeftSidebar()}
+
+      {/* Center - Main Chat */}
+      <Box sx={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column',
+        minWidth: 0,
+        position: 'relative',
+      }}>
+        {/* Header with toggle buttons */}
+        <Box sx={{ 
+          py: 0.75, 
+          px: 2, 
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid',
+          borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+          flexShrink: 0,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {leftSidebarOpen && (
+              <Tooltip title="Hide history">
+                <IconButton size="small" onClick={() => setLeftSidebarOpen(false)}>
+                  <CollapseLeftIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            <SparkleIcon sx={{ fontSize: 16, color: PALETTE.accent, opacity: 0.8 }} />
+            <Typography variant="caption" sx={{ color: PALETTE.accent, fontWeight: 500, letterSpacing: '0.5px', opacity: 0.9 }}>
+              Agentic AI
+            </Typography>
+          </Box>
+          
+          <Tooltip title={rightPanelOpen ? "Hide device panel" : "Show device panel"}>
+            <IconButton size="small" onClick={() => setRightPanelOpen(!rightPanelOpen)}>
+              <DevicesIcon sx={{ fontSize: 18, color: rightPanelOpen ? PALETTE.accent : 'text.secondary' }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {/* Chat Content */}
+        {status === 'ready' && messages.length === 0 ? renderEmptyState() : renderChatContent()}
+      </Box>
+
+      {/* Right Panel */}
+      {renderRightPanel()}
     </Box>
   );
 };
