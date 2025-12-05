@@ -75,39 +75,26 @@ create_compose_file() {
     # Generate secrets
     NEXTAUTH_SECRET=$(openssl rand -base64 32)
     SALT=$(openssl rand -base64 32)
-    ENCRYPTION_KEY=$(openssl rand -hex 32)
     
     cat > "$DOCKER_COMPOSE_FILE" << EOF
 version: '3.8'
 
 services:
   langfuse-server:
-    image: langfuse/langfuse:3.0.0
+    image: langfuse/langfuse:2
     container_name: langfuse-web
     restart: unless-stopped
     ports:
       - "${LANGFUSE_PORT}:3000"
     environment:
-      # Database
       - DATABASE_URL=postgresql://postgres:postgres@langfuse-db:5432/postgres
-      # ClickHouse (required for v3)
-      - CLICKHOUSE_URL=http://langfuse-clickhouse:8123
-      - CLICKHOUSE_MIGRATION_URL=clickhouse://langfuse-clickhouse:9000
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=clickhouse
-      - CLICKHOUSE_CLUSTER_ENABLED=false
-      # Auth
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - SALT=${SALT}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - NEXTAUTH_URL=http://localhost:${LANGFUSE_PORT}
-      # Settings
       - TELEMETRY_ENABLED=false
       - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=false
     depends_on:
       langfuse-db:
-        condition: service_healthy
-      langfuse-clickhouse:
         condition: service_healthy
     networks:
       - langfuse-network
@@ -130,30 +117,8 @@ services:
     networks:
       - langfuse-network
 
-  langfuse-clickhouse:
-    image: clickhouse/clickhouse-server:24.3
-    container_name: langfuse-clickhouse
-    restart: unless-stopped
-    environment:
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=clickhouse
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
-    volumes:
-      - langfuse-clickhouse-data:/var/lib/clickhouse
-      - langfuse-clickhouse-logs:/var/log/clickhouse-server
-    healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --password clickhouse -q 'SELECT 1'"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    networks:
-      - langfuse-network
-
 volumes:
   langfuse-postgres-data:
-  langfuse-clickhouse-data:
-  langfuse-clickhouse-logs:
 
 networks:
   langfuse-network:
@@ -200,7 +165,7 @@ wait_for_ready() {
     echo ""
     echo -e "${RED}✗ Langfuse did not become ready in time.${NC}"
     echo "  Check logs with: docker logs langfuse-web"
-    echo "  Check ClickHouse: docker logs langfuse-clickhouse"
+    echo "  Check database: docker logs langfuse-db"
     exit 1
 }
 
