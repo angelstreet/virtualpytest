@@ -866,8 +866,9 @@ class HeatmapProcessor:
                     })
                 
                 # Upload files using CloudflareUtils
+                # Use for_report_assets=True so mosaic URLs work in generated HTML reports (14-day signed URLs in private mode)
                 cloudflare_utils = get_cloudflare_utils()
-                result = cloudflare_utils.upload_files(file_mappings)
+                result = cloudflare_utils.upload_files(file_mappings, for_report_assets=True)
                 
                 # Log all uploaded URLs
                 uploaded_urls = {}

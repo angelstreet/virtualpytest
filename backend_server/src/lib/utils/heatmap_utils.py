@@ -522,11 +522,12 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                         print(f"[@heatmap_utils] Uploading mosaic and metadata for timestamp {timestamp}")
                         
                         # Upload mosaic and metadata files
+                        # Use for_report_assets=True for 14-day signed URLs in private mode
                         file_mappings = [
                             {'local_path': temp_path, 'remote_path': mosaic_r2_path},
                             {'local_path': temp_json_path, 'remote_path': metadata_r2_path}
                         ]
-                        upload_result = uploader.upload_files(file_mappings)
+                        upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
                         
                         # Extract individual results
                         mosaic_upload = {'success': False}
