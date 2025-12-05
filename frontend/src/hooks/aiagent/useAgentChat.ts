@@ -90,6 +90,8 @@ export const useAgentChat = () => {
   
   // Refs
   const socketRef = useRef<Socket | null>(null);
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const activeConversationIdRef = useRef<string | null>(null);
 
   // --- Conversation Persistence ---
 
@@ -105,8 +107,10 @@ export const useAgentChat = () => {
         // Restore active conversation or use most recent
         if (savedActiveId && parsed.find((c: Conversation) => c.id === savedActiveId)) {
           setActiveConversationId(savedActiveId);
+          activeConversationIdRef.current = savedActiveId; // Initialize ref
         } else if (parsed.length > 0) {
           setActiveConversationId(parsed[0].id);
+          activeConversationIdRef.current = parsed[0].id; // Initialize ref
         }
       } catch (err) {
         console.error('Failed to load conversations:', err);
@@ -117,12 +121,24 @@ export const useAgentChat = () => {
   // Save conversations on change
   useEffect(() => {
     if (conversations.length > 0) {
+      const activeConvo = conversations.find(c => c.id === activeConversationId);
+      if (activeConvo) {
+        console.log('[CONVERSATIONS_STATE_CHANGE] Active conversation has', activeConvo.messages.length, 'messages');
+        const lastMsg = activeConvo.messages[activeConvo.messages.length - 1];
+        if (lastMsg?.role === 'agent' && lastMsg.events) {
+          console.log('[LAST_AGENT_MESSAGE] ID:', lastMsg.id, '| Events:', lastMsg.events.length,
+                      '| Thinking:', lastMsg.events.filter(e => e.type === 'thinking').length,
+                      '| Tool calls:', lastMsg.events.filter(e => e.type === 'tool_call').length);
+        }
+      }
       localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
     }
-  }, [conversations]);
+  }, [conversations, activeConversationId]);
 
-  // Save active conversation ID
+  // Save active conversation ID and keep ref in sync
   useEffect(() => {
+    console.log('[ACTIVE_CONVO_ID_CHANGE] State:', activeConversationId, '-> Ref updated');
+    activeConversationIdRef.current = activeConversationId;
     if (activeConversationId) {
       localStorage.setItem(STORAGE_KEY_ACTIVE_CONVERSATION, activeConversationId);
     }
@@ -140,13 +156,14 @@ export const useAgentChat = () => {
     };
     setConversations(prev => [newConvo, ...prev]);
     setActiveConversationId(newConvo.id);
+    activeConversationIdRef.current = newConvo.id; // Immediately update ref
     setCurrentEvents([]);
-    initializeSession();
     return newConvo.id;
-  }, []);
+  }, []); // initializeSession is called on mount, not needed here
 
   const switchConversation = useCallback((conversationId: string) => {
     setActiveConversationId(conversationId);
+    activeConversationIdRef.current = conversationId; // Update ref immediately
     setCurrentEvents([]);
     setIsProcessing(false);
   }, []);
@@ -157,8 +174,10 @@ export const useAgentChat = () => {
       // If deleting active, switch to most recent
       if (conversationId === activeConversationId && filtered.length > 0) {
         setActiveConversationId(filtered[0].id);
+        activeConversationIdRef.current = filtered[0].id; // Update ref
       } else if (filtered.length === 0) {
         setActiveConversationId(null);
+        activeConversationIdRef.current = null; // Update ref
       }
       // Clean up localStorage if empty
       if (filtered.length === 0) {
@@ -199,6 +218,8 @@ export const useAgentChat = () => {
     });
 
     socket.on('agent_event', (event: AgentEvent) => {
+      console.log('[AGENT_EVENT]', event.type, event.content?.substring(0, 50));
+      
       setCurrentEvents(prev => [...prev, event]);
       
       if (event.type === 'mode_detected') {
@@ -211,34 +232,88 @@ export const useAgentChat = () => {
       }
 
       if (event.type === 'message' || event.type === 'result') {
+        console.log('[MESSAGE_OR_RESULT_RECEIVED]', event.type, '| Content:', event.content?.substring(0, 50));
+        
+        setIsProcessing(false); // Allow user to reply
+        
+        // Clear timeout failsafe
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+        
         setCurrentEvents(prevEvents => {
+          console.log('[BEFORE_MESSAGE_SAVE] prevEvents:', prevEvents.length);
+          // Accumulate content from all message/result/thinking events
+          const allEvents = [...prevEvents, event];
+          
+          const thinkingEvents = allEvents.filter(e => e.type === 'thinking');
+          const messageEvents = allEvents.filter(e => e.type === 'message' || e.type === 'result');
+          
+          console.log('[MESSAGE_COMPLETE] Total events:', allEvents.length, 
+                      '| Thinking:', thinkingEvents.length, 
+                      '| Message/Result:', messageEvents.length);
+          
+          const accumulatedContent = allEvents
+            .filter(e => e.type === 'message' || e.type === 'result' || e.type === 'thinking')
+            .map(e => e.content)
+            .filter(Boolean)
+            .join('\n\n');
+
+          // Find the last agent to attribute the message to
+          const lastAgentEvent = [...prevEvents].reverse().find(e => e.agent);
+          const agentName = lastAgentEvent?.agent || event.agent || 'QA Manager';
+          
           const newMessage: Message = {
             id: `${Date.now()}-${Math.random()}`,
             role: 'agent',
-            content: event.content,
-            agent: event.agent,
+            content: accumulatedContent || event.content,
+            agent: agentName,
             timestamp: event.timestamp,
-            events: [...prevEvents, event],
+            events: allEvents,
           };
           
-          // Update conversation with new message
-          setConversations(prev => prev.map(c => {
-            if (c.id !== activeConversationId) return c;
-            const updatedMessages = [...c.messages, newMessage];
-            return {
-              ...c,
-              messages: updatedMessages,
-              title: extractTitle(updatedMessages),
-              updatedAt: new Date().toISOString(),
-            };
-          }));
+          console.log('[MESSAGE_SAVED] Events in message:', newMessage.events.length,
+                      '| Thinking events:', newMessage.events.filter(e => e.type === 'thinking').length);
           
+          // Update conversation with new message
+          setConversations(prev => {
+            const currentConvoId = activeConversationIdRef.current;
+            console.log('[UPDATING_CONVERSATIONS] Adding message to conversation:', currentConvoId);
+            return prev.map(c => {
+              if (c.id !== currentConvoId) return c;
+              const updatedMessages = [...c.messages, newMessage];
+              console.log('[CONVERSATION_UPDATED] Total messages now:', updatedMessages.length, 
+                          '| Last message events:', newMessage.events.length);
+              return {
+                ...c,
+                messages: updatedMessages,
+                title: extractTitle(updatedMessages),
+                updatedAt: new Date().toISOString(),
+              };
+            });
+          });
+          
+          console.log('[CURRENT_EVENTS] Clearing currentEvents (message completed)');
           return [];
         });
       }
-      
-      if (event.type === 'session_ended') {
+
+      if (event.type === 'session_ended' || event.type === 'complete') {
         setIsProcessing(false);
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+      }
+      
+      // Failsafe: If we get an error or unknown terminal event, unstick processing
+      if (event.type === 'error' || event.type === 'failed') {
+        setIsProcessing(false);
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
       }
     });
 
@@ -252,7 +327,7 @@ export const useAgentChat = () => {
     });
 
     socketRef.current = socket;
-  }, [activeConversationId]);
+  }, []); // Remove activeConversationId from dependencies since we use ref now
 
   // --- Session Management ---
 
@@ -330,6 +405,7 @@ export const useAgentChat = () => {
       };
       setConversations(prev => [newConvo, ...prev]);
       setActiveConversationId(newConvo.id);
+      activeConversationIdRef.current = newConvo.id; // Immediately update ref
       targetConvoId = newConvo.id;
     }
 
@@ -357,6 +433,16 @@ export const useAgentChat = () => {
     setCurrentEvents([]);
     setError(null);
 
+    // Failsafe: Auto-unstick processing after 5 minutes
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    processingTimeoutRef.current = setTimeout(() => {
+      console.warn('[@useAgentChat] Processing timeout - auto-unsticking');
+      setIsProcessing(false);
+      setError('Processing timeout - please try again');
+    }, 5 * 60 * 1000);
+
     socketRef.current?.emit('send_message', {
       session_id: session?.id,
       message: input.trim(),
@@ -373,12 +459,19 @@ export const useAgentChat = () => {
     setIsProcessing(false);
     setCurrentEvents([]);
     
+    // Clear timeout failsafe
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+    
     socketRef.current?.emit('stop_generation', { session_id: session.id });
     
     // Add system message to current conversation
-    if (activeConversationId) {
+    const currentConvoId = activeConversationIdRef.current;
+    if (currentConvoId) {
       setConversations(prev => prev.map(c => {
-        if (c.id !== activeConversationId) return c;
+        if (c.id !== currentConvoId) return c;
         return {
           ...c,
           messages: [...c.messages, {
@@ -392,21 +485,24 @@ export const useAgentChat = () => {
         };
       }));
     }
-  }, [session?.id, activeConversationId]);
+  }, [session?.id]); // Remove activeConversationId - using ref instead
 
   const clearHistory = useCallback(() => {
     setConversations([]);
     setActiveConversationId(null);
+    activeConversationIdRef.current = null; // Update ref
     localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
     localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
-    initializeSession();
-  }, [initializeSession]);
+  }, []); // Session already initialized on mount
 
-  // Cleanup socket on unmount
+  // Cleanup socket and timeout on unmount
   useEffect(() => {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
+      }
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
       }
     };
   }, []);

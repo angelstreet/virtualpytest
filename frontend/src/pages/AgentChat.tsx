@@ -179,6 +179,17 @@ const AgentChat: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentEvents]);
+  
+  // Debug: Log messages when they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      console.log('[COMPONENT_MESSAGES_CHANGED] Total:', messages.length, 
+                  '| Last role:', lastMsg.role,
+                  '| Last events:', lastMsg.events?.length || 0,
+                  '| Last thinking:', lastMsg.events?.filter(e => e.type === 'thinking').length || 0);
+    }
+  }, [messages]);
 
   // Group conversations
   const groupedConversations = groupConversationsByTime(conversations);
@@ -481,7 +492,7 @@ const AgentChat: React.FC = () => {
             variant="h5" 
             sx={{ fontWeight: 500, mb: 1, color: 'text.primary', letterSpacing: '-0.01em' }}
           >
-            QA Assistant
+            AI Agent
           </Typography>
           <Typography variant="body2" sx={{ mb: 4, color: 'text.secondary', maxWidth: 360, mx: 'auto' }}>
             Automate tests, run regressions, and analyze failures.
@@ -507,7 +518,7 @@ const AgentChat: React.FC = () => {
             <TextField
               autoFocus
               fullWidth
-              placeholder="What would you like to test?"
+              placeholder="How can I help you?"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
@@ -532,7 +543,7 @@ const AgentChat: React.FC = () => {
           
           {/* Suggestion Chips */}
           <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {['Automate web app', 'Run goto test', 'How many test cases?'].map((suggestion) => (
+            {['Automate web app', 'Run goto test', 'How many test cases?', 'What devices are available?'].map((suggestion) => (
               <Chip 
                 key={suggestion} 
                 label={suggestion} 
@@ -602,6 +613,17 @@ const AgentChat: React.FC = () => {
           {messages.map((msg) => {
             const isUser = msg.role === 'user';
             const agentColor = AGENT_CONFIG[msg.agent || 'QA Manager']?.color;
+            
+            if (!isUser) {
+              const hasEvents = !!msg.events;
+              const thinkingCount = msg.events?.filter(e => e.type === 'thinking').length || 0;
+              const hasThinkingEvents = msg.events?.some(e => e.type === 'thinking') || false;
+              console.log('[RENDER_MESSAGE]', msg.id, 
+                          '| Has events:', hasEvents,
+                          '| Events count:', msg.events?.length || 0,
+                          '| Thinking count:', thinkingCount,
+                          '| Will show accordion:', hasThinkingEvents);
+            }
 
             return (
               <Box 
@@ -660,23 +682,43 @@ const AgentChat: React.FC = () => {
                     </Box>
                   )}
                   
-                  {!isUser && msg.agent === 'QA Manager' && (msg.content.toLowerCase().includes('**plan**') || msg.content.toLowerCase().includes('**mode confirmed**')) ? (
-                    <Accordion elevation={0} disableGutters sx={{ bgcolor: 'transparent', '&:before': { display: 'none' } }}>
-                      <AccordionSummary 
-                        expandIcon={<ExpandIcon sx={{ color: 'text.secondary' }} />}
-                        sx={{ minHeight: 'auto', p: 0, '& .MuiAccordionSummary-content': { m: 0, alignItems: 'center', gap: 1 } }}
-                      >
-                        <ThinkingIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.85rem' }}>
-                          View Reasoning & Plan
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ p: 0, pt: 1 }}>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'text.secondary', fontSize: '0.85rem' }}>
-                          {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
-                        </Typography>
-                      </AccordionDetails>
-                    </Accordion>
+                  {!isUser && msg.events && msg.events.some(e => e.type === 'thinking') ? (
+                    <Box>
+                      {(() => {
+                        const thinkingEvents = msg.events.filter(e => e.type === 'thinking');
+                        const messageEvents = msg.events.filter(e => e.type === 'message' || e.type === 'result');
+                        const thinkingContent = thinkingEvents.map(e => e.content).join('\n\n');
+                        const messageContent = messageEvents.map(e => e.content).join('\n\n');
+                        console.log('[RENDER_THINKING_ACCORDION]', msg.id, 
+                                    '| Total events:', msg.events.length,
+                                    '| Thinking events:', thinkingEvents.length,
+                                    '| Message events:', messageEvents.length,
+                                    '| Thinking length:', thinkingContent.length,
+                                    '| Message length:', messageContent.length);
+                        return null;
+                      })()}
+                      {/* Show thinking/reasoning in accordion */}
+                      <Accordion elevation={0} disableGutters sx={{ bgcolor: 'transparent', '&:before': { display: 'none' }, mb: 1 }}>
+                        <AccordionSummary 
+                          expandIcon={<ExpandIcon sx={{ color: 'text.secondary' }} />}
+                          sx={{ minHeight: 'auto', p: 0, '& .MuiAccordionSummary-content': { m: 0, alignItems: 'center', gap: 1 } }}
+                        >
+                          <ThinkingIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.85rem' }}>
+                            View Reasoning
+                          </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ p: 0, pt: 1 }}>
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: 'text.secondary', fontSize: '0.85rem' }}>
+                            {msg.events.filter(e => e.type === 'thinking').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
+                          </Typography>
+                        </AccordionDetails>
+                      </Accordion>
+                      {/* Show actual response - ONLY message/result events, NOT thinking */}
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
+                        {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
+                      </Typography>
+                    </Box>
                   ) : (
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
                       {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
@@ -697,18 +739,22 @@ const AgentChat: React.FC = () => {
                     
                     return (
                       <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', gap: 2, opacity: 0.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <TimeIcon sx={{ fontSize: 10 }} />
-                          <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                            {(metrics.duration / 1000).toFixed(1)}s
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <TokenIcon sx={{ fontSize: 10 }} />
-                          <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                            {metrics.input}/{metrics.output}
-                          </Typography>
-                        </Box>
+                        <Tooltip title="Processing time">
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <TimeIcon sx={{ fontSize: 10 }} />
+                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                              {(metrics.duration / 1000).toFixed(1)}s
+                            </Typography>
+                          </Box>
+                        </Tooltip>
+                        <Tooltip title={`Input: ${metrics.input.toLocaleString()} tokens (read) / Output: ${metrics.output.toLocaleString()} tokens (generated)`}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <TokenIcon sx={{ fontSize: 10 }} />
+                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                              ↓{metrics.input.toLocaleString()} ↑{metrics.output.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        </Tooltip>
                       </Box>
                     );
                   })()}
@@ -844,19 +890,25 @@ const AgentChat: React.FC = () => {
           
           <Box sx={{ display: 'flex', gap: 0.25 }}>
             <Tooltip title="Copy conversation">
-              <IconButton size="small" disabled={messages.length === 0} sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}>
-                <CopyIcon sx={{ fontSize: 16 }} />
-              </IconButton>
+              <span>
+                <IconButton size="small" disabled={messages.length === 0} sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}>
+                  <CopyIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Export">
-              <IconButton size="small" disabled={messages.length === 0} sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}>
-                <ExportIcon sx={{ fontSize: 16 }} />
-              </IconButton>
+              <span>
+                <IconButton size="small" disabled={messages.length === 0} sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}>
+                  <ExportIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Clear all">
-              <IconButton size="small" onClick={clearHistory} disabled={conversations.length === 0} sx={{ opacity: conversations.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1, color: 'error.main' } }}>
-                <ClearIcon sx={{ fontSize: 16 }} />
-              </IconButton>
+              <span>
+                <IconButton size="small" onClick={clearHistory} disabled={conversations.length === 0} sx={{ opacity: conversations.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1, color: 'error.main' } }}>
+                  <ClearIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
         </Box>
@@ -929,7 +981,7 @@ const AgentChat: React.FC = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <SparkleIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            QA Assistant
+            AI Agent
           </Typography>
         </Box>
         
