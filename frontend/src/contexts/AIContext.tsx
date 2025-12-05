@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useLocation, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { buildServerUrl, getServerBaseUrl } from '../utils/buildUrlUtils';
+import { APP_CONFIG } from '../config/constants';
+
+// Same storage key as useAgentChat to share API key
+const STORAGE_KEY_API = 'virtualpytest_anthropic_key';
 
 interface AIState {
   // Panel Visibility
@@ -13,6 +17,9 @@ interface AIState {
   activeTask: string | null;
   isProcessing: boolean;
   executionSteps: ExecutionStep[];
+  
+  // Status
+  status: 'checking' | 'ready' | 'needs_key' | 'error';
   
   // Actions
   toggleCommand: () => void;
@@ -46,22 +53,61 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   const [executionSteps, setExecutionSteps] = useState<ExecutionStep[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [status, setStatus] = useState<'checking' | 'ready' | 'needs_key' | 'error'>('checking');
   
   const socketRef = useRef<Socket | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Initialize Socket Connection
+  // Check API key and initialize session
   useEffect(() => {
     const initSession = async () => {
       try {
+        const teamId = APP_CONFIG.DEFAULT_TEAM_ID;
+        
+        // First check if API key is configured on backend
+        const healthResponse = await fetch(buildServerUrl(`/server/agent/health?team_id=${teamId}`));
+        const healthData = await healthResponse.json();
+        
+        if (healthData.api_key_configured) {
+          // API key already configured on backend
+          setStatus('ready');
+        } else {
+          // Check if we have a saved key in localStorage (same as AgentChat)
+          const savedKey = localStorage.getItem(STORAGE_KEY_API);
+          if (savedKey) {
+            // Send the saved key to backend
+            const saveResponse = await fetch(buildServerUrl('/server/agent/api-key'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                api_key: savedKey,
+                team_id: teamId
+              })
+            });
+            
+            const saveData = await saveResponse.json();
+            if (saveData.success) {
+              setStatus('ready');
+            } else {
+              setStatus('needs_key');
+              return;
+            }
+          } else {
+            setStatus('needs_key');
+            return;
+          }
+        }
+        
+        // Create session
         const response = await fetch(buildServerUrl('/server/agent/sessions'), { method: 'POST' });
         const data = await response.json();
         if (data.success) {
           setSessionId(data.session.id);
         }
       } catch (err) {
-        console.error('Failed to create AI session:', err);
+        console.error('Failed to initialize AI session:', err);
+        setStatus('error');
       }
     };
     
@@ -69,7 +115,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   }, []);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || status !== 'ready') return;
 
     const serverBaseUrl = getServerBaseUrl();
     const socket = io(`${serverBaseUrl}/agent`, {
@@ -79,7 +125,6 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
 
     socket.on('connect', () => {
       console.log('🤖 AI Global Context connected to /agent namespace');
-      console.log('🤖 Socket ID:', socket.id);
       socket.emit('join_session', { session_id: sessionId });
       setIsConnected(true);
     });
@@ -154,7 +199,6 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       if (event.action === 'interact' && event.payload?.element_id) {
         const { element_id, action, params } = event.payload;
         console.log(`🤖 Interacting with: ${element_id}, action: ${action}`);
-        // Dispatch custom event for element handlers
         window.dispatchEvent(new CustomEvent('ai-interact', { 
           detail: { element_id, action, params } 
         }));
@@ -164,7 +208,6 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       if (event.action === 'highlight' && event.payload?.element_id) {
         const { element_id, duration_ms = 2000 } = event.payload;
         console.log(`🤖 Highlighting: ${element_id}`);
-        // Dispatch custom event for highlight effect
         window.dispatchEvent(new CustomEvent('ai-highlight', { 
           detail: { element_id, duration_ms } 
         }));
@@ -174,7 +217,6 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       if (event.action === 'toast' && event.payload?.message) {
         const { message, severity = 'info' } = event.payload;
         console.log(`🤖 Toast: ${severity} - ${message}`);
-        // Dispatch custom event for toast
         window.dispatchEvent(new CustomEvent('ai-toast', { 
           detail: { message, severity } 
         }));
@@ -187,12 +229,35 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [sessionId, navigate]);
+  }, [sessionId, status, navigate]);
 
   // Send message to backend
   const sendMessage = useCallback((message: string) => {
+    // Check if API key is configured
+    if (status === 'needs_key') {
+      setExecutionSteps([
+        { 
+          id: 'error-key', 
+          label: 'Error', 
+          status: 'error', 
+          detail: '⚠️ API key not configured. Please go to AI Agent page to set your Anthropic API key.' 
+        }
+      ]);
+      setPilotOpen(true);
+      return;
+    }
+    
     if (!socketRef.current || !sessionId) {
       console.error('Socket not connected or no session');
+      setExecutionSteps([
+        { 
+          id: 'error-conn', 
+          label: 'Error', 
+          status: 'error', 
+          detail: '⚠️ Not connected to AI backend. Please refresh the page.' 
+        }
+      ]);
+      setPilotOpen(true);
       return;
     }
 
@@ -206,8 +271,9 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     socketRef.current.emit('send_message', {
       session_id: sessionId,
       message: message,
+      team_id: APP_CONFIG.DEFAULT_TEAM_ID,
     });
-  }, [sessionId]);
+  }, [sessionId, status]);
 
   // Toggle functions
   const toggleCommand = useCallback(() => setCmdOpen(prev => !prev), []);
@@ -240,6 +306,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     <AIContext.Provider value={{ 
       isCommandOpen, isPilotOpen, isLogsOpen, 
       activeTask, isProcessing, executionSteps,
+      status,
       toggleCommand, togglePilot, toggleLogs, 
       openCommand, closeCommand, setTask, setProcessing,
       sendMessage, isConnected
