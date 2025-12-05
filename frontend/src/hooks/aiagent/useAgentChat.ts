@@ -19,6 +19,11 @@ export interface AgentEvent {
   tool_result?: unknown;
   success?: boolean;
   error?: string;
+  metrics?: {
+    duration_ms: number;
+    input_tokens: number;
+    output_tokens: number;
+  };
 }
 
 export interface Message {

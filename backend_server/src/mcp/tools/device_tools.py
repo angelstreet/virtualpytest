@@ -17,6 +17,52 @@ class DeviceTools:
         self.api = api_client
         self.formatter = MCPFormatter()
     
+    def list_hosts(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        List all registered hosts
+        
+        Returns list of all hosts with their device counts and status.
+        Use this to discover available hosts before calling other tools.
+        
+        Args:
+            params: {} (no parameters required)
+            
+        Returns:
+            MCP-formatted response with host list
+        """
+        result = self.api.get('/server/system/getAllHosts')
+        
+        if not result.get('success'):
+            return self.formatter.format_api_response(result)
+        
+        hosts = result.get('hosts', [])
+        
+        # Build summary
+        host_list = []
+        for host in hosts:
+            host_summary = {
+                'host_name': host.get('host_name'),
+                'host_url': host.get('host_url'),
+                'status': host.get('status', 'online'),
+                'device_count': len(host.get('devices', []))
+            }
+            host_list.append(host_summary)
+        
+        # Format response
+        if not host_list:
+            return {"content": [{"type": "text", "text": "📋 No hosts registered\n\n💡 Start a host with: ./scripts/launch_virtualhost.sh"}], "isError": False}
+        
+        response_text = f"📋 Registered Hosts ({len(host_list)} total):\n\n"
+        for host in host_list:
+            status_icon = "✅" if host['status'] == 'online' else "⚠️"
+            response_text += f"{status_icon} {host['host_name']}\n"
+            response_text += f"   URL: {host['host_url']}\n"
+            response_text += f"   Devices: {host['device_count']}\n\n"
+        
+        response_text += "💡 Use get_device_info(host_name='...') for device details"
+        
+        return {"content": [{"type": "text", "text": response_text}], "isError": False}
+    
     def get_device_info(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get device information and capabilities

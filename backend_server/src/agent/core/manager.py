@@ -8,6 +8,7 @@ delegates to specialist agents, and reports results.
 import re
 import logging
 import uuid
+import time
 from typing import Dict, Any, AsyncGenerator, Optional
 
 import anthropic
@@ -40,6 +41,13 @@ class QAManagerAgent:
 1. Understand user requests
 2. **DIRECTLY ANSWER** simple questions using your tools (e.g., "how many test cases?")
 3. **DELEGATE** complex tasks to specialist agents (e.g., "run regression", "fix bug")
+
+## CRITICAL: CONCISENESS
+- **Be extremely concise.** Users are busy engineers.
+- Direct answers only. No fluff. No "Hello I can help you with that".
+- If answering "how many", just say "There are X test cases."
+- If delegating, just say "Delegating to [Agent]..."
+- **MAXIMUM 2 SENTENCES** for simple queries.
 
 ## Your Tools (Direct Access)
 You can now use these tools yourself. Do NOT delegate if you can answer directly:
@@ -280,6 +288,7 @@ Be efficient. The user wants results."""
         
         # Tool Use Loop
         while True:
+            start_time = time.time()
             response = self.client.messages.create(
                 model=DEFAULT_MODEL,
                 max_tokens=1024,
@@ -287,6 +296,12 @@ Be efficient. The user wants results."""
                 messages=turn_messages,
                 tools=tools
             )
+            duration_ms = int((time.time() - start_time) * 1000)
+            metrics = {
+                "duration_ms": duration_ms,
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens
+            }
             
             # Add assistant response to history
             turn_messages.append({"role": "assistant", "content": response.content})
@@ -303,7 +318,8 @@ Be efficient. The user wants results."""
                     agent="QA Manager",
                     content=f"Calling tool: {tool_use.name}",
                     tool_name=tool_use.name,
-                    tool_params=tool_use.input
+                    tool_params=tool_use.input,
+                    metrics=metrics
                 )
                 
                 # Execute tool
@@ -347,6 +363,7 @@ Be efficient. The user wants results."""
                     type=EventType.MESSAGE,
                     agent="QA Manager",
                     content=plan,
+                    metrics=metrics
                 )
                 break
         
@@ -403,6 +420,7 @@ Be efficient. The user wants results."""
                     tool_result=event.get("result"),
                     success=event.get("success"),
                     error=event.get("error"),
+                    metrics=event.get("metrics"),
                 )
                 
                 # Check if approval needed

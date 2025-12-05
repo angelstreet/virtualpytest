@@ -59,6 +59,7 @@ class AgentEvent:
     progress_total: Optional[int] = None
     approval_id: Optional[str] = None
     approval_options: Optional[list] = None
+    metrics: Optional[Dict[str, Any]] = None  # {duration_ms, input_tokens, output_tokens}
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
@@ -90,6 +91,8 @@ class AgentEvent:
                 "id": self.approval_id,
                 "options": self.approval_options or [],
             }
+        if self.metrics:
+            result["metrics"] = self.metrics
             
         return result
 

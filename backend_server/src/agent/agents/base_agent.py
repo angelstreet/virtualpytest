@@ -5,6 +5,7 @@ Common functionality for all specialist agents.
 """
 
 import logging
+import time
 from typing import Dict, Any, List, AsyncGenerator
 from abc import ABC, abstractmethod
 
@@ -82,6 +83,7 @@ class BaseAgent(ABC):
         
         # Run agent loop
         while True:
+            start_time = time.time()
             # Call Claude
             response = self.client.messages.create(
                 model=DEFAULT_MODEL,
@@ -90,6 +92,13 @@ class BaseAgent(ABC):
                 messages=messages,
                 tools=tools if tools else None,
             )
+            duration_ms = int((time.time() - start_time) * 1000)
+            
+            metrics = {
+                "duration_ms": duration_ms,
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens
+            }
             
             # Process response
             assistant_content = []
@@ -123,20 +132,25 @@ class BaseAgent(ABC):
                 yield {
                     "type": "result",
                     "agent": self.name,
-                    "content": final_text
+                    "content": final_text,
+                    "metrics": metrics
                 }
                 break
             
             # Execute tool calls
             tool_results = []
-            for tool_call in tool_calls:
+            for i, tool_call in enumerate(tool_calls):
                 # Yield tool call event
-                yield {
+                event = {
                     "type": "tool_call",
                     "agent": self.name,
                     "tool": tool_call.name,
                     "params": tool_call.input,
                 }
+                if i == 0:
+                    event["metrics"] = metrics
+                    
+                yield event
                 
                 # Execute tool
                 try:

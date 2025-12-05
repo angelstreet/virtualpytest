@@ -7,13 +7,36 @@ def get_tools() -> List[Dict[str, Any]]:
     """Get device-related tool definitions"""
     return [
         {
+            "name": "list_hosts",
+            "description": """List all registered hosts with their device counts.
+
+Use this tool FIRST to discover available hosts before calling get_device_info.
+Returns host names, URLs, status, and device counts.
+
+Example:
+  list_hosts()
+  # Returns: sunri-pi1 (3 devices), prod-host (2 devices)""",
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        },
+        {
             "name": "get_device_info",
-            "description": "Get device information, capabilities, and controller status.",
+            "description": """Get device information from hosts.
+
+If host_name is omitted, returns devices from ALL hosts.
+If host_name is provided, returns devices only from that host.
+
+Example:
+  get_device_info()  # All devices from all hosts
+  get_device_info(host_name='sunri-pi1')  # Only devices from sunri-pi1""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "device_id": {"type": "string", "description": "Specific device ID, or omit for all devices"},
-                    "host_name": {"type": "string", "description": "Host name to query (use get_compatible_hosts to discover)"}
+                    "host_name": {"type": "string", "description": "Filter by host name (optional - omit for all hosts)"}
                 },
                 "required": []
             }

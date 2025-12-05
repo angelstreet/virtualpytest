@@ -43,8 +43,12 @@ import {
   ContentCopy as CopyIcon,
   FileDownload as ExportIcon,
   DeleteOutline as ClearIcon,
+  AccessTime as TimeIcon,
+  DataUsage as TokenIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
+import { useProfile } from '../hooks/auth/useProfile';
 
 // --- Constants & Configuration ---
 
@@ -98,6 +102,7 @@ const mergeToolEvents = (events: AgentEvent[]): AgentEvent[] => {
 const AgentChat: React.FC = () => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
+  const { profile } = useProfile();
   
   // Use the extracted hook
   const {
@@ -382,6 +387,30 @@ const AgentChat: React.FC = () => {
       bgcolor: 'background.default',
       overflow: 'hidden' // Prevent outer scroll
     }}>
+      {/* Discreet Header */}
+      <Box sx={{ 
+        py: 1, 
+        px: 20, 
+        borderBottom: '0.5px solid',
+        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 3
+      }}>
+        <SparkleIcon sx={{ fontSize: 16, color: PALETTE.accent, opacity: 0.8 }} />
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            color: PALETTE.accent, 
+            fontWeight: 500,
+            letterSpacing: '0.5px',
+            opacity: 0.9
+          }}
+        >
+          Agentic AI
+        </Typography>
+      </Box>
+
       {/* Chat Stream */}
       <Box sx={{ 
         flex: 1, 
@@ -440,49 +469,88 @@ const AgentChat: React.FC = () => {
                 key={msg.id} 
                 sx={{ 
                   display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: isUser ? 'flex-end' : 'flex-start', 
-                  mb: 1
+                  gap: 1.5,
+                  flexDirection: isUser ? 'row-reverse' : 'row',
+                  justifyContent: isUser ? 'flex-start' : 'flex-start', // Flex direction handles the side
+                  alignSelf: isUser ? 'flex-end' : 'flex-start',
+                  maxWidth: '85%',
+                  mb: 2
                 }}
               >
+                 {/* Identity Column (Avatar) */}
+                 <Box sx={{ 
+                   display: 'flex', 
+                   flexDirection: 'column', 
+                   alignItems: 'center', 
+                   pt: 0.5 
+                 }}>
+                   {isUser ? (
+                     <Avatar 
+                       src={profile?.avatar_url || undefined}
+                       alt={profile?.full_name || 'You'}
+                       sx={{ 
+                         width: 32, 
+                         height: 32, 
+                         fontSize: 13, 
+                         bgcolor: isDarkMode ? '#5c6bc0' : '#3f51b5', // Indigo for user
+                         fontWeight: 600,
+                         boxShadow: isDarkMode ? '0 2px 4px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.1)'
+                       }}
+                     >
+                       {!profile?.avatar_url && (profile?.full_name ? getInitials(profile.full_name) : <PersonIcon sx={{ fontSize: 18 }} />)}
+                     </Avatar>
+                   ) : (
+                     <Avatar 
+                       sx={{ 
+                         width: 32, 
+                         height: 32, 
+                         fontSize: 13, 
+                         bgcolor: agentColor, 
+                         fontWeight: 600,
+                         boxShadow: isDarkMode ? '0 2px 4px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.1)'
+                       }}
+                     >
+                       {getInitials(msg.agent || 'QA')}
+                     </Avatar>
+                   )}
+                 </Box>
+
                  {/* Message Card */}
                  <Paper 
                    elevation={0}
                    sx={{ 
                      p: 1.5,
+                     flex: 1,
                      bgcolor: isDarkMode  
                        ? (isUser ? PALETTE.userBubble : PALETTE.agentBubble)
                        : (isUser ? 'grey.100' : 'grey.50'),
-                     border: '1px solid',
-                     borderColor: isDarkMode 
-                       ? (isUser ? PALETTE.userBorder : PALETTE.agentBorder)
-                       : 'grey.200',
+                     // User: Gold accent border, Agent: Standard grey
+                     border: isUser 
+                       ? `1px solid ${isDarkMode ? `${PALETTE.accent}50` : `${PALETTE.accent}40`}` 
+                       : `1px solid ${isDarkMode ? PALETTE.agentBorder : 'grey.200'}`,
                      borderRadius: 3,
-                     maxWidth: isUser ? '75%' : '90%',
-                     minWidth: isUser ? 'auto' : '60%',
+                     // Add specific corner rounding for chat bubble effect
+                     borderTopRightRadius: isUser ? 4 : 12,
+                     borderTopLeftRadius: !isUser ? 4 : 12,
                      boxShadow: isDarkMode ? PALETTE.cardShadow : '0 1px 3px rgba(0,0,0,0.1)',
+                     minWidth: 0, // Fix flex overflow
                    }}
                  >
-                    {/* Sender Info (inside card for agent) */}
+                    {/* Sender Info (only for agent, kept compact) */}
                     {!isUser && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, pb: 1.5, borderBottom: '1px solid', borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200' }}>
-                        <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: agentColor, fontWeight: 600 }}>
-                          {getInitials(msg.agent || 'QA')}
-                        </Avatar>
-                        <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-                          {msg.agent || 'QA Manager'}
-                        </Typography>
-                      </Box>
+                      <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.5, fontSize: '0.85rem' }}>
+                        {msg.agent || 'QA Manager'}
+                      </Typography>
                     )}
 
-                    {/* Tool Logs - merge tool_call with tool_result events */}
+                    {/* Tool Logs */}
                     {!isUser && msg.events && msg.events.filter(e => e.type === 'tool_call').length > 0 && (
                        <Box sx={{ mb: 1, p: 1, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 2 }}>
                           {mergeToolEvents(msg.events).map(renderToolActivity)}
                        </Box>
                     )}
                     
-                    {/* Content (Collapsible for Reasoning/Plans) */}
+                    {/* Content */}
                     {!isUser && msg.agent === 'QA Manager' && (msg.content.toLowerCase().includes('**plan**') || msg.content.toLowerCase().includes('**mode confirmed**') || msg.content.toLowerCase().includes('session summary')) ? (
                       <Accordion 
                         elevation={0} 
@@ -531,26 +599,49 @@ const AgentChat: React.FC = () => {
                           '& p': { mb: 1 }
                         }}
                       >
-                         {/* Clean up excessive newlines (max 1 blank line) */}
                          {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
                       </Typography>
                     )}
 
-                    {/* User label (subtle, at bottom with separator) */}
-                    {isUser && (
-                      <Box sx={{ 
-                        mt: 2, 
-                        pt: 1.5, 
-                        borderTop: '1px solid', 
-                        borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'grey.200', // High contrast for visibility
-                        display: 'flex',
-                        justifyContent: 'flex-end'
-                      }}>
-                        <Typography variant="caption" sx={{ opacity: 0.6, color: 'text.secondary' }}>
-                          You
-                        </Typography>
-                      </Box>
-                    )}
+                    {/* Metrics Footer */}
+                    {!isUser && msg.events && (() => {
+                       const metrics = msg.events.reduce((acc, e) => {
+                         if (e.metrics) {
+                           acc.duration += e.metrics.duration_ms;
+                           acc.input += e.metrics.input_tokens;
+                           acc.output += e.metrics.output_tokens;
+                         }
+                         return acc;
+                       }, { duration: 0, input: 0, output: 0 });
+                       
+                       if (metrics.duration === 0 && metrics.input === 0) return null;
+                       
+                       return (
+                         <Box sx={{ 
+                           mt: 1.5, 
+                           pt: 1, 
+                           borderTop: '1px solid', 
+                           borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                           display: 'flex', 
+                           gap: 2,
+                           opacity: 0.6,
+                           color: 'text.secondary'
+                         }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                               <TimeIcon sx={{ fontSize: 12 }} />
+                               <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                                 {(metrics.duration / 1000).toFixed(2)}s
+                               </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                               <TokenIcon sx={{ fontSize: 12 }} />
+                               <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                                 {metrics.input} in / {metrics.output} out
+                               </Typography>
+                            </Box>
+                         </Box>
+                       );
+                    })()}
                  </Paper>
               </Box>
             );

@@ -143,8 +143,9 @@ class VirtualPyTestMCPServer:
             'get_transcript': self.transcript_tools.get_transcript,
             
             # Device info tools
+            'list_hosts': self.device_tools.list_hosts,  # NEW - List all registered hosts
             'get_device_info': self.device_tools.get_device_info,
-            'get_compatible_hosts': self.device_tools.get_compatible_hosts,  # NEW - Find compatible hosts for userinterface
+            'get_compatible_hosts': self.device_tools.get_compatible_hosts,
             'get_execution_status': self.device_tools.get_execution_status,
             
             # Logs tools
