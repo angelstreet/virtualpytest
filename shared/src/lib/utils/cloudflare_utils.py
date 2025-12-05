@@ -113,6 +113,7 @@ class CloudflareUtils:
                 endpoint_url=endpoint_url,
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
+                region_name='auto',  # Required for Cloudflare R2 signed URLs
                 config=config
             )
             
