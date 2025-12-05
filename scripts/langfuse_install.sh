@@ -82,7 +82,7 @@ version: '3.8'
 
 services:
   langfuse-server:
-    image: langfuse/langfuse:latest
+    image: langfuse/langfuse:2.95.1
     container_name: langfuse-web
     restart: unless-stopped
     ports:
