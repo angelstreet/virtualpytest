@@ -106,15 +106,23 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       }
       
       if (event.type === 'tool_call') {
+        const params = event.tool_params ? JSON.stringify(event.tool_params) : '';
         setExecutionSteps(prev => [
           ...prev.map(s => s.status === 'active' ? { ...s, status: 'done' as const } : s),
-          { id: `tool-${Date.now()}`, label: event.tool_name || 'Tool', status: 'active', detail: 'Executing...' }
+          { id: `tool-${Date.now()}`, label: event.tool_name || 'Tool', status: 'active', detail: params || 'Executing...' }
         ]);
       }
       
       if (event.type === 'tool_result') {
+        // Show actual result in the step detail
+        const resultStr = event.tool_result?.result || event.tool_result || 'Complete';
+        const isError = typeof resultStr === 'string' && resultStr.toLowerCase().includes('error');
         setExecutionSteps(prev => 
-          prev.map(s => s.status === 'active' ? { ...s, status: 'done' as const, detail: 'Complete' } : s)
+          prev.map(s => s.status === 'active' ? { 
+            ...s, 
+            status: isError ? 'error' as const : 'done' as const, 
+            detail: typeof resultStr === 'string' ? resultStr : JSON.stringify(resultStr)
+          } : s)
         );
       }
       
