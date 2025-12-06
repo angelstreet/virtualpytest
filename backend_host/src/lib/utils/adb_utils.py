@@ -515,21 +515,37 @@ class ADBUtils:
                 skip_element = False
                 filter_reason = None
                 
-                # Filter 0: Skip container/layout elements ONLY if they're not clickable
-                # Keep containers that are clickable OR have useful content
-                # NOTE: We only check clickable, not enabled, because enabled=True is default
-                container_classes = [
+                # Filter 0: Skip container/layout elements
+                # Two categories:
+                # 1. ALWAYS filter: Pure scrolling/list containers (never interactive)
+                # 2. Conditionally filter: Layout containers (can be clickable buttons)
+                
+                # Pure containers - ALWAYS filter (these are never interactive)
+                always_filter_classes = [
+                    'androidx.viewpager.widget.ViewPager',
+                    'android.support.v7.widget.RecyclerView',
+                    'androidx.recyclerview.widget.RecyclerView',
+                    'android.widget.AbsListView',
+                    'AbsListView',  # Sometimes shortened
+                    'android.widget.ListView',
+                    'android.widget.GridView',
+                    'android.widget.ScrollView',
+                    'android.widget.HorizontalScrollView',
+                    'androidx.compose.ui.platform.ComposeView',
+                ]
+                if class_name in always_filter_classes:
+                    skip_element = True
+                    filter_reason = f"Pure container (always filtered): {class_name}"
+                
+                # Conditional containers - filter only if NOT clickable and no useful content
+                conditional_container_classes = [
                     'android.widget.FrameLayout',
                     'android.widget.LinearLayout',
                     'android.widget.RelativeLayout',
                     'android.widget.ConstraintLayout',
-                    'android.widget.ScrollView',
-                    'android.widget.HorizontalScrollView',
-                    'androidx.compose.ui.platform.ComposeView',
                     'android.view.ViewGroup'
                 ]
-                if class_name in container_classes:
-                    # Only filter if it's NOT clickable and has no useful content
+                if not skip_element and class_name in conditional_container_classes:
                     has_useful_content = (text and text.strip()) or (content_desc and content_desc.strip())
                     
                     if not clickable and not has_useful_content:
