@@ -80,6 +80,10 @@ MANAGER_TOOLS = [
     "list_navigation_nodes",
     "preview_userinterface",
     
+    # Device Navigation
+    "take_control",
+    "navigate_to_node",
+    
     # Device & Host
     "get_device_info",
     "get_compatible_hosts",
