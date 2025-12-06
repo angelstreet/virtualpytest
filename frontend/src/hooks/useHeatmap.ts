@@ -94,6 +94,11 @@ export const useHeatmap = () => {
     // Use server name directly (no URL conversion)
     console.log(`[@useHeatmap] Generating timeline for server: ${serverPath} (UTC time)`);
     
+    // Construct base URL - ensure no double slashes
+    // If R2_BASE_URL is empty (private mode), paths will be like "heatmaps/..." for signed URL requests
+    // If R2_BASE_URL is set (public mode), paths will be like "https://r2.dev/heatmaps/..."
+    const baseUrl = R2_BASE_URL ? R2_BASE_URL.replace(/\/$/, '') : ''; // Remove trailing slash
+    
     // Generate 1440 minutes (24 hours) using UTC time
     for (let i = 0; i < 1440; i++) {
       const time = new Date(now.getTime() - (i * 60000)); // Go back i minutes
@@ -101,14 +106,17 @@ export const useHeatmap = () => {
       // CRITICAL: Use UTC hours/minutes to match backend
       const timeKey = `${time.getUTCHours().toString().padStart(2, '0')}${time.getUTCMinutes().toString().padStart(2, '0')}`;
       
+      // Construct paths without leading slashes (for both public and private bucket modes)
+      const heatmapPath = `heatmaps/${serverPath}/${timeKey}`;
+      
       items.push({
         timeKey,
         displayTime: time,
         isToday: time.toDateString() === now.toDateString(),
-        mosaicUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.jpg`,
-        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ok.jpg`,
-        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ko.jpg`,
-        analysisUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.json`
+        mosaicUrl: baseUrl ? `${baseUrl}/${heatmapPath}.jpg` : `${heatmapPath}.jpg`,
+        mosaicOkUrl: baseUrl ? `${baseUrl}/${heatmapPath}_ok.jpg` : `${heatmapPath}_ok.jpg`,
+        mosaicKoUrl: baseUrl ? `${baseUrl}/${heatmapPath}_ko.jpg` : `${heatmapPath}_ko.jpg`,
+        analysisUrl: baseUrl ? `${baseUrl}/${heatmapPath}.json` : `${heatmapPath}.json`
       });
     }
     

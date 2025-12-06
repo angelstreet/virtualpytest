@@ -586,13 +586,17 @@ class CloudflareUtils:
                     'error': 'R2 client not initialized'
                 }
             
+            # Strip leading slash from remote_path to prevent double slashes in signed URL
+            # Example: "/heatmaps/file.jpg" -> "heatmaps/file.jpg"
+            clean_remote_path = remote_path.lstrip('/')
+            
             # Generate pre-signed URL using boto3
             # This creates a URL with AWS Signature Version 4 authentication
             presigned_url = self.s3_client.generate_presigned_url(
                 'get_object',
                 Params={
                     'Bucket': self.bucket_name,
-                    'Key': remote_path
+                    'Key': clean_remote_path
                 },
                 ExpiresIn=expires_in
             )
