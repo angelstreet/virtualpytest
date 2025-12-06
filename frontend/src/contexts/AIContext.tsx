@@ -31,8 +31,12 @@ interface AIState {
   setProcessing: (processing: boolean) => void;
   
   // Backend Communication
-  sendMessage: (message: string) => void;
+  sendMessage: (message: string, agentId?: string) => void;
   isConnected: boolean;
+  
+  // Agent Selection
+  selectedAgentId: string;
+  setSelectedAgentId: (id: string) => void;
 }
 
 interface ExecutionStep {
@@ -54,6 +58,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   const [isConnected, setIsConnected] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<'checking' | 'ready' | 'needs_key' | 'error'>('checking');
+  const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
   
   const socketRef = useRef<Socket | null>(null);
   const location = useLocation();
@@ -232,7 +237,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   }, [sessionId, status, navigate]);
 
   // Send message to backend
-  const sendMessage = useCallback((message: string) => {
+  const sendMessage = useCallback((message: string, agentId?: string) => {
     // Check if API key is configured
     if (status === 'needs_key') {
       setExecutionSteps([
@@ -261,6 +266,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       return;
     }
 
+    const effectiveAgentId = agentId || selectedAgentId;
     setActiveTask(message);
     setProcessing(true);
     setExecutionSteps([
@@ -272,8 +278,9 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       session_id: sessionId,
       message: message,
       team_id: APP_CONFIG.DEFAULT_TEAM_ID,
+      agent_id: effectiveAgentId,
     });
-  }, [sessionId, status]);
+  }, [sessionId, status, selectedAgentId]);
 
   // Toggle functions
   const toggleCommand = useCallback(() => setCmdOpen(prev => !prev), []);
@@ -309,7 +316,8 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       status,
       toggleCommand, togglePilot, toggleLogs, 
       openCommand, closeCommand, setTask, setProcessing,
-      sendMessage, isConnected
+      sendMessage, isConnected,
+      selectedAgentId, setSelectedAgentId
     }}>
       {children}
     </AIContext.Provider>
