@@ -13,9 +13,7 @@ interface UIEvent {
 
 export const useAIOrchestrator = () => {
   const { 
-    setTask, 
-    setProcessing, 
-    togglePilot 
+    setProcessing
   } = useAIContext();
   
   const navigate = useNavigate();

@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { 
   PlayArrow, Stop, Description, CloudUpload, CloudDownload,
-  Refresh, PowerSettingsNew, ExpandMore, ExpandLess,
+  PowerSettingsNew, ExpandMore, ExpandLess,
   CheckCircle, Error as ErrorIcon, Warning, Schedule,
   EmojiEvents, Speed, Star
 } from '@mui/icons-material';
@@ -417,15 +417,10 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
     <Box sx={{ minHeight: '100vh', bgcolor: '#0d0d0d', color: '#e5e5e5', py: 2 }}>
       <Container maxWidth="xl">
         {/* Header */}
-        <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600, color: '#FFF', letterSpacing: '-0.02em' }}>
-              Agent Management
-            </Typography>
-          </Box>
-          <IconButton onClick={() => { loadAgents(); loadBenchmarkRuns(); loadLeaderboard(); }} sx={{ color: GOLD }}>
-            <Refresh />
-          </IconButton>
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 600, color: '#FFF', letterSpacing: '-0.02em' }}>
+            Agent Management
+          </Typography>
         </Box>
 
         {/* Tabs */}

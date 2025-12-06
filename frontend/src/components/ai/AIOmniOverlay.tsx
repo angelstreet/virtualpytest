@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Fab, Tooltip } from '@mui/material';
-import { SmartToy as RobotIcon } from '@mui/icons-material';
+import { AutoAwesome } from '@mui/icons-material';
 import { AICommandBar } from './AICommandBar';
 import { AgentPilotPanel } from './panels/AgentPilotPanel';
 import { LogTerminalPanel } from './panels/LogTerminalPanel';
@@ -17,7 +17,7 @@ export const AIOmniOverlay: React.FC = () => {
         <AICommandBar />
       </Box>
 
-      {/* Trigger Button (Bottom Left - Discreet) */}
+      {/* Ask AI Button (Bottom Left) */}
       <Box 
         sx={{ 
           position: 'fixed', 
@@ -27,18 +27,23 @@ export const AIOmniOverlay: React.FC = () => {
           zIndex: 1000 
         }}
       >
-        <Tooltip title="Ask AI Agent (Cmd+K)" placement="right">
+        <Tooltip title="Ask AI (Cmd+K)" placement="right">
             <Fab 
-                color="primary" 
                 size="medium"
                 onClick={openCommand}
                 sx={{ 
-                    bgcolor: 'rgba(25, 118, 210, 0.9)',
-                    backdropFilter: 'blur(4px)',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                    bgcolor: 'rgba(212, 175, 55, 0.95)',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 4px 24px rgba(212, 175, 55, 0.35)',
+                    transition: 'all 0.2s ease',
+                    '&:hover': { 
+                      bgcolor: '#B8860B',
+                      boxShadow: '0 6px 28px rgba(212, 175, 55, 0.5)',
+                      transform: 'scale(1.05)'
+                    }
                 }}
             >
-                <RobotIcon />
+                <AutoAwesome sx={{ color: '#1a1a1a', fontSize: 24 }} />
             </Fab>
         </Tooltip>
       </Box>

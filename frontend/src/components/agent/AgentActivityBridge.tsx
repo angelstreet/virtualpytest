@@ -10,7 +10,7 @@ import { useAIContext } from '../../contexts/AIContext';
 import { useAgentActivity } from '../../contexts/AgentActivityContext';
 
 export const AgentActivityBridge: React.FC = () => {
-  const { isProcessing, activeTask, executionSteps, status } = useAIContext();
+  const { isProcessing, activeTask, executionSteps } = useAIContext();
   const { startTask, updateTaskStep, completeTask, failTask } = useAgentActivity();
   
   const currentTaskIdRef = useRef<string | null>(null);

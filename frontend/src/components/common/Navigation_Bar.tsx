@@ -274,7 +274,7 @@ const NavigationBar: React.FC = () => {
       </Button>
 
       {/* AI Agent - Dropdown */}
-      <NavigationDropdown label="AI" items={aiAgentItems} icon={<AgentIcon fontSize="small" />} />
+      <NavigationDropdown label="AI" items={aiAgentItems} />
 
       {/* Test Grouped Dropdown (Plan, Execution, Results) */}
       <NavigationGroupedDropdown label="Test" groups={testGroups} />

@@ -5,7 +5,7 @@
  * The AI can then interact with them via the interact_with_element tool.
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface AIInteractEvent {
   element_id: string;

@@ -615,7 +615,7 @@ const AgentChat: React.FC = () => {
                   type={showApiKey ? "text" : "password"}
                   autoComplete="off"
                 />
-                <Button variant="contained" onClick={saveApiKey} disabled={isValidating}>Save</Button>
+                <Button variant="contained" onClick={() => saveApiKey()} disabled={isValidating}>Save</Button>
                 <IconButton onClick={() => setShowApiKey(!showApiKey)} size="small">
                   {showApiKey ? <VisibilityOff /> : <Visibility />}
                 </IconButton>

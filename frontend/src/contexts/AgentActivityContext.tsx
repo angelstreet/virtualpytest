@@ -8,7 +8,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getServerBaseUrl } from '../utils/buildUrlUtils';
-import { APP_CONFIG } from '../config/constants';
 
 // Agent metadata with nicknames
 export const AGENT_METADATA: Record<string, { name: string; nickname: string; icon: string }> = {

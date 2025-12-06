@@ -47,7 +47,6 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
 }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
-  const [feedbackComment, setFeedbackComment] = useState('');
   
   const meta = AGENT_METADATA[agentId] || { name: agentId, nickname: agentId, icon: '🤖' };
   const runningTasks = tasks.filter(t => t.status === 'running');
@@ -180,7 +179,7 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
             <Box sx={{ p: 1.5 }}>
               {/* Steps */}
               <Box sx={{ mb: 1.5 }}>
-                {currentTask.steps.slice(-4).map((step, idx) => (
+                {currentTask.steps.slice(-4).map((step) => (
                   <Box key={step.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                     <Box sx={{ 
                       width: 6, 

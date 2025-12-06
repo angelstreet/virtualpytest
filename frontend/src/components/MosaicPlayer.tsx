@@ -336,7 +336,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
           <>
             <img
               ref={currentImageRef}
-              src={mosaicSrc}
+              src={mosaicSrc || undefined}
               alt={`Heatmap ${currentItem.timeKey} - ${filter}`}
               style={{
                 width: '100%',
