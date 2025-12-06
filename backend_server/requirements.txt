@@ -118,6 +118,13 @@ jsonschema>=4.0.0
 anthropic>=0.40.0
 langfuse>=2.0.0,<3.0.0  # v2 SDK for Langfuse server v2 (auto-enabled when LANGFUSE_HOST is set)
 
+# Event-Driven Multi-Agent Platform (Phase 1)
+asyncpg>=0.29.0         # Async PostgreSQL driver
+apscheduler>=3.10.0     # Task scheduling for autonomous agents
+fastapi>=0.104.0        # Async API framework (for new agent endpoints)
+uvicorn>=0.24.0         # ASGI server
+python-multipart>=0.0.6 # FastAPI file upload support
+
 # Security scanning tools (for development/CI)
 bandit>=1.7.0
 safety>=3.0.0

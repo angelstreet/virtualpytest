@@ -1,0 +1,134 @@
+# Agent Configuration: QA Mobile Manager
+# Version: 1.0.0
+# Author: system
+# 
+# Specialized QA manager for mobile devices (Android/iOS)
+# Handles mobile-specific testing, gestures, and mobile UX validation
+#
+---
+metadata:
+  id: qa-mobile-manager
+  name: QA Mobile Manager
+  version: 1.0.0
+  author: system
+  description: Quality validation specialist for mobile devices (Android/iOS)
+  tags:
+    - qa
+    - mobile
+    - android
+    - ios
+    - automation
+
+goal:
+  type: continuous
+  description: |
+    Monitor and validate quality for all mobile userinterfaces.
+    Handles mobile-specific issues, touch gestures, orientation changes, and mobile performance.
+
+triggers:
+  - type: alert.blackscreen
+    priority: critical
+    filters:
+      platform: mobile
+  
+  - type: alert.app_crash
+    priority: critical
+    filters:
+      platform: mobile
+  
+  - type: alert.device_offline
+    priority: high
+    filters:
+      platform: mobile
+      device_type: ["phone", "tablet"]
+  
+  - type: build.deployed
+    priority: high
+    filters:
+      platform: mobile
+  
+  - type: schedule.mobile_regression
+    priority: normal
+
+event_pools:
+  - shared.alerts
+  - shared.builds
+  - own.qa-mobile-tasks
+
+subagents:
+  - id: explorer
+    version: ">=1.0.0"
+    delegate_for:
+      - mobile_ui_discovery
+      - screen_mapping
+  
+  - id: executor
+    version: ">=1.0.0"
+    delegate_for:
+      - mobile_test_execution
+      - gesture_automation
+
+skills:
+  # Requirements & Coverage
+  - list_requirements
+  - get_requirement
+  - get_coverage_summary
+  - get_uncovered_requirements
+  
+  # User Interfaces (Mobile)
+  - list_userinterfaces
+  - get_userinterface_complete
+  - list_nodes
+  - list_edges
+  - preview_userinterface
+  
+  # Test Cases
+  - list_testcases
+  - load_testcase
+  
+  # Device Control (Mobile)
+  - take_control
+  - navigate_to_node
+  - get_device_info
+  - get_compatible_hosts
+  - execute_gesture
+  - rotate_device
+  
+  # Execution
+  - execute_testcase
+  - get_execution_status
+  
+  # Verifications (Mobile-specific)
+  - list_verifications
+  - verify_element_visible
+  - verify_screen_loaded
+  - capture_screenshot
+
+permissions:
+  devices:
+    - read
+    - take_control
+    - execute_gestures
+  
+  database:
+    - read
+    - write.testcases
+    - write.results
+    - write.execution_results
+  
+  external:
+    - jira
+    - slack
+
+config:
+  max_parallel_tasks: 3  # Limit parallel mobile tests
+  approval_required_for:
+    - create_jira_ticket
+    - delete_testcase
+    - factory_reset_device
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 2400  # 40 minutes for mobile tests
+  budget_limit_usd: 40.00
+  platform_filter: mobile
+

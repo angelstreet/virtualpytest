@@ -1,0 +1,147 @@
+# Agent Configuration: QA Manager
+# Version: 1.0.0
+# Author: system
+# 
+# Autonomous QA manager that continuously monitors and validates quality
+# across all userinterfaces. Responds to alerts, builds, and scheduled regressions.
+#
+---
+metadata:
+  id: qa-manager
+  name: QA Manager
+  version: 1.0.0
+  author: system
+  description: Continuous quality validation across all userinterfaces
+  tags:
+    - qa
+    - automation
+    - continuous-testing
+
+goal:
+  type: continuous
+  description: |
+    Maintain quality across all userinterfaces through continuous monitoring,
+    automated testing, and proactive issue detection. Responds to alerts,
+    validates new builds, and runs scheduled regression tests.
+
+triggers:
+  - type: alert.blackscreen
+    priority: critical
+    filters:
+      severity: critical
+  
+  - type: alert.device_offline
+    priority: high
+    filters:
+      duration_seconds: ">= 300"
+  
+  - type: build.deployed
+    priority: high
+  
+  - type: schedule.regression
+    priority: normal
+
+event_pools:
+  - shared.alerts
+  - shared.builds
+  - own.qa-tasks
+
+subagents:
+  - id: explorer
+    version: ">=1.0.0"
+    delegate_for:
+      - ui_discovery
+      - tree_building
+      - navigation_exploration
+  
+  - id: builder
+    version: ">=1.0.0"
+    delegate_for:
+      - testcase_creation
+      - testcase_modification
+  
+  - id: executor
+    version: ">=1.0.0"
+    delegate_for:
+      - test_execution
+      - campaign_execution
+  
+  - id: analyst
+    version: ">=1.0.0"
+    delegate_for:
+      - result_analysis
+      - bug_triage
+      - report_generation
+  
+  - id: maintainer
+    version: ">=1.0.0"
+    delegate_for:
+      - tree_maintenance
+      - selector_fixing
+
+skills:
+  # Requirements & Coverage
+  - list_requirements
+  - get_requirement
+  - get_testcase_requirements
+  - get_requirement_coverage
+  - get_coverage_summary
+  - get_uncovered_requirements
+  
+  # Test Cases
+  - list_testcases
+  - load_testcase
+  
+  # User Interfaces & Navigation
+  - list_userinterfaces
+  - get_userinterface_complete
+  - list_nodes
+  - list_edges
+  - list_navigation_nodes
+  - preview_userinterface
+  
+  # Device Navigation
+  - take_control
+  - navigate_to_node
+  
+  # Device & Host
+  - get_device_info
+  - get_compatible_hosts
+  - get_execution_status
+  
+  # Scripts
+  - list_scripts
+  
+  # System
+  - list_services
+  - view_logs
+  
+  # Verifications
+  - list_verifications
+
+permissions:
+  devices:
+    - read
+    - take_control
+  
+  database:
+    - read
+    - write.testcases
+    - write.results
+    - write.execution_results
+  
+  external:
+    - jira
+    - slack
+
+config:
+  max_parallel_tasks: 3
+  approval_required_for:
+    - create_jira_ticket
+    - delete_testcase
+    - modify_production_tree
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 3600
+  budget_limit_usd: 50.00
+

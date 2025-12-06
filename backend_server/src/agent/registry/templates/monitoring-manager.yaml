@@ -1,0 +1,129 @@
+# Agent Configuration: Monitoring Manager
+# Version: 1.0.0
+# Author: system
+# 
+# System monitoring and incident detection agent
+# Continuously monitors device health, service status, and detects anomalies
+#
+---
+metadata:
+  id: monitoring-manager
+  name: Monitoring Manager
+  version: 1.0.0
+  author: system
+  description: System monitoring and incident detection specialist
+  tags:
+    - monitoring
+    - health-check
+    - incident-detection
+    - alerting
+
+goal:
+  type: continuous
+  description: |
+    Continuously monitor all devices, services, and infrastructure.
+    Detect anomalies, health issues, and incidents. Generate alerts when problems are detected.
+    Ensure system availability and performance.
+
+triggers:
+  - type: schedule.health_check
+    priority: high
+    filters:
+      interval: "*/5 * * * *"  # Every 5 minutes
+  
+  - type: alert.device_offline
+    priority: critical
+  
+  - type: alert.service_down
+    priority: critical
+  
+  - type: alert.high_cpu
+    priority: high
+    filters:
+      threshold: ">= 90"
+  
+  - type: alert.high_memory
+    priority: high
+    filters:
+      threshold: ">= 85"
+  
+  - type: alert.disk_space_low
+    priority: high
+    filters:
+      threshold: "<= 10"
+
+event_pools:
+  - shared.alerts
+  - shared.monitoring
+  - own.monitoring-tasks
+
+subagents: []  # Monitoring manager works independently
+
+skills:
+  # Device Monitoring
+  - list_devices
+  - get_device_info
+  - get_device_status
+  - check_device_health
+  - ping_device
+  
+  # Service Monitoring
+  - list_services
+  - get_service_status
+  - check_service_health
+  - restart_service
+  
+  # Host Monitoring
+  - get_host_info
+  - get_compatible_hosts
+  - check_host_resources
+  - get_system_metrics
+  
+  # Logs & Diagnostics
+  - view_logs
+  - get_error_logs
+  - analyze_logs
+  
+  # Alerts
+  - create_alert
+  - list_alerts
+  - acknowledge_alert
+  - resolve_alert
+  
+  # Database
+  - query_metrics
+  - get_execution_status
+  - check_database_health
+
+permissions:
+  devices:
+    - read
+    - health_check
+  
+  database:
+    - read
+    - write.alerts
+    - write.metrics
+  
+  external:
+    - slack
+    - pagerduty
+    - email
+
+config:
+  max_parallel_tasks: 10  # Can monitor many devices in parallel
+  approval_required_for:
+    - restart_service
+    - reboot_device
+  auto_retry: false  # Don't retry monitoring - just alert
+  feedback_collection: false  # Automated monitoring
+  timeout_seconds: 300  # 5 minutes per check
+  budget_limit_usd: 20.00
+  monitoring_interval_seconds: 300  # Check every 5 minutes
+  alert_thresholds:
+    device_offline_seconds: 300  # Alert if device offline > 5 min
+    service_restart_count: 3  # Alert if service restarts > 3 times/hour
+    cpu_percent: 90
+    memory_percent: 85
+    disk_free_percent: 10
+

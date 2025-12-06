@@ -1,0 +1,70 @@
+# Agent Configuration: Explorer
+# Version: 1.0.0
+# Author: system
+# 
+# Navigation tree explorer that discovers UI structure and builds navigation graphs.
+#
+---
+metadata:
+  id: explorer
+  name: Explorer
+  version: 1.0.0
+  author: system
+  description: Discovers UI navigation structure and builds navigation trees
+  tags:
+    - discovery
+    - navigation
+    - ui-exploration
+
+goal:
+  type: on-demand
+  description: |
+    Explore user interface navigation structure, discover nodes and edges,
+    and build comprehensive navigation trees for testing.
+
+triggers:
+  - type: task.explore_ui
+    priority: normal
+
+event_pools:
+  - own.explorer-tasks
+
+subagents: []
+
+skills:
+  # Navigation
+  - list_userinterfaces
+  - get_userinterface_complete
+  - list_nodes
+  - list_edges
+  - list_navigation_nodes
+  - preview_userinterface
+  
+  # Device control
+  - take_control
+  - navigate_to_node
+  - get_device_info
+  
+  # Discovery
+  - discover_navigation_structure
+  - build_navigation_tree
+  - update_navigation_tree
+
+permissions:
+  devices:
+    - read
+    - take_control
+  
+  database:
+    - read
+    - write.navigation_trees
+    - write.nodes
+    - write.edges
+
+config:
+  max_parallel_tasks: 1
+  approval_required_for: []
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 1800
+

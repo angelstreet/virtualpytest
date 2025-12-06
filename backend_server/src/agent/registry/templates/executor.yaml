@@ -1,0 +1,83 @@
+# Agent Configuration: Executor
+# Version: 1.0.0
+# Author: system
+# 
+# Test execution specialist that runs testcases and campaigns.
+#
+---
+metadata:
+  id: executor
+  name: Executor
+  version: 1.0.0
+  author: system
+  description: Executes testcases and campaigns on devices
+  tags:
+    - execution
+    - testing
+    - automation
+
+goal:
+  type: on-demand
+  description: |
+    Execute testcases and campaigns on physical devices, capture results,
+    and report execution status.
+
+triggers:
+  - type: task.execute_test
+    priority: normal
+  
+  - type: task.execute_campaign
+    priority: normal
+  
+  - type: alert.blackscreen
+    priority: critical
+    filters:
+      auto_validate: true
+
+event_pools:
+  - own.executor-tasks
+  - shared.alerts
+
+subagents: []
+
+skills:
+  # Execution
+  - list_testcases
+  - load_testcase
+  - execute_testcase
+  - execute_campaign
+  - get_execution_status
+  
+  # Device
+  - take_control
+  - navigate_to_node
+  - get_device_info
+  - get_compatible_hosts
+  
+  # Navigation
+  - list_userinterfaces
+  - get_userinterface_complete
+  - list_nodes
+  - list_edges
+  
+  # Results
+  - record_execution_result
+  - get_execution_results
+
+permissions:
+  devices:
+    - read
+    - take_control
+  
+  database:
+    - read
+    - write.execution_results
+    - write.testcase_executions
+
+config:
+  max_parallel_tasks: 1  # One device at a time
+  approval_required_for: []
+  auto_retry: false  # Don't auto-retry failed tests
+  feedback_collection: true
+  timeout_seconds: 900  # 15 minutes per test
+

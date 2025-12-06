@@ -1,0 +1,122 @@
+# Agent Configuration: QA Web Manager
+# Version: 1.0.0
+# Author: system
+# 
+# Specialized QA manager for web-based userinterfaces
+# Focuses on web applications, browser-based testing, and web-specific validations
+#
+---
+metadata:
+  id: qa-web-manager
+  name: QA Web Manager
+  version: 1.0.0
+  author: system
+  description: Quality validation specialist for web-based userinterfaces
+  tags:
+    - qa
+    - web
+    - browser
+    - automation
+
+goal:
+  type: continuous
+  description: |
+    Monitor and validate quality for all web-based userinterfaces.
+    Handles browser-specific issues, web performance, and responsive design validation.
+
+triggers:
+  - type: alert.blackscreen
+    priority: critical
+    filters:
+      platform: web
+  
+  - type: alert.page_load_timeout
+    priority: high
+    filters:
+      platform: web
+  
+  - type: build.deployed
+    priority: high
+    filters:
+      platform: web
+  
+  - type: schedule.web_regression
+    priority: normal
+
+event_pools:
+  - shared.alerts
+  - shared.builds
+  - own.qa-web-tasks
+
+subagents:
+  - id: explorer
+    version: ">=1.0.0"
+    delegate_for:
+      - ui_discovery
+      - web_navigation_mapping
+  
+  - id: executor
+    version: ">=1.0.0"
+    delegate_for:
+      - web_test_execution
+      - browser_automation
+
+skills:
+  # Requirements & Coverage
+  - list_requirements
+  - get_requirement
+  - get_coverage_summary
+  - get_uncovered_requirements
+  
+  # User Interfaces (Web)
+  - list_userinterfaces
+  - get_userinterface_complete
+  - list_nodes
+  - list_edges
+  - preview_userinterface
+  
+  # Test Cases
+  - list_testcases
+  - load_testcase
+  
+  # Device Navigation (Web browsers)
+  - take_control
+  - navigate_to_node
+  - get_device_info
+  - get_compatible_hosts
+  
+  # Execution
+  - execute_testcase
+  - get_execution_status
+  
+  # Verifications (Web-specific)
+  - list_verifications
+  - verify_element_visible
+  - verify_page_loaded
+
+permissions:
+  devices:
+    - read
+    - take_control
+  
+  database:
+    - read
+    - write.testcases
+    - write.results
+    - write.execution_results
+  
+  external:
+    - jira
+    - slack
+
+config:
+  max_parallel_tasks: 5  # Can run multiple browser tests in parallel
+  approval_required_for:
+    - create_jira_ticket
+    - delete_testcase
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 1800  # 30 minutes for web tests
+  budget_limit_usd: 30.00
+  platform_filter: web
+

@@ -1,0 +1,147 @@
+# Agent Configuration: QA STB Manager
+# Version: 1.0.0
+# Author: system
+# 
+# Specialized QA manager for Set-Top Boxes (STB) and TV devices
+# Handles remote control navigation, video playback, and STB-specific validations
+#
+---
+metadata:
+  id: qa-stb-manager
+  name: QA STB Manager
+  version: 1.0.0
+  author: system
+  description: Quality validation specialist for Set-Top Boxes and TV devices
+  tags:
+    - qa
+    - stb
+    - tv
+    - remote-control
+    - video
+    - automation
+
+goal:
+  type: continuous
+  description: |
+    Monitor and validate quality for all STB and TV userinterfaces.
+    Handles remote control navigation, video playback validation, channel switching, and STB performance.
+
+triggers:
+  - type: alert.blackscreen
+    priority: critical
+    filters:
+      platform: stb
+  
+  - type: alert.video_playback_failed
+    priority: critical
+    filters:
+      platform: stb
+  
+  - type: alert.device_offline
+    priority: high
+    filters:
+      platform: stb
+      device_type: ["stb", "tv", "android_tv"]
+  
+  - type: alert.channel_change_failed
+    priority: high
+    filters:
+      platform: stb
+  
+  - type: build.deployed
+    priority: high
+    filters:
+      platform: stb
+  
+  - type: schedule.stb_regression
+    priority: normal
+  
+  - type: schedule.nightly_sanity
+    priority: normal
+
+event_pools:
+  - shared.alerts
+  - shared.builds
+  - own.qa-stb-tasks
+
+subagents:
+  - id: explorer
+    version: ">=1.0.0"
+    delegate_for:
+      - stb_ui_discovery
+      - remote_navigation_mapping
+  
+  - id: executor
+    version: ">=1.0.0"
+    delegate_for:
+      - stb_test_execution
+      - remote_automation
+
+skills:
+  # Requirements & Coverage
+  - list_requirements
+  - get_requirement
+  - get_coverage_summary
+  - get_uncovered_requirements
+  
+  # User Interfaces (STB)
+  - list_userinterfaces
+  - get_userinterface_complete
+  - list_nodes
+  - list_edges
+  - preview_userinterface
+  
+  # Test Cases
+  - list_testcases
+  - load_testcase
+  
+  # Device Control (STB/Remote)
+  - take_control
+  - navigate_to_node
+  - send_remote_key
+  - get_device_info
+  - get_compatible_hosts
+  
+  # Execution
+  - execute_testcase
+  - get_execution_status
+  
+  # Verifications (STB-specific)
+  - list_verifications
+  - verify_element_visible
+  - verify_video_playing
+  - verify_channel_loaded
+  - capture_screenshot
+  
+  # Monitoring
+  - check_video_playback
+  - monitor_channel_zapping
+
+permissions:
+  devices:
+    - read
+    - take_control
+    - send_remote_commands
+  
+  database:
+    - read
+    - write.testcases
+    - write.results
+    - write.execution_results
+  
+  external:
+    - jira
+    - slack
+
+config:
+  max_parallel_tasks: 2  # Limited STB devices
+  approval_required_for:
+    - create_jira_ticket
+    - delete_testcase
+    - reboot_stb
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 3600  # 60 minutes for STB tests (video playback can be long)
+  budget_limit_usd: 45.00
+  platform_filter: stb
+

@@ -1,0 +1,211 @@
+"""
+Agent Configuration Schema
+
+Pydantic models defining the structure of agent configurations.
+Agents can be exported/imported as YAML files.
+"""
+
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Dict, Optional, Any
+from enum import Enum
+from datetime import datetime
+
+
+class AgentGoalType(str, Enum):
+    """Agent operational mode"""
+    CONTINUOUS = "continuous"  # Always running, monitoring events
+    ON_DEMAND = "on-demand"    # Activated only when triggered
+
+
+class EventTrigger(BaseModel):
+    """Event that triggers agent activation"""
+    type: str = Field(..., description="Event type (e.g., 'alert.blackscreen')")
+    priority: str = Field(..., description="Priority: critical, high, normal, low")
+    filters: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Additional filters for event matching"
+    )
+    
+    @field_validator('priority')
+    @classmethod
+    def validate_priority(cls, v: str) -> str:
+        valid = ['critical', 'high', 'normal', 'low']
+        if v.lower() not in valid:
+            raise ValueError(f"Priority must be one of: {valid}")
+        return v.lower()
+
+
+class SubAgentReference(BaseModel):
+    """Reference to a subagent this agent can delegate to"""
+    id: str = Field(..., description="Subagent identifier")
+    version: str = Field(
+        default="latest",
+        description="Version requirement (e.g., '>=1.0.0', 'latest')"
+    )
+    delegate_for: List[str] = Field(
+        ...,
+        description="Task types this subagent handles"
+    )
+
+
+class AgentPermissions(BaseModel):
+    """Agent resource access permissions"""
+    devices: List[str] = Field(
+        default_factory=list,
+        description="Device permissions: read, take_control"
+    )
+    database: List[str] = Field(
+        default_factory=list,
+        description="Database permissions: read, write.table_name"
+    )
+    external: List[str] = Field(
+        default_factory=list,
+        description="External integrations: jira, slack, etc."
+    )
+
+
+class AgentConfig(BaseModel):
+    """Agent runtime configuration"""
+    max_parallel_tasks: int = Field(
+        default=3,
+        ge=1,
+        description="Maximum parallel task execution"
+    )
+    approval_required_for: List[str] = Field(
+        default_factory=list,
+        description="Actions requiring human approval"
+    )
+    auto_retry: bool = Field(
+        default=True,
+        description="Automatically retry failed tasks"
+    )
+    feedback_collection: bool = Field(
+        default=True,
+        description="Collect user feedback after tasks"
+    )
+    timeout_seconds: int = Field(
+        default=3600,
+        ge=60,
+        description="Default task timeout in seconds"
+    )
+    budget_limit_usd: Optional[float] = Field(
+        default=None,
+        description="Monthly budget limit in USD"
+    )
+
+
+class AgentGoal(BaseModel):
+    """Agent primary goal/purpose"""
+    type: AgentGoalType = Field(..., description="continuous or on-demand")
+    description: str = Field(
+        ...,
+        min_length=10,
+        description="Detailed description of agent's purpose"
+    )
+
+
+class AgentMetadata(BaseModel):
+    """Agent metadata and versioning"""
+    id: str = Field(
+        ...,
+        pattern="^[a-z0-9-]+$",
+        description="Unique agent identifier (lowercase, hyphens)"
+    )
+    name: str = Field(..., min_length=1, description="Human-readable name")
+    version: str = Field(
+        ...,
+        pattern=r"^\d+\.\d+\.\d+(-[a-z0-9]+)?$",
+        description="Semantic version (e.g., 1.0.0, 2.1.0-beta)"
+    )
+    author: str = Field(..., description="Creator/owner of this agent")
+    description: str = Field(..., description="What this agent does")
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+
+
+class AgentDefinition(BaseModel):
+    """
+    Complete agent definition
+    
+    This is the root model for agent configurations.
+    Can be serialized to/from YAML for portability.
+    """
+    metadata: AgentMetadata
+    goal: AgentGoal
+    triggers: List[EventTrigger] = Field(
+        default_factory=list,
+        description="Events that activate this agent"
+    )
+    event_pools: List[str] = Field(
+        default_factory=list,
+        description="Event channels to subscribe to"
+    )
+    subagents: List[SubAgentReference] = Field(
+        default_factory=list,
+        description="Subagents this agent can delegate to"
+    )
+    skills: List[str] = Field(
+        default_factory=list,
+        description="Tool/skill identifiers agent can use"
+    )
+    permissions: AgentPermissions = Field(
+        default_factory=AgentPermissions,
+        description="Resource access permissions"
+    )
+    config: AgentConfig = Field(
+        default_factory=AgentConfig,
+        description="Runtime configuration"
+    )
+    
+    class Config:
+        use_enum_values = True
+        json_schema_extra = {
+            "example": {
+                "metadata": {
+                    "id": "qa-manager",
+                    "name": "QA Manager",
+                    "version": "2.1.0",
+                    "author": "team-qa",
+                    "description": "Continuous quality validation",
+                    "tags": ["qa", "automation", "testing"]
+                },
+                "goal": {
+                    "type": "continuous",
+                    "description": "Maintain quality across all userinterfaces"
+                },
+                "triggers": [
+                    {
+                        "type": "alert.blackscreen",
+                        "priority": "critical"
+                    }
+                ],
+                "event_pools": ["shared.alerts", "shared.builds"],
+                "subagents": [
+                    {
+                        "id": "executor",
+                        "version": ">=1.0.0",
+                        "delegate_for": ["test_execution"]
+                    }
+                ],
+                "skills": ["list_testcases", "execute_testcase"],
+                "permissions": {
+                    "devices": ["read", "take_control"],
+                    "database": ["read", "write.testcases"]
+                },
+                "config": {
+                    "max_parallel_tasks": 3,
+                    "auto_retry": True
+                }
+            }
+        }
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary (for JSON/YAML export)"""
+        return self.model_dump(exclude_none=True)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'AgentDefinition':
+        """Create from dictionary (for JSON/YAML import)"""
+        return cls(**data)
+
