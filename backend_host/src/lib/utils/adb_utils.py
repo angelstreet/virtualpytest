@@ -515,8 +515,9 @@ class ADBUtils:
                 skip_element = False
                 filter_reason = None
                 
-                # Filter 0: Skip container/layout elements ONLY if they're not interactive
-                # Keep containers that are clickable/enabled or have useful content
+                # Filter 0: Skip container/layout elements ONLY if they're not clickable
+                # Keep containers that are clickable OR have useful content
+                # NOTE: We only check clickable, not enabled, because enabled=True is default
                 container_classes = [
                     'android.widget.FrameLayout',
                     'android.widget.LinearLayout',
@@ -528,13 +529,12 @@ class ADBUtils:
                     'android.view.ViewGroup'
                 ]
                 if class_name in container_classes:
-                    # Only filter if it's NOT interactive and has no useful content
+                    # Only filter if it's NOT clickable and has no useful content
                     has_useful_content = (text and text.strip()) or (content_desc and content_desc.strip())
-                    is_interactive = clickable or enabled
                     
-                    if not is_interactive and not has_useful_content:
+                    if not clickable and not has_useful_content:
                         skip_element = True
-                        filter_reason = f"Non-interactive container: {class_name}"
+                        filter_reason = f"Non-clickable container with no content: {class_name}"
                 
                 # Filter 1: Skip completely empty/useless elements
                 if not skip_element and (not text or text == '' or text == ' ' or text == '\n') and \
