@@ -548,9 +548,33 @@ class ADBUtils:
                 if not skip_element and class_name in conditional_container_classes:
                     has_useful_content = (text and text.strip()) or (content_desc and content_desc.strip())
                     
+                    # Parse bounds to check size (for filtering large/tiny containers)
+                    is_suspicious_size = False
+                    width = 0
+                    height = 0
+                    if bounds:
+                        bounds_match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', bounds)
+                        if bounds_match:
+                            x1, y1, x2, y2 = map(int, bounds_match.groups())
+                            width = x2 - x1
+                            height = y2 - y1
+                            
+                            # Filter if too small (likely decorative, e.g., 8px dividers)
+                            if width < 20 or height < 20:
+                                is_suspicious_size = True
+                            
+                            # Filter if too large without content (likely full-screen container)
+                            # Consider "too large" as > 90% of a typical screen dimension
+                            if width > 900 or height > 1500:
+                                is_suspicious_size = True
+                    
+                    # Filter if: (not clickable) OR (clickable but suspicious size and no content)
                     if not clickable and not has_useful_content:
                         skip_element = True
                         filter_reason = f"Non-clickable container with no content: {class_name}"
+                    elif clickable and is_suspicious_size and not has_useful_content:
+                        skip_element = True
+                        filter_reason = f"Suspicious size container (w={width}, h={height}): {class_name}"
                 
                 # Filter 1: Skip completely empty/useless elements
                 if not skip_element and (not text or text == '' or text == ' ' or text == '\n') and \
