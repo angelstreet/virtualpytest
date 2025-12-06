@@ -52,6 +52,7 @@ import {
   Chat as ChatPanelIcon,
   PhoneAndroid as DevicePanelIcon,
 } from '@mui/icons-material';
+import { useSearchParams } from 'react-router-dom';
 import { useAgentChat, type AgentEvent, type Conversation } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 
@@ -154,11 +155,15 @@ const AgentChat: React.FC = () => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
   const { profile } = useProfile();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Layout state - each section can be shown/hidden
   const [showHistory, setShowHistory] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [showDevice, setShowDevice] = useState(false);
+  
+  // Track if we've processed URL params
+  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
   
   // Selected agent - default to AI Assistant (generic)
   const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
@@ -204,6 +209,32 @@ const AgentChat: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentEvents]);
+  
+  // Handle URL params from command bar (prompt & agent)
+  useEffect(() => {
+    if (urlParamsProcessed) return;
+    
+    const prompt = searchParams.get('prompt');
+    const agentParam = searchParams.get('agent');
+    
+    if (prompt && status === 'ready') {
+      // Set agent if provided
+      if (agentParam) {
+        setSelectedAgentId(agentParam);
+        setAgentId(agentParam);
+      }
+      
+      // Clear URL params
+      setSearchParams({}, { replace: true });
+      setUrlParamsProcessed(true);
+      
+      // Set input and trigger send after a brief delay
+      setInput(prompt);
+      setTimeout(() => {
+        sendMessage();
+      }, 150);
+    }
+  }, [searchParams, status, urlParamsProcessed, setSearchParams, setAgentId, setInput, sendMessage]);
   
   // Group conversations
   const groupedConversations = groupConversationsByTime(conversations);

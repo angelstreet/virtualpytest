@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Paper, 
@@ -28,7 +29,8 @@ const AVAILABLE_AGENTS = [
 ];
 
 export const AICommandBar: React.FC = () => {
-  const { isCommandOpen, closeCommand, sendMessage, selectedAgentId, setSelectedAgentId } = useAIContext();
+  const navigate = useNavigate();
+  const { isCommandOpen, closeCommand, selectedAgentId, setSelectedAgentId } = useAIContext();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const chipRef = useRef<HTMLDivElement>(null);
@@ -51,12 +53,19 @@ export const AICommandBar: React.FC = () => {
     e?.preventDefault();
     if (!input.trim()) return;
 
-    // Send message to backend via AIContext
-    sendMessage(input.trim());
+    const message = input.trim();
     
-    // Clear and close the command bar
+    // Close command bar
     setInput('');
+    setAgentMenuOpen(false);
     closeCommand();
+    
+    // Navigate to AI Agent page with prompt as URL param
+    const params = new URLSearchParams({
+      prompt: message,
+      agent: selectedAgentId,
+    });
+    navigate(`/ai-agent?${params.toString()}`);
   };
 
   if (!isCommandOpen) return null;

@@ -10,16 +10,16 @@
 
 import React, { useState } from 'react';
 import { Box, Paper, Typography, IconButton, Collapse, Tabs, Tab, Chip, LinearProgress, Fade, Tooltip } from '@mui/material';
-import { Close, ExpandLess, ExpandMore, ThumbUp, ThumbDown, ArrowBack, CheckCircle, Error as ErrorIcon, Schedule } from '@mui/icons-material';
+import { Close, ExpandLess, ExpandMore, ThumbUp, ThumbDown, ArrowBack, CheckCircle, Error as ErrorIcon, Schedule, OpenInNew } from '@mui/icons-material';
 import { useAgentActivity, AGENT_METADATA, AgentTask } from '../../contexts/AgentActivityContext';
 import { useNavigate } from 'react-router-dom';
 
 // Styles
-const BADGE_WIDTH = 280;
+const BADGE_WIDTH = 260;
 const COLORS = {
   bg: '#1a1a1a',
   bgHover: '#242424',
-  border: '#333',
+  border: 'rgba(212, 175, 55, 0.4)', // Gold tint border by default
   borderActive: '#d4af37',
   text: '#f0f0f0',
   textMuted: '#888',
@@ -103,39 +103,46 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
         borderRadius: 2,
         overflow: 'hidden',
         transition: 'all 0.2s ease',
-        '&:hover': { borderColor: COLORS.borderActive },
+        boxShadow: isExpanded 
+          ? '0 4px 24px rgba(212, 175, 55, 0.25)' 
+          : '0 4px 20px rgba(0, 0, 0, 0.4)',
+        '&:hover': { 
+          borderColor: COLORS.borderActive,
+          boxShadow: '0 4px 24px rgba(212, 175, 55, 0.2)',
+        },
       }}
     >
       {/* Header - Always visible */}
       <Box
         onClick={onToggle}
         sx={{
-          p: 1.5,
+          py: 0.75,
+          px: 1,
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
+          gap: 0.75,
           cursor: 'pointer',
           '&:hover': { bgcolor: COLORS.bgHover },
         }}
       >
-        <Typography sx={{ fontSize: 18 }}>{meta.icon}</Typography>
+        <Typography sx={{ fontSize: 16 }}>{meta.icon}</Typography>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography sx={{ fontWeight: 600, color: COLORS.text, fontSize: '0.9rem' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography sx={{ fontWeight: 600, color: COLORS.text, fontSize: '0.85rem' }}>
               {meta.nickname}
             </Typography>
             {tasks.length > 1 && (
-              <Chip label={tasks.length} size="small" sx={{ height: 18, fontSize: '0.7rem', bgcolor: '#333', color: COLORS.textMuted }} />
+              <Chip label={tasks.length} size="small" sx={{ height: 16, fontSize: '0.65rem', bgcolor: '#333', color: COLORS.textMuted }} />
             )}
             {getStatusIcon()}
           </Box>
-          <Typography sx={{ color: COLORS.textMuted, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Typography sx={{ color: COLORS.textMuted, fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {currentTask?.prompt || 'Processing...'}
           </Typography>
         </Box>
         {!isExpanded && runningTasks.length > 0 && getProgressDots()}
-        <IconButton size="small" sx={{ color: COLORS.textMuted }}>
-          {isExpanded ? <ExpandMore /> : <ExpandLess />}
+        <IconButton size="small" sx={{ color: COLORS.textMuted, p: 0.25 }}>
+          {isExpanded ? <ExpandMore sx={{ fontSize: 18 }} /> : <ExpandLess sx={{ fontSize: 18 }} />}
         </IconButton>
       </Box>
 
@@ -162,47 +169,55 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
               variant="scrollable"
               scrollButtons="auto"
               sx={{ 
-                minHeight: 32,
-                '& .MuiTab-root': { minHeight: 32, py: 0, fontSize: '0.75rem', color: COLORS.textMuted },
+                minHeight: 24,
+                '& .MuiTab-root': { minHeight: 24, py: 0, px: 1, fontSize: '0.7rem', color: COLORS.textMuted, minWidth: 'auto' },
                 '& .Mui-selected': { color: COLORS.accent },
-                '& .MuiTabs-indicator': { bgcolor: COLORS.accent },
+                '& .MuiTabs-indicator': { bgcolor: COLORS.accent, height: 1 },
               }}
             >
               {tasks.map((t, i) => (
-                <Tab key={t.id} label={`Task ${i + 1}`} />
+                <Tab key={t.id} label={`#${i + 1}`} />
               ))}
             </Tabs>
           )}
 
           {/* Task Details */}
           {currentTask && (
-            <Box sx={{ p: 1.5 }}>
-              {/* Steps */}
-              <Box sx={{ mb: 1.5 }}>
-                {currentTask.steps.slice(-4).map((step) => (
-                  <Box key={step.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <Box sx={{ 
-                      width: 6, 
-                      height: 6, 
-                      borderRadius: '50%', 
-                      bgcolor: step.status === 'done' ? COLORS.success : step.status === 'error' ? COLORS.error : step.status === 'active' ? COLORS.accent : '#444',
-                      animation: step.status === 'active' ? 'pulse 1s infinite' : 'none',
-                    }} />
-                    <Typography sx={{ fontSize: '0.75rem', color: step.status === 'active' ? COLORS.text : COLORS.textMuted }}>
-                      {step.label}
-                    </Typography>
+            <Box sx={{ px: 1, py: 0.75 }}>
+              {/* Steps - filter out generic "Starting"/"Processing" labels */}
+              {(() => {
+                const filteredSteps = currentTask.steps
+                  .filter(s => !['starting', 'processing'].includes(s.label.toLowerCase()))
+                  .slice(-4);
+                return filteredSteps.length > 0 && (
+                  <Box sx={{ mb: 0.75 }}>
+                    {filteredSteps.map((step) => (
+                      <Box key={step.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                        <Box sx={{ 
+                          width: 5, 
+                          height: 5, 
+                          borderRadius: '50%', 
+                          bgcolor: step.status === 'done' ? COLORS.success : step.status === 'error' ? COLORS.error : step.status === 'active' ? COLORS.accent : '#444',
+                          animation: step.status === 'active' ? 'pulse 1s infinite' : 'none',
+                          flexShrink: 0,
+                        }} />
+                        <Typography sx={{ fontSize: '0.7rem', color: step.status === 'active' ? COLORS.text : COLORS.textMuted }}>
+                          {step.label}
+                        </Typography>
+                      </Box>
+                    ))}
                   </Box>
-                ))}
-              </Box>
+                );
+              })()}
 
               {/* Summary (for completed tasks) */}
               {isComplete && currentTask.summary && (
-                <Box sx={{ p: 1, mb: 1.5, bgcolor: '#242424', borderRadius: 1, border: `1px solid ${COLORS.border}` }}>
-                  <Typography sx={{ fontWeight: 600, fontSize: '0.8rem', color: COLORS.text, mb: 0.5 }}>
+                <Box sx={{ px: 0.75, py: 0.5, mb: 0.75, bgcolor: '#242424', borderRadius: 1, border: `1px solid ${COLORS.border}` }}>
+                  <Typography sx={{ fontWeight: 600, fontSize: '0.75rem', color: COLORS.text, mb: 0.25 }}>
                     {currentTask.summary.title}
                   </Typography>
                   {Object.entries(currentTask.summary.data).map(([key, value]) => (
-                    <Typography key={key} sx={{ fontSize: '0.75rem', color: COLORS.textMuted }}>
+                    <Typography key={key} sx={{ fontSize: '0.7rem', color: COLORS.textMuted, lineHeight: 1.3 }}>
                       • {key}: <span style={{ color: COLORS.text }}>{String(value)}</span>
                     </Typography>
                   ))}
@@ -211,48 +226,55 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
 
               {/* Response preview */}
               {isComplete && currentTask.response && !currentTask.summary && (
-                <Typography sx={{ fontSize: '0.75rem', color: COLORS.textMuted, mb: 1.5, lineHeight: 1.4 }}>
-                  {currentTask.response.slice(0, 150)}
-                  {currentTask.response.length > 150 && '...'}
+                <Typography sx={{ fontSize: '0.7rem', color: COLORS.textMuted, mb: 0.75, lineHeight: 1.3 }}>
+                  {currentTask.response.slice(0, 120)}
+                  {currentTask.response.length > 120 && '...'}
                 </Typography>
               )}
 
               {/* Error message */}
               {isFailed && currentTask.error && (
-                <Box sx={{ p: 1, mb: 1.5, bgcolor: 'rgba(239, 68, 68, 0.1)', borderRadius: 1, border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                  <Typography sx={{ fontSize: '0.75rem', color: COLORS.error }}>
+                <Box sx={{ px: 0.75, py: 0.5, mb: 0.75, bgcolor: 'rgba(239, 68, 68, 0.1)', borderRadius: 1, border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                  <Typography sx={{ fontSize: '0.7rem', color: COLORS.error }}>
                     {currentTask.error}
                   </Typography>
                 </Box>
               )}
 
-              {/* Feedback (for manual completed tasks) */}
-              {isComplete && isManual && !currentTask.feedback && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: 1, borderTop: `1px solid ${COLORS.border}` }}>
-                  <Typography sx={{ fontSize: '0.75rem', color: COLORS.textMuted }}>Was this helpful?</Typography>
-                  <Box sx={{ flex: 1 }} />
-                  <IconButton size="small" onClick={() => onFeedback(currentTask.id, 5)} sx={{ color: COLORS.textMuted, '&:hover': { color: COLORS.success } }}>
-                    <ThumbUp sx={{ fontSize: 16 }} />
+              {/* Feedback + Actions Row */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 0.5, borderTop: `1px solid ${COLORS.border}` }}>
+                {isComplete && isManual && !currentTask.feedback && (
+                  <>
+                    <Typography sx={{ fontSize: '0.7rem', color: COLORS.textMuted }}>Helpful?</Typography>
+                    <IconButton size="small" onClick={() => onFeedback(currentTask.id, 5)} sx={{ p: 0.25, color: COLORS.textMuted, '&:hover': { color: COLORS.success } }}>
+                      <ThumbUp sx={{ fontSize: 14 }} />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => onFeedback(currentTask.id, 1)} sx={{ p: 0.25, color: COLORS.textMuted, '&:hover': { color: COLORS.error } }}>
+                      <ThumbDown sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </>
+                )}
+                <Box sx={{ flex: 1 }} />
+                {/* View full details in AI Agent page */}
+                <Tooltip title="View full logs & reasoning">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => navigate('/ai-agent')} 
+                    sx={{ p: 0.25, color: COLORS.accent, '&:hover': { color: COLORS.text } }}
+                  >
+                    <OpenInNew sx={{ fontSize: 14 }} />
                   </IconButton>
-                  <IconButton size="small" onClick={() => onFeedback(currentTask.id, 1)} sx={{ color: COLORS.textMuted, '&:hover': { color: COLORS.error } }}>
-                    <ThumbDown sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Box>
-              )}
-
-              {/* Actions */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}>
+                </Tooltip>
                 {isComplete && currentTask.redirectedFrom && (
-                  <Tooltip title="Back to original page">
-                    <IconButton size="small" onClick={handleBack} sx={{ color: COLORS.textMuted, '&:hover': { color: COLORS.accent } }}>
-                      <ArrowBack sx={{ fontSize: 16 }} />
+                  <Tooltip title="Back">
+                    <IconButton size="small" onClick={handleBack} sx={{ p: 0.25, color: COLORS.textMuted, '&:hover': { color: COLORS.accent } }}>
+                      <ArrowBack sx={{ fontSize: 14 }} />
                     </IconButton>
                   </Tooltip>
                 )}
-                <Box sx={{ flex: 1 }} />
                 <Tooltip title="Dismiss">
-                  <IconButton size="small" onClick={() => onDismiss(currentTask.id)} sx={{ color: COLORS.textMuted, '&:hover': { color: COLORS.text } }}>
-                    <Close sx={{ fontSize: 16 }} />
+                  <IconButton size="small" onClick={() => onDismiss(currentTask.id)} sx={{ p: 0.25, color: COLORS.textMuted, '&:hover': { color: COLORS.text } }}>
+                    <Close sx={{ fontSize: 14 }} />
                   </IconButton>
                 </Tooltip>
               </Box>
@@ -290,12 +312,14 @@ export const GlobalAgentBadges: React.FC = () => {
         position: 'fixed',
         bottom: 24,
         right: 24,
-        zIndex: 9000,
+        zIndex: 1300, // Below modals (1400+) but above most content
         display: 'flex',
         flexDirection: 'column',
         gap: 1,
         pointerEvents: 'none',
         '& > *': { pointerEvents: 'auto' },
+        // Ensure tooltips appear above
+        '& .MuiTooltip-popper': { zIndex: 1500 },
       }}
     >
       {/* Manual tasks on TOP (reverse order so newest is at top) */}
