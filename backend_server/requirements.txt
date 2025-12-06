@@ -66,7 +66,7 @@ structlog>=23.0.0
 prometheus-client>=0.16.0
 
 # File upload and processing
-Werkzeug>=2.3.0
+Werkzeug>=3.1.4
 
 # Date and time handling - pinned to working Linux versions
 python-dateutil==2.9.0.post0
