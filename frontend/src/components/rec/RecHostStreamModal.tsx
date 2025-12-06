@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { VNCStateProvider } from '../../contexts/VNCStateContext';
 import { useStream } from '../../hooks/controller';
-import { useDeviceControl } from '../../hooks/useDeviceControl';
+import { useDeviceControlWithForceUnlock } from '../../hooks/useDeviceControlWithForceUnlock';
 import { useToast } from '../../hooks/useToast';
 import { useMonitoring } from '../../hooks/monitoring/useMonitoring';
 import { Host, Device } from '../../types/common/Host_Types';
@@ -14,6 +14,7 @@ import { calculateVncScaling } from '../../utils/vncUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 import { AIImageQueryModal } from '../monitoring';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 import { RecStreamModalHeader } from './RecStreamModalHeader';
 import { RecStreamContainer } from './RecStreamContainer';
@@ -114,14 +115,23 @@ const RecHostStreamModalContent: React.FC<{
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
 
-  // NEW: Use device control hook (replaces all duplicate control logic)
-  const { isControlActive, isControlLoading, controlError, handleToggleControl, clearError } =
-    useDeviceControl({
-      host,
-      device_id: device?.device_id || 'device1',
-      sessionId: 'rec-stream-modal-session',
-      autoCleanup: true, // Auto-release on unmount
-    });
+  // Use enhanced device control hook with force unlock capability
+  const {
+    isControlActive,
+    isControlLoading,
+    controlError,
+    handleDeviceControl,
+    clearError,
+    confirmDialogState,
+    confirmDialogHandleConfirm,
+    confirmDialogHandleCancel,
+  } = useDeviceControlWithForceUnlock({
+    host,
+    device_id: device?.device_id || 'device1',
+    sessionId: 'rec-stream-modal-session',
+    autoCleanup: true, // Auto-release on unmount
+    requireTreeId: false, // REC modal doesn't require tree_id (not navigation-based)
+  });
 
   // Use new stream hook - auto-fetches when host/device_id changes
   const { streamUrl, isLoadingUrl, urlError } = useStream({
@@ -838,7 +848,7 @@ const RecHostStreamModalContent: React.FC<{
           onToggleLiveMode={handleToggleLiveMode}
           onQualityChange={handleQualityChange}
           onToggleMute={() => setIsMuted((prev) => !prev)}
-          onToggleControl={handleToggleControl}
+          onToggleControl={handleDeviceControl}
           onToggleMonitoring={handleToggleMonitoring}
           onToggleRestart={handleToggleRestart}
           onToggleAiAgent={handleToggleAiAgent}
@@ -960,6 +970,18 @@ const RecHostStreamModalContent: React.FC<{
         host={host}
         device={device!}
         onClose={() => setIsImageQueryVisible(false)}
+      />
+
+      {/* Force Unlock Confirmation Dialog */}
+      <ConfirmDialog
+        open={confirmDialogState.open}
+        title={confirmDialogState.title}
+        message={confirmDialogState.message}
+        confirmText={confirmDialogState.confirmText}
+        cancelText={confirmDialogState.cancelText}
+        confirmColor={confirmDialogState.confirmColor}
+        onConfirm={confirmDialogHandleConfirm}
+        onCancel={confirmDialogHandleCancel}
       />
     </Box>
   );
