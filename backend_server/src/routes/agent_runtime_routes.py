@@ -120,16 +120,34 @@ def stop_agent_instance(instance_id: str):
 
 @server_agent_runtime_bp.route('/instances/<instance_id>/pause', methods=['POST'])
 def pause_agent_instance(instance_id: str):
-    """Pause agent instance (placeholder)"""
-    # TODO: Implement pause/resume logic
-    return jsonify({'error': 'Not implemented yet'}), 501
+    """Pause agent instance"""
+    try:
+        runtime = get_agent_runtime()
+        success = run_async(runtime.pause_agent(instance_id))
+        
+        if success:
+            return jsonify({'message': 'Agent paused successfully'}), 200
+        else:
+            return jsonify({'error': 'Instance not found or cannot be paused'}), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @server_agent_runtime_bp.route('/instances/<instance_id>/resume', methods=['POST'])
 def resume_agent_instance(instance_id: str):
-    """Resume paused agent instance (placeholder)"""
-    # TODO: Implement pause/resume logic
-    return jsonify({'error': 'Not implemented yet'}), 501
+    """Resume paused agent instance"""
+    try:
+        runtime = get_agent_runtime()
+        success = run_async(runtime.resume_agent(instance_id))
+        
+        if success:
+            return jsonify({'message': 'Agent resumed successfully'}), 200
+        else:
+            return jsonify({'error': 'Instance not found or not paused'}), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @server_agent_runtime_bp.route('/start', methods=['POST'])

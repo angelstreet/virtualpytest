@@ -176,6 +176,82 @@ class AgentRuntime:
         # Remove from tracking
         del self.instances[instance_id]
         
+        return True
+    
+    async def pause_agent(self, instance_id: str) -> bool:
+        """
+        Pause an agent instance
+        
+        Args:
+            instance_id: Instance to pause
+            
+        Returns:
+            True if paused, False if not found or already paused
+        """
+        if instance_id not in self.instances:
+            return False
+        
+        instance = self.instances[instance_id]
+        
+        # Only running agents can be paused
+        if instance.state != AgentState.RUNNING:
+            return False
+        
+        # Update state to paused
+        instance.update_state(AgentState.PAUSED)
+        
+        # Update database
+        async with self.db.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE agent_instances
+                SET state = $1, last_activity = NOW()
+                WHERE instance_id = $2
+                """,
+                'paused',
+                instance_id
+            )
+        
+        print(f"[@runtime] Agent instance {instance_id} paused")
+        return True
+    
+    async def resume_agent(self, instance_id: str) -> bool:
+        """
+        Resume a paused agent instance
+        
+        Args:
+            instance_id: Instance to resume
+            
+        Returns:
+            True if resumed, False if not found or not paused
+        """
+        if instance_id not in self.instances:
+            return False
+        
+        instance = self.instances[instance_id]
+        
+        # Only paused agents can be resumed
+        if instance.state != AgentState.PAUSED:
+            return False
+        
+        # Update state to running
+        instance.update_state(AgentState.RUNNING)
+        
+        # Update database
+        async with self.db.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE agent_instances
+                SET state = $1, last_activity = NOW()
+                WHERE instance_id = $2
+                """,
+                'running',
+                instance_id
+            )
+        
+        print(f"[@runtime] Agent instance {instance_id} resumed")
+        return True
+        
         # Publish event
         await self.event_bus.publish(Event(
             type="agent.stopped",

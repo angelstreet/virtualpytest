@@ -46,7 +46,7 @@ export const AICommandBar: React.FC = () => {
       <Backdrop 
         open={isCommandOpen} 
         onClick={closeCommand}
-        sx={{ zIndex: 9998, bgcolor: 'rgba(0,0,0,0.4)' }} 
+        sx={{ zIndex: 9998, bgcolor: 'rgba(0,0,0,0.75)' }} 
       />
 
       {/* Floating Command Input */}
@@ -54,9 +54,9 @@ export const AICommandBar: React.FC = () => {
         <Box
           sx={{
             position: 'fixed',
-            top: '20%',
+            top: '50%',
             left: '50%',
-            transform: 'translateX(-50%)',
+            transform: 'translate(-50%, -50%)',
             width: '100%',
             maxWidth: '600px',
             zIndex: 9999,

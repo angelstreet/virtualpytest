@@ -59,6 +59,67 @@ source venv/bin/activate
 # Set up environment variables
 export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend_host/src"
 
+# Check if Redis is running (required for Event Bus)
+echo "🔍 Checking Redis status..."
+if command -v redis-cli &> /dev/null; then
+    if ! redis-cli ping &> /dev/null; then
+        echo "⚠️  Redis is not running. The agent system requires Redis for the Event Bus."
+        echo "🚀 Starting Redis..."
+        
+        # Try to start Redis based on OS
+        if command -v systemctl &> /dev/null; then
+            # Linux with systemd
+            echo "Using systemctl to start Redis..."
+            sudo systemctl start redis-server 2>/dev/null || sudo systemctl start redis 2>/dev/null
+            sleep 2
+            if redis-cli ping &> /dev/null; then
+                echo "✅ Redis started successfully"
+                # Enable to start on boot
+                sudo systemctl enable redis-server 2>/dev/null || sudo systemctl enable redis 2>/dev/null
+            else
+                echo "❌ Failed to start Redis via systemctl"
+                exit 1
+            fi
+        elif command -v service &> /dev/null; then
+            # Linux with service command
+            echo "Using service command to start Redis..."
+            sudo service redis-server start 2>/dev/null || sudo service redis start 2>/dev/null
+            sleep 2
+            if redis-cli ping &> /dev/null; then
+                echo "✅ Redis started successfully"
+            else
+                echo "❌ Failed to start Redis via service"
+                exit 1
+            fi
+        elif command -v redis-server &> /dev/null; then
+            # Start Redis directly in background
+            redis-server --daemonize yes
+            sleep 2
+            if redis-cli ping &> /dev/null; then
+                echo "✅ Redis started successfully"
+            else
+                echo "❌ Failed to start Redis"
+                exit 1
+            fi
+        else
+            echo "❌ Could not start Redis. Please start it manually:"
+            echo "   sudo systemctl start redis-server"
+            echo "   OR: redis-server --daemonize yes"
+            exit 1
+        fi
+    else
+        echo "✅ Redis is running"
+    fi
+else
+    echo "❌ Redis is not installed. The agent system requires Redis."
+    echo "   Install with:"
+    echo "   - Ubuntu/Debian: sudo apt-get install redis-server"
+    echo "   - RHEL/CentOS:   sudo yum install redis"
+    echo "   - Fedora:        sudo dnf install redis"
+    echo "   Then start with: sudo systemctl start redis-server"
+    exit 1
+fi
+
 # Colors for output
 BLUE='\033[0;34m'
 RED='\033[0;31m'
@@ -79,6 +140,10 @@ cleanup() {
         rm -f /tmp/backend_server.pid
     fi
     echo -e "${RED}✅ backend_server stopped${NC}"
+    
+    # Note: Redis is left running as it may be used by other services
+    # To stop Redis manually: sudo systemctl stop redis-server (or redis-cli shutdown)
+    
     exit 0
 }
 trap cleanup SIGINT SIGTERM

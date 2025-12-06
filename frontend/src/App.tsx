@@ -61,6 +61,7 @@ const JiraIntegration = React.lazy(() => import('./pages/JiraIntegration'));
 const Teams = React.lazy(() => import('./pages/Teams'));
 const Users = React.lazy(() => import('./pages/Users'));
 const AgentChat = React.lazy(() => import('./pages/AgentChat'));
+const AgentDashboard = React.lazy(() => import('./pages/AgentDashboard'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -286,6 +287,9 @@ const App: React.FC = () => {
 
                   {/* AI Agent - Chat-based QA automation */}
                   <Route path="/ai-agent" element={<AgentChat />} />
+                  
+                  {/* Agent Dashboard - Multi-agent control panel */}
+                  <Route path="/agent-dashboard" element={<AgentDashboard />} />
 
                   {/* Builder Routes */}
                   <Route path="/builder/test-builder" element={<TestCaseBuilder />} />

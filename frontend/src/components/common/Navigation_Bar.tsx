@@ -123,6 +123,19 @@ const NavigationBar: React.FC = () => {
     },
   ];
 
+  const aiAgentItems = [
+    {
+      label: 'Chat Agent',
+      path: '/ai-agent',
+      icon: <AgentIcon fontSize="small" />,
+    },
+    {
+      label: 'Agent Dashboard',
+      path: '/agent-dashboard',
+      icon: <DashboardIcon fontSize="small" />,
+    },
+  ];
+
   // VirtualPyTest Documentation menu items
   const docsItems = [
     {
@@ -260,24 +273,8 @@ const NavigationBar: React.FC = () => {
         Device
       </Button>
 
-      {/* AI Agent - Simple button */}
-      <Button
-        component={Link}
-        to="/ai-agent"
-        startIcon={<AgentIcon fontSize="small" />}
-        sx={{
-          color: location.pathname === '/ai-agent' ? '#FFD700' : 'inherit',
-          fontWeight: location.pathname === '/ai-agent' ? 600 : 400,
-          textTransform: 'none',
-          px: 1,
-          py: 1,
-          '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-          },
-        }}
-      >
-        AI
-      </Button>
+      {/* AI Agent - Dropdown */}
+      <NavigationDropdown label="AI" items={aiAgentItems} icon={<AgentIcon fontSize="small" />} />
 
       {/* Test Grouped Dropdown (Plan, Execution, Results) */}
       <NavigationGroupedDropdown label="Test" groups={testGroups} />
