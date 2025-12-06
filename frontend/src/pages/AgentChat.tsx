@@ -88,13 +88,13 @@ const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
   'Maintainer': { color: '#4fc3f7', label: 'Maintainer' },
 };
 
-// Available agents for selection
+// Available agents for selection (nickname-only in UI)
 const AVAILABLE_AGENTS = [
-  { id: 'ai-assistant', name: 'AI Assistant', description: 'General purpose', color: PALETTE.accent },
-  { id: 'qa-web-manager', name: 'QA Web Manager', description: 'Web testing specialist', color: '#4fc3f7' },
-  { id: 'qa-mobile-manager', name: 'QA Mobile Manager', description: 'Mobile app testing', color: '#81c784' },
-  { id: 'qa-stb-manager', name: 'QA STB Manager', description: 'Set-top box testing', color: '#ba68c8' },
-  { id: 'monitoring-manager', name: 'Monitoring Manager', description: 'System monitoring', color: '#ffb74d' },
+  { id: 'ai-assistant', name: 'AI Assistant', nickname: 'Atlas', description: 'AI Assistant', color: PALETTE.accent },
+  { id: 'qa-web-manager', name: 'QA Web Manager', nickname: 'Sherlock', description: 'Web testing', color: '#4fc3f7' },
+  { id: 'qa-mobile-manager', name: 'QA Mobile Manager', nickname: 'Scout', description: 'Mobile testing', color: '#81c784' },
+  { id: 'qa-stb-manager', name: 'QA STB Manager', nickname: 'Watcher', description: 'STB testing', color: '#ba68c8' },
+  { id: 'monitoring-manager', name: 'Monitoring Manager', nickname: 'Guardian', description: 'Monitoring', color: '#ffb74d' },
 ];
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
@@ -1043,10 +1043,9 @@ const AgentChat: React.FC = () => {
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: agent.color }} />
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{agent.name}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{agent.nickname}</Typography>
                   </Box>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', pl: 2, fontSize: '0.7rem' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', pl: 0.5, fontSize: '0.7rem' }}>
                     {agent.description}
                   </Typography>
                 </MenuItem>

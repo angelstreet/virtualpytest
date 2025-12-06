@@ -9,6 +9,8 @@
 metadata:
   id: qa-manager
   name: QA Manager
+  nickname: Captain
+  icon: "🎖️"
   version: 1.0.0
   author: system
   description: Continuous quality validation across all userinterfaces

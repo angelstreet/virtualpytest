@@ -6,4 +6,5 @@
 
 export { AgentSelector } from './AgentSelector';
 export { AgentStatus } from './AgentStatus';
+export { GlobalAgentBadges } from './GlobalAgentBadges';
 

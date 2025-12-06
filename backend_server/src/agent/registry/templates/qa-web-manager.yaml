@@ -9,6 +9,8 @@
 metadata:
   id: qa-web-manager
   name: QA Web Manager
+  nickname: Sherlock
+  icon: "🧪"
   version: 1.0.0
   author: system
   description: Quality validation specialist for web-based userinterfaces

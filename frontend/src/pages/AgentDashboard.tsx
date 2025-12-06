@@ -24,6 +24,7 @@ import { buildServerUrl } from '../utils/buildUrlUtils';
 interface AgentDefinition {
   id: string;
   name: string;
+  icon?: string;
   version: string;
   description: string;
   status: 'active' | 'disabled' | 'running' | 'error';
@@ -163,36 +164,40 @@ export const AgentDashboard: React.FC = () => {
   const getDefaultAgents = (): AgentDefinition[] => [
     {
       id: 'qa-web-manager',
-      name: 'QA Web Manager',
+      name: 'Sherlock',
+      icon: '🧪',
       version: '1.0.0',
-      description: 'Web testing and browser automation specialist',
+      description: 'QA Web Manager • Web testing specialist',
       status: 'active',
       type: 'continuous',
       triggers: ['alert.blackscreen', 'build.deployed', 'schedule.web_regression']
     },
     {
       id: 'qa-mobile-manager',
-      name: 'QA Mobile Manager',
+      name: 'Scout',
+      icon: '🔍',
       version: '1.0.0',
-      description: 'Mobile app testing for Android/iOS',
+      description: 'QA Mobile Manager • Android/iOS testing',
       status: 'active',
       type: 'continuous',
       triggers: ['alert.app_crash', 'alert.device_offline', 'build.deployed']
     },
     {
       id: 'qa-stb-manager',
-      name: 'QA STB Manager',
+      name: 'Watcher',
+      icon: '📺',
       version: '1.0.0',
-      description: 'Set-top box and TV device validation',
+      description: 'QA STB Manager • Set-top box validation',
       status: 'active',
       type: 'continuous',
       triggers: ['alert.blackscreen', 'alert.video_playback_failed', 'schedule.stb_regression']
     },
     {
       id: 'monitoring-manager',
-      name: 'Monitoring Manager',
+      name: 'Guardian',
+      icon: '🛡️',
       version: '1.0.0',
-      description: 'System health monitoring and incident detection',
+      description: 'Monitoring Manager • System health & incidents',
       status: 'active',
       type: 'continuous',
       triggers: ['schedule.health_check', 'alert.device_offline', 'alert.service_down']
@@ -409,16 +414,13 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
   // =====================================================
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#0d0d0d', color: '#e5e5e5', py: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#0d0d0d', color: '#e5e5e5', py: 2 }}>
       <Container maxWidth="xl">
         {/* Header */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600, color: '#F4E4BC', letterSpacing: '-0.02em' }}>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: '#FFF', letterSpacing: '-0.02em' }}>
               Agent Management
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#888', mt: 0.5 }}>
-              Configure, benchmark, and compare autonomous agents
             </Typography>
           </Box>
           <IconButton onClick={() => { loadAgents(); loadBenchmarkRuns(); loadLeaderboard(); }} sx={{ color: GOLD }}>
@@ -471,16 +473,16 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                   opacity: agent.status === 'disabled' ? 0.6 : 1
                 }} onClick={() => setSelectedAgent(agent)}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      {getStatusIcon(agent.status)}
-                      <Box>
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography sx={{ fontWeight: 600, color: '#fff', fontSize: '0.95rem' }}>{agent.name}</Typography>
-                        <Typography sx={{ color: '#666', fontSize: '0.75rem' }}>v{agent.version} • {agent.type}</Typography>
+                        {getStatusIcon(agent.status)}
                       </Box>
+                      <Typography sx={{ color: '#666', fontSize: '0.75rem' }}>v{agent.version} • {agent.type}</Typography>
                     </Box>
                     <Chip label={agent.status} size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${getStatusColor(agent.status)}`, color: getStatusColor(agent.status), fontSize: '0.7rem', height: 22 }} />
                   </Box>
-                  <Typography sx={{ color: '#888', fontSize: '0.85rem', mb: 2, lineHeight: 1.5 }}>{agent.description}</Typography>
+                  <Typography sx={{ color: '#888', fontSize: '0.85rem', mb: 1, lineHeight: 1.5 }}>{agent.description}</Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
                     {agent.triggers.slice(0, 3).map(trigger => (
                       <Chip key={trigger} label={trigger.split('.')[1] || trigger} size="small" sx={{ bgcolor: '#2a2a2a', color: '#888', fontSize: '0.65rem', height: 20 }} />

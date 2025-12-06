@@ -8,6 +8,8 @@
 metadata:
   id: executor
   name: Executor
+  nickname: Runner
+  icon: "⚡"
   version: 1.0.0
   author: system
   description: Executes testcases and campaigns on devices

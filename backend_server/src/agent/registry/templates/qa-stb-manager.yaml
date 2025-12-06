@@ -9,6 +9,8 @@
 metadata:
   id: qa-stb-manager
   name: QA STB Manager
+  nickname: Watcher
+  icon: "📺"
   version: 1.0.0
   author: system
   description: Quality validation specialist for Set-Top Boxes and TV devices

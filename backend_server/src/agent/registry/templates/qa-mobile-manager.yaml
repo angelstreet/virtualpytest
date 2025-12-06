@@ -9,6 +9,8 @@
 metadata:
   id: qa-mobile-manager
   name: QA Mobile Manager
+  nickname: Scout
+  icon: "🔍"
   version: 1.0.0
   author: system
   description: Quality validation specialist for mobile devices (Android/iOS)

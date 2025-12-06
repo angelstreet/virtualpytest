@@ -238,7 +238,10 @@ const AppHeader: React.FC = () => {
 };
 
 import { AIProvider } from './contexts/AIContext';
+import { AgentActivityProvider } from './contexts/AgentActivityContext';
 import { AIOmniOverlay } from './components/ai/AIOmniOverlay';
+import { GlobalAgentBadges } from './components/agent/GlobalAgentBadges';
+import { AgentActivityBridge } from './components/agent/AgentActivityBridge';
 import { useAIOrchestrator } from './hooks/ai/useAIOrchestrator';
 
 // Orchestrator Wrapper Component
@@ -265,11 +268,14 @@ const App: React.FC = () => {
               <ServerManagerProvider>
                 <HostManagerProvider>
                   <AIProvider>
+                    <AgentActivityProvider>
                     <AIOrchestratorWrapper />
                     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
                       <AppHeader />
                       
                       <AIOmniOverlay />
+                      <GlobalAgentBadges />
+                      <AgentActivityBridge />
                       
                       <ConditionalContainer>
                         <Suspense fallback={<LoadingSpinner />}>
@@ -400,6 +406,7 @@ const App: React.FC = () => {
 
             <Footer />
           </Box>
+                    </AgentActivityProvider>
                   </AIProvider>
                 </HostManagerProvider>
               </ServerManagerProvider>

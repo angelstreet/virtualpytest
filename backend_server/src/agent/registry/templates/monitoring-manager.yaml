@@ -9,6 +9,8 @@
 metadata:
   id: monitoring-manager
   name: Monitoring Manager
+  nickname: Guardian
+  icon: "🛡️"
   version: 1.0.0
   author: system
   description: System monitoring and incident detection specialist

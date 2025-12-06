@@ -8,6 +8,8 @@
 metadata:
   id: explorer
   name: Explorer
+  nickname: Pathfinder
+  icon: "🧭"
   version: 1.0.0
   author: system
   description: Discovers UI navigation structure and builds navigation trees
