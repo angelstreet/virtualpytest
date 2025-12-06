@@ -19,13 +19,43 @@ import {
 } from '@mui/icons-material';
 import { useAIContext } from '../../contexts/AIContext';
 
-// Available agents (same as AgentChat)
+// Available agents with agent-specific tips
 const AVAILABLE_AGENTS = [
-  { id: 'ai-assistant', nickname: 'Atlas', description: 'General AI Assistant', color: '#d4af37' },
-  { id: 'qa-web-manager', nickname: 'Sherlock', description: 'Web testing specialist', color: '#4fc3f7' },
-  { id: 'qa-mobile-manager', nickname: 'Scout', description: 'Mobile testing specialist', color: '#81c784' },
-  { id: 'qa-stb-manager', nickname: 'Watcher', description: 'STB testing specialist', color: '#ba68c8' },
-  { id: 'monitoring-manager', nickname: 'Guardian', description: 'Monitoring specialist', color: '#ffb74d' },
+  { 
+    id: 'ai-assistant', 
+    nickname: 'Atlas', 
+    description: 'General AI Assistant', 
+    color: '#d4af37',
+    tips: ['Go to dashboard', 'Show me test reports', 'What can you do?']
+  },
+  { 
+    id: 'qa-web-manager', 
+    nickname: 'Sherlock', 
+    description: 'Web testing specialist', 
+    color: '#4fc3f7',
+    tips: ['Run web regression tests', 'Automate login flow', 'Check broken links']
+  },
+  { 
+    id: 'qa-mobile-manager', 
+    nickname: 'Scout', 
+    description: 'Mobile testing specialist', 
+    color: '#81c784',
+    tips: ['Run smoke test on Pixel 5', 'Test app on iOS', 'Check device status']
+  },
+  { 
+    id: 'qa-stb-manager', 
+    nickname: 'Watcher', 
+    description: 'STB testing specialist', 
+    color: '#ba68c8',
+    tips: ['Run STB zapping test', 'Check EPG loading', 'Test channel switch']
+  },
+  { 
+    id: 'monitoring-manager', 
+    nickname: 'Guardian', 
+    description: 'Monitoring specialist', 
+    color: '#ffb74d',
+    tips: ['Show active alerts', 'Check system health', 'Run incident analysis']
+  },
 ];
 
 export const AICommandBar: React.FC = () => {
@@ -160,48 +190,31 @@ export const AICommandBar: React.FC = () => {
             </Box>
           </Paper>
           
-          {/* Quick Suggestions */}
-          <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center', gap: 1 }}>
-             <Chip
-               label="Go to dashboard"
-               size="small"
-               onClick={() => setInput('Go to dashboard')}
-               sx={{
-                 bgcolor: 'rgba(60, 60, 60, 0.9)',
-                 color: '#b0b0b0',
-                 fontSize: '0.75rem',
-                 height: 26,
-                 border: '1px solid rgba(100, 100, 100, 0.3)',
-                 backdropFilter: 'blur(4px)',
-                 cursor: 'pointer',
-                 transition: 'all 0.15s ease',
-                 '&:hover': { 
-                   bgcolor: 'rgba(80, 80, 80, 0.95)',
-                   color: '#e0e0e0',
-                   borderColor: 'rgba(150, 150, 150, 0.4)'
-                 }
-               }}
-             />
-             <Chip
-               label="Run smoke test on Pixel 5"
-               size="small"
-               onClick={() => setInput('Run smoke test on Pixel 5')}
-               sx={{
-                 bgcolor: 'rgba(60, 60, 60, 0.9)',
-                 color: '#b0b0b0',
-                 fontSize: '0.75rem',
-                 height: 26,
-                 border: '1px solid rgba(100, 100, 100, 0.3)',
-                 backdropFilter: 'blur(4px)',
-                 cursor: 'pointer',
-                 transition: 'all 0.15s ease',
-                 '&:hover': { 
-                   bgcolor: 'rgba(80, 80, 80, 0.95)',
-                   color: '#e0e0e0',
-                   borderColor: 'rgba(150, 150, 150, 0.4)'
-                 }
-               }}
-             />
+          {/* Agent-specific suggestions */}
+          <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {selectedAgent.tips.map((tip) => (
+              <Chip
+                key={tip}
+                label={tip}
+                size="small"
+                onClick={() => setInput(tip)}
+                sx={{
+                  bgcolor: 'rgba(60, 60, 60, 0.9)',
+                  color: '#b0b0b0',
+                  fontSize: '0.75rem',
+                  height: 26,
+                  border: '1px solid rgba(100, 100, 100, 0.3)',
+                  backdropFilter: 'blur(4px)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  '&:hover': { 
+                    bgcolor: 'rgba(80, 80, 80, 0.95)',
+                    color: '#e0e0e0',
+                    borderColor: 'rgba(150, 150, 150, 0.4)'
+                  }
+                }}
+              />
+            ))}
           </Box>
         </Box>
       </Fade>
