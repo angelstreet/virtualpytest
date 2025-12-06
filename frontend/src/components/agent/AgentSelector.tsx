@@ -5,7 +5,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Activity, Pause, XCircle, Play } from 'lucide-react';
+import { 
+  ErrorOutline as AlertCircle, 
+  AutoMode as Activity, 
+  Pause, 
+  Cancel as XCircle, 
+  PlayArrow as Play 
+} from '@mui/icons-material';
 
 interface AgentInstance {
   instance_id: string;
@@ -57,15 +63,15 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   const getStateIcon = (state: string) => {
     switch (state) {
       case 'running':
-        return <Activity className="w-4 h-4 text-green-500 animate-pulse" />;
+        return <Activity sx={{ fontSize: 16, color: '#22c55e' }} className="animate-pulse" />;
       case 'idle':
-        return <Pause className="w-4 h-4 text-gray-400" />;
+        return <Pause sx={{ fontSize: 16, color: '#9ca3af' }} />;
       case 'error':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
+        return <AlertCircle sx={{ fontSize: 16, color: '#ef4444' }} />;
       case 'paused':
-        return <Pause className="w-4 h-4 text-yellow-500" />;
+        return <Pause sx={{ fontSize: 16, color: '#eab308' }} />;
       default:
-        return <XCircle className="w-4 h-4 text-gray-400" />;
+        return <XCircle sx={{ fontSize: 16, color: '#9ca3af' }} />;
     }
   };
 
@@ -121,7 +127,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       {/* Error Display */}
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-red-500" />
+          <AlertCircle sx={{ fontSize: 20, color: '#ef4444' }} />
           <span className="text-sm text-red-700">{error}</span>
         </div>
       )}
@@ -129,7 +135,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       {/* Instance List */}
       {instances.length === 0 ? (
         <div className="text-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <Play className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+          <Play sx={{ fontSize: 48, color: '#9ca3af', mb: 1.5, mx: 'auto', display: 'block' }} />
           <p className="text-gray-600 font-medium">No agents running</p>
           <p className="text-sm text-gray-500 mt-1">Start an agent to begin</p>
         </div>

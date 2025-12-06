@@ -4,114 +4,105 @@
 
 This guide explains how the multi-agent platform works, how to configure agents, link them to YAML templates, and assign skills.
 
+**Implementation Status: ~85% Complete**
+
 ---
 
-## 🎯 Available Agents
+## 🎯 Pre-configured Agents
+
+The following agents are **pre-loaded** in the Agent Dashboard and **auto-start** when enabled:
 
 ### 1. **QA Web Manager** (`qa-web-manager`)
 - **Platform**: Web browsers
 - **Purpose**: Monitor and validate web-based userinterfaces
-- **Triggers**: 
-  - `alert.blackscreen` (web)
-  - `alert.page_load_timeout`
-  - `build.deployed` (web)
-  - `schedule.web_regression`
-- **Skills**: Web navigation, browser automation, responsive design validation
-- **Parallel Tasks**: 5 (can test multiple browsers simultaneously)
+- **Triggers**: `alert.blackscreen`, `alert.page_load_timeout`, `build.deployed`, `schedule.web_regression`
+- **Parallel Tasks**: 5
 
 ### 2. **QA Mobile Manager** (`qa-mobile-manager`)
 - **Platform**: Android/iOS mobile devices
 - **Purpose**: Validate mobile applications and UX
-- **Triggers**:
-  - `alert.blackscreen` (mobile)
-  - `alert.app_crash`
-  - `alert.device_offline` (mobile)
-  - `build.deployed` (mobile)
-  - `schedule.mobile_regression`
-- **Skills**: Touch gestures, orientation changes, mobile performance
+- **Triggers**: `alert.blackscreen`, `alert.app_crash`, `alert.device_offline`, `build.deployed`
 - **Parallel Tasks**: 3
 
 ### 3. **QA STB Manager** (`qa-stb-manager`)
 - **Platform**: Set-Top Boxes, Android TV
 - **Purpose**: Validate STB interfaces and video playback
-- **Triggers**:
-  - `alert.blackscreen` (stb)
-  - `alert.video_playback_failed`
-  - `alert.channel_change_failed`
-  - `build.deployed` (stb)
-  - `schedule.stb_regression`
-- **Skills**: Remote control navigation, video validation, channel switching
+- **Triggers**: `alert.blackscreen`, `alert.video_playback_failed`, `alert.channel_change_failed`
 - **Parallel Tasks**: 2
 
 ### 4. **Monitoring Manager** (`monitoring-manager`)
 - **Platform**: All (infrastructure monitoring)
-- **Purpose**: Monitor device health, detect incidents, system monitoring
-- **Triggers**:
-  - `schedule.health_check` (every 5 minutes)
-  - `alert.device_offline`
-  - `alert.service_down`
-  - `alert.high_cpu` (>= 90%)
-  - `alert.high_memory` (>= 85%)
-  - `alert.disk_space_low` (<= 10%)
-- **Skills**: Health checks, service monitoring, log analysis, alerting
-- **Parallel Tasks**: 10 (monitors many devices simultaneously)
+- **Purpose**: Monitor device health, detect incidents
+- **Triggers**: `schedule.health_check`, `alert.device_offline`, `alert.service_down`
+- **Parallel Tasks**: 10
 
 ### 5. **QA Manager** (`qa-manager`) - General Purpose
 - **Platform**: All platforms (coordinator)
-- **Purpose**: General QA coordination, delegates to specialized agents
 - **Sub-agents**: Explorer, Builder, Executor, Analyst, Maintainer
 
-### 6. **Explorer** (`explorer`)
-- **Type**: On-demand specialist
-- **Purpose**: UI discovery and navigation tree building
-
-### 7. **Executor** (`executor`)
-- **Type**: On-demand specialist
-- **Purpose**: Execute testcases and campaigns
+### 6. **Explorer** (`explorer`) - On-demand specialist
+### 7. **Executor** (`executor`) - On-demand specialist
 
 ---
 
-## 🔧 How YAML Configuration Works
+## 🖥️ Agent Dashboard UI
 
-### YAML Structure
+Access: **http://localhost:5073/agent-dashboard**
 
-Each agent is defined by a YAML file with this structure:
+### Features:
+- **Dark theme** with gold accents (professional look)
+- **Auto-start**: All enabled agents start automatically on load
+- **Three tabs**: Agents | Benchmarks | Leaderboard
+- **Controls per agent**:
+  - ▶️ Start / ⏹️ Stop
+  - ⬇️ Export YAML
+  - ⭐ Rate agent (1-5 stars)
+  - ⚡ Run benchmark
+  - 🔘 Enable/Disable toggle
+- **Activity Log**: Expandable panel showing all agent actions
+- **Import**: Upload YAML files to add new agents
+- **Benchmarks Tab**: Run tests and view results
+- **Leaderboard Tab**: Compare agents by score
+
+---
+
+## 🔧 YAML Configuration Structure
 
 ```yaml
 metadata:
-  id: agent-unique-id           # Unique identifier
-  name: Human Readable Name      # Display name
-  version: 1.0.0                 # Semantic version
-  author: system                 # Creator
+  id: agent-unique-id           # Unique identifier (lowercase, hyphens)
+  name: Human Readable Name
+  version: 1.0.0                # Semantic version
+  author: system
   description: Brief description
-  tags: [qa, automation]         # Categorization
+  tags: [qa, automation]
 
 goal:
-  type: continuous               # 'continuous' or 'on-demand'
+  type: continuous              # 'continuous' or 'on-demand'
   description: What the agent does
 
-triggers:                        # Events that activate this agent
+triggers:
   - type: alert.blackscreen
     priority: critical
-    filters:                     # Optional event filtering
+    filters:
       platform: web
 
-event_pools:                     # Event channels to subscribe to
+event_pools:
   - shared.alerts
   - own.agent-tasks
 
-subagents:                       # Delegate tasks to specialists
+subagents:
   - id: explorer
     version: ">=1.0.0"
     delegate_for:
       - ui_discovery
 
-skills:                          # Functions the agent can call
+skills:                         # Must be valid MCP tool names!
   - list_userinterfaces
   - take_control
   - execute_testcase
 
-permissions:                     # Access control
+permissions:
   devices: [read, take_control]
   database: [read, write.results]
   external: [jira, slack]
@@ -126,342 +117,369 @@ config:
 
 ---
 
-## 🔗 How Agents Link to Skills
+## 🔗 Skills → MCP Tools Mapping
 
-### Skill Mapping
+Skills in YAML are **validated** against available MCP tools at import time.
 
-Skills in YAML map to **MCP tools** in `/backend_server/src/mcp/`:
+### Skill Categories:
 
-#### Example Skill Mappings:
+| Category | Tools | Location |
+|----------|-------|----------|
+| **control** | `take_control`, `release_control` | `control_definitions.py` |
+| **device** | `get_device_info`, `list_hosts` | `device_definitions.py` |
+| **navigation** | `navigate_to_node`, `list_nodes`, `list_edges` | `navigation_definitions.py` |
+| **testcase** | `list_testcases`, `load_testcase`, `execute_testcase` | `testcase_definitions.py` |
+| **requirements** | `list_requirements`, `get_coverage_summary` | `requirements_definitions.py` |
+| **verification** | `list_verifications`, `verify_element` | `verification_definitions.py` |
+| **userinterface** | `list_userinterfaces`, `get_userinterface_complete` | `userinterface_definitions.py` |
+| **logs** | `view_logs`, `get_error_logs` | `logs_definitions.py` |
+| **tree** | `list_navigation_nodes`, `build_navigation_tree` | `tree_definitions.py` |
+| **screenshot** | `capture_screenshot`, `get_screenshot` | `screenshot_definitions.py` |
+| **exploration** | `explore_ui`, `discover_elements` | `exploration_definitions.py` |
 
-| YAML Skill | MCP Tool | File Location |
-|------------|----------|---------------|
-| `list_userinterfaces` | `list_userinterfaces()` | `mcp/tool_definitions/navigation_definitions.py` |
-| `take_control` | `take_control_of_device()` | `mcp/tool_definitions/device_definitions.py` |
-| `execute_testcase` | `execute_testcase()` | `mcp/tool_definitions/execution_definitions.py` |
-| `list_requirements` | `list_requirements()` | `mcp/tool_definitions/requirements_definitions.py` |
-| `get_device_info` | `get_device_info()` | `mcp/tool_definitions/device_definitions.py` |
-| `view_logs` | `view_logs()` | `mcp/tool_definitions/monitoring_definitions.py` |
-
-### How Skills Work:
-
-1. **YAML Configuration**: Agent's `skills` list defines what it can do
-2. **Agent Registry**: Validates skills against available MCP tools
-3. **Agent Runtime**: When agent runs, only listed skills are accessible
-4. **MCP Server**: Executes the actual tool function
-5. **Permissions**: Cross-checked against `permissions` section
+### Skill Validation:
+```python
+# When importing, unknown skills trigger a warning:
+[@agent_validator] ⚠️ Unknown skills: fake_skill, nonexistent_tool
+```
 
 ---
 
-## 📦 Complete Workflow: From YAML to Execution
+## 📦 API Endpoints
 
-### Step 1: Import Agent from YAML
-
-```bash
-# Import QA Web Manager
-curl -X POST http://localhost:5109/api/agents/import \
-  -H "Content-Type: text/yaml" \
-  --data-binary @backend_server/src/agent/registry/templates/qa-web-manager.yaml
-```
-
-**What happens:**
-1. YAML is validated against `AgentDefinition` schema
-2. Agent stored in `agent_registry` table
-3. Event triggers stored in `agent_event_triggers` table
-4. Status set to `draft`
-
-### Step 2: Publish Agent
+### Agent Registry
 
 ```bash
-# Publish to make it active
-curl -X POST http://localhost:5109/api/agents/qa-web-manager/publish \
-  -H "Content-Type: application/json" \
-  -d '{"version": "1.0.0"}'
+# List all agents
+GET http://localhost:5109/api/agents?team_id=<team_id>
+
+# Get agent details
+GET http://localhost:5109/api/agents/<agent_id>?team_id=<team_id>
+
+# Import agent from YAML
+POST http://localhost:5109/api/agents/import
+Content-Type: text/yaml
+Body: <yaml content>
+
+# Export agent to YAML
+GET http://localhost:5109/api/agents/<agent_id>/export?team_id=<team_id>
 ```
 
-**What happens:**
-1. Agent status changed from `draft` to `published`
-2. Agent now eligible to handle events
-
-### Step 3: Event Triggers Agent
-
-**Automatic (when event occurs):**
-```bash
-# Event published (e.g., from monitoring system)
-curl -X POST http://localhost:5109/api/events/publish \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "alert.blackscreen",
-    "payload": {
-      "device_id": "web-chrome-001",
-      "platform": "web",
-      "severity": "critical"
-    },
-    "priority": "critical"
-  }'
-```
-
-**What happens:**
-1. Event published to Event Bus (Redis)
-2. Event logged to `event_log` table
-3. Event Router queries `agent_event_triggers`
-4. Finds `qa-web-manager` matches `alert.blackscreen` + `platform: web`
-5. Checks filters match
-6. Starts agent instance
-
-### Step 4: Agent Instance Runs
+### Agent Runtime
 
 ```bash
-# Start agent manually (on-demand agents)
-curl -X POST http://localhost:5109/api/runtime/instances \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agent_id": "qa-web-manager",
-    "version": "1.0.0"
-  }'
+# List running instances
+GET http://localhost:5109/api/runtime/instances?team_id=<team_id>
+
+# Start agent
+POST http://localhost:5109/api/runtime/instances/start
+Body: {"agent_id": "qa-web-manager", "version": "1.0.0"}
+
+# Stop agent
+POST http://localhost:5109/api/runtime/instances/<instance_id>/stop
+
+# Pause agent
+POST http://localhost:5109/api/runtime/instances/<instance_id>/pause
+
+# Resume agent
+POST http://localhost:5109/api/runtime/instances/<instance_id>/resume
+
+# Get runtime status
+GET http://localhost:5109/api/runtime/status
 ```
 
-**What happens:**
-1. Agent Runtime Manager creates instance
-2. Record added to `agent_instances` table
-3. Resource locks acquired if needed (device access)
-4. Agent execution begins
-5. Skills are callable via MCP server
-6. Execution tracked in `agent_execution_history`
-
-### Step 5: Monitor Agent Status
+### Events
 
 ```bash
-# Get instance status
-curl http://localhost:5109/api/runtime/instances/{instance_id}
+# Publish event
+POST http://localhost:5109/api/events/publish
+Body: {
+  "type": "alert.blackscreen",
+  "payload": {"device_id": "device1"},
+  "priority": "critical"
+}
+
+# Get event stats
+GET http://localhost:5109/api/events/stats?team_id=<team_id>
 ```
 
-**Response:**
-```json
-{
-  "instance_id": "inst_abc123",
+### Benchmarks & Feedback
+
+```bash
+# List benchmark tests
+GET http://localhost:5109/api/benchmarks/tests
+
+# Run benchmark for an agent
+POST http://localhost:5109/api/benchmarks/run
+Body: {"agent_id": "qa-web-manager", "version": "1.0.0"}
+
+# Execute pending benchmark run
+POST http://localhost:5109/api/benchmarks/run/<run_id>/execute
+
+# List benchmark runs
+GET http://localhost:5109/api/benchmarks/runs?team_id=<team_id>
+
+# Get benchmark run details
+GET http://localhost:5109/api/benchmarks/runs/<run_id>
+
+# Submit user feedback (1-5 stars)
+POST http://localhost:5109/api/benchmarks/feedback
+Body: {
   "agent_id": "qa-web-manager",
   "version": "1.0.0",
-  "state": "running",
-  "current_task": {
-    "task_id": "task_xyz",
-    "description": "Investigating blackscreen on web-chrome-001",
-    "status": "running",
-    "progress": "2/5 steps"
-  },
-  "last_heartbeat": "2025-12-06T10:30:00Z"
+  "rating": 5,
+  "comment": "Great agent!"
 }
+
+# List feedback for agent
+GET http://localhost:5109/api/benchmarks/feedback?agent_id=<agent_id>
+
+# Get agent scores
+GET http://localhost:5109/api/benchmarks/scores?team_id=<team_id>
+
+# Get leaderboard
+GET http://localhost:5109/api/benchmarks/leaderboard?team_id=<team_id>
+
+# Compare agents side-by-side
+GET http://localhost:5109/api/benchmarks/compare?ids=qa-web-manager:1.0.0,qa-stb-manager:1.0.0
 ```
 
 ---
 
-## 🎨 How to Create a New Agent
+## 🚀 Quick Start
 
-### Example: Create "Performance Monitor" Agent
+### 1. Prerequisites
 
-1. **Create YAML file** (`performance-monitor.yaml`):
+```bash
+# Start Redis (required for Event Bus)
+sudo systemctl start redis-server
 
-```yaml
-metadata:
-  id: performance-monitor
-  name: Performance Monitor
-  version: 1.0.0
-  author: your-team
-  description: Monitors application performance metrics
-
-goal:
-  type: continuous
-  description: Track performance KPIs and alert on degradation
-
-triggers:
-  - type: schedule.performance_check
-    priority: normal
-  - type: alert.slow_response
-    priority: high
-
-skills:
-  - get_execution_results
-  - query_metrics
-  - analyze_performance
-  - create_alert
-
-permissions:
-  database: [read]
-  external: [slack]
-
-config:
-  max_parallel_tasks: 1
-  timeout_seconds: 600
-  budget_limit_usd: 10.00
+# Or on macOS:
+brew services start redis
 ```
 
-2. **Import to Registry:**
+### 2. Start Backend Server
+
+```bash
+./setup/local/launch_server.sh
+```
+
+### 3. Start Frontend
+
+```bash
+./setup/local/launch_frontend.sh
+```
+
+### 4. Open Agent Dashboard
+
+Navigate to: **http://localhost:5073/agent-dashboard**
+
+- Agents auto-load from predefined templates
+- Enabled agents auto-start
+- Use controls to manage each agent
+
+### 5. Import Custom Agent
+
 ```bash
 curl -X POST http://localhost:5109/api/agents/import \
   -H "Content-Type: text/yaml" \
-  --data-binary @performance-monitor.yaml
-```
-
-3. **Publish:**
-```bash
-curl -X POST http://localhost:5109/api/agents/performance-monitor/publish \
-  -d '{"version": "1.0.0"}'
-```
-
-4. **Test Manually:**
-```bash
-curl -X POST http://localhost:5109/api/runtime/instances \
-  -d '{"agent_id": "performance-monitor", "version": "1.0.0"}'
+  --data-binary @my-custom-agent.yaml
 ```
 
 ---
 
-## 🔍 Available Skills Reference
+## 📂 File Structure
 
-### Device & Navigation
-- `list_devices` - Get all devices
-- `get_device_info` - Device details
-- `take_control` - Lock device for exclusive use
-- `navigate_to_node` - Navigate to UI node
-- `send_remote_key` - Send remote control command (STB)
-- `execute_gesture` - Touch gesture (mobile)
+```
+backend_server/src/
+├── agent/
+│   ├── registry/
+│   │   ├── config_schema.py    # Pydantic models
+│   │   ├── registry.py         # CRUD operations
+│   │   ├── validator.py        # YAML validation + skill validation
+│   │   └── templates/          # Pre-defined agent YAMLs
+│   │       ├── qa-web-manager.yaml
+│   │       ├── qa-mobile-manager.yaml
+│   │       ├── qa-stb-manager.yaml
+│   │       ├── monitoring-manager.yaml
+│   │       ├── qa-manager.yaml
+│   │       ├── explorer.yaml
+│   │       └── executor.yaml
+│   ├── runtime/
+│   │   ├── runtime.py          # Instance lifecycle
+│   │   └── state.py            # State management
+│   ├── skills/
+│   │   └── skill_registry.py   # Skill validation
+│   └── async_utils.py          # Flask/async bridge
+├── events/
+│   ├── event_bus.py            # Redis pub/sub + DB logging
+│   └── event_router.py         # Event → Agent routing
+├── resources/
+│   └── lock_manager.py         # Device locking
+├── routes/
+│   ├── agent_registry_routes.py
+│   ├── agent_runtime_routes.py
+│   ├── agent_benchmark_routes.py  # Benchmarks & feedback
+│   └── event_routes.py
+└── database/
+    └── async_client.py         # asyncpg (pgbouncer-compatible)
 
-### User Interfaces
-- `list_userinterfaces` - List all UIs
-- `get_userinterface_complete` - Full UI details
-- `list_nodes` - UI navigation nodes
-- `list_edges` - UI navigation edges
-- `preview_userinterface` - UI preview
+frontend/src/
+├── pages/
+│   └── AgentDashboard.tsx      # Main dashboard (dark theme)
+└── components/agent/
+    ├── AgentSelector.tsx
+    └── AgentStatus.tsx
 
-### Test Execution
-- `list_testcases` - All testcases
-- `load_testcase` - Load testcase details
-- `execute_testcase` - Run a testcase
-- `execute_campaign` - Run campaign
-- `get_execution_status` - Execution status
-- `get_execution_results` - Execution results
-
-### Requirements
-- `list_requirements` - All requirements
-- `get_requirement` - Requirement details
-- `get_coverage_summary` - Coverage stats
-- `get_uncovered_requirements` - Gaps in coverage
-
-### Monitoring & Logs
-- `view_logs` - View system logs
-- `get_service_status` - Service health
-- `check_device_health` - Device health check
-- `get_system_metrics` - System metrics
-- `create_alert` - Create alert
-- `list_alerts` - View alerts
-
-### Verifications
-- `list_verifications` - Available verifications
-- `verify_element_visible` - Check visibility
-- `verify_video_playing` - Video playback (STB)
-- `capture_screenshot` - Take screenshot
+setup/db/schema/
+├── 020_event_system.sql          # event_log, resource_locks, scheduled_events
+├── 021_agent_registry.sql        # agent_registry, agent_instances, execution_history
+└── 022_agent_feedback_benchmarks.sql  # feedback, benchmarks, scores, leaderboard
+```
 
 ---
 
-## 🎯 Event Types & Triggers
+## 🎯 Event Types
 
-### System Events
+### Alert Events
 - `alert.blackscreen` - Black screen detected
 - `alert.device_offline` - Device unreachable
 - `alert.service_down` - Service failure
-- `alert.high_cpu` - High CPU usage
-- `alert.high_memory` - High memory usage
-
-### Application Events
 - `alert.app_crash` - Application crash
-- `alert.page_load_timeout` - Page load failed
 - `alert.video_playback_failed` - Video error
-- `alert.channel_change_failed` - Channel switch failed
+- `alert.high_cpu` / `alert.high_memory` - Resource alerts
 
-### Build/Deployment Events
+### Build Events
 - `build.deployed` - New build deployed
 - `build.failed` - Build failure
 
 ### Scheduled Events
-- `schedule.regression` - Run regression tests
-- `schedule.health_check` - System health check
-- `schedule.web_regression` - Web tests
-- `schedule.mobile_regression` - Mobile tests
-- `schedule.stb_regression` - STB tests
-- `schedule.nightly_sanity` - Nightly sanity
+- `schedule.health_check` - Periodic health check
+- `schedule.regression` - Regression tests
+- `schedule.web_regression` / `schedule.mobile_regression` / `schedule.stb_regression`
 
-### Task Events (for on-demand agents)
+### Task Events
 - `task.explore_ui` - Trigger explorer
-- `task.execute_test` - Trigger executor
-- `task.execute_campaign` - Campaign execution
+- `task.execute_test` - Execute test
+- `task.execute_campaign` - Run campaign
 
 ---
 
-## 📊 Monitoring & Analytics
+## 🔄 Agent Lifecycle
 
-### View Agent Metrics
-```bash
-# Get performance metrics for an agent
-curl http://localhost:5109/api/agents/qa-web-manager/metrics
+```
+YAML Template → Import → Registry (draft)
+                            ↓
+                      Publish → (published)
+                            ↓
+Event occurs → Event Router → Match Agent
+                            ↓
+                   Start Instance → (running)
+                            ↓
+                   Execute Skills via MCP
+                            ↓
+                   Complete / Error → Stop
 ```
 
-**Response:**
-```json
-{
-  "total_executions": 150,
-  "successful_executions": 142,
-  "failed_executions": 8,
-  "success_rate_percent": 94.67,
-  "avg_duration_seconds": 45.2,
-  "avg_token_usage": 1250,
-  "total_cost_usd": 18.75,
-  "avg_cost_per_task_usd": 0.125,
-  "avg_user_rating": 4.5
-}
-```
-
-### List All Running Instances
-```bash
-curl http://localhost:5109/api/runtime/instances
-```
-
-### View Event Log
-```bash
-# Query database
-SELECT * FROM event_log 
-WHERE event_type LIKE 'alert.%' 
-ORDER BY timestamp DESC 
-LIMIT 10;
-```
+### Agent States:
+- `active` - Ready to start
+- `running` - Currently executing
+- `paused` - Temporarily suspended
+- `disabled` - Won't auto-start
+- `error` - Failed state
 
 ---
 
-## 🚀 Quick Start Checklist
+## ⚙️ Configuration
 
-1. ✅ **Database schemas applied** (020, 021)
-2. ✅ **Redis running** (`brew services start redis`)
-3. ✅ **Backend server running**
-4. ✅ **Import agents**:
-   ```bash
-   curl -X POST http://localhost:5109/api/agents/import \
-     --data-binary @qa-web-manager.yaml
-   ```
-5. ✅ **Publish agents**
-6. ✅ **Configure scheduled events** (in `scheduled_events` table)
-7. ✅ **Publish test events** to verify routing
-8. ✅ **Monitor in UI** (AgentStatus component)
+### Environment Variables
+
+```bash
+# .env file
+SUPABASE_DB_URI=postgresql://...  # Required for database
+REDIS_URL=redis://localhost:6379   # Required for Event Bus
+```
+
+### Database Schemas
+
+Apply in Supabase SQL Editor:
+1. `setup/db/schema/020_event_system.sql`
+2. `setup/db/schema/021_agent_registry.sql`
+
+---
+
+## 📊 What's Implemented
+
+| Component | Status |
+|-----------|--------|
+| Event Bus (Redis + PostgreSQL) | ✅ |
+| Resource Lock Manager | ✅ |
+| Agent Registry (CRUD, versioning) | ✅ |
+| Agent Runtime (start/stop/pause/resume) | ✅ |
+| Agent Templates (7 YAML files) | ✅ |
+| Database Schemas | ✅ |
+| REST API Routes | ✅ |
+| Frontend Dashboard | ✅ |
+| Skill Registry & Validation | ✅ |
+| Auto-start Agents | ✅ |
+| pgbouncer Compatibility | ✅ |
+| **User Feedback (1-5 stars)** | ✅ |
+| **Benchmark Tests (10 default)** | ✅ |
+| **Agent Scoring System** | ✅ |
+| **Leaderboard & Comparison** | ✅ |
+
+## 📊 What's NOT Implemented Yet
+
+| Component | Priority |
+|-----------|----------|
+| Cost Controls (Langfuse) | Medium |
+| Preemption Logic | Low |
+| Marketplace UI | Low |
+| A/B Testing | Low |
+
+---
+
+## 📈 Scoring System
+
+### How Scores are Calculated
+
+| Component | Weight | Source |
+|-----------|--------|--------|
+| Benchmark Score | 40% | Automated tests (0-100) |
+| User Rating | 30% | User feedback 1-5 stars → 0-100 |
+| Success Rate | 20% | Execution history |
+| Cost Efficiency | 10% | Tokens per task (TBD) |
+
+**Formula**: `Overall = (Benchmark × 0.4) + (UserRating × 0.3) + (SuccessRate × 0.2) + (Cost × 0.1)`
+
+### Benchmark Test Categories
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| navigation | 2 | List UIs, navigate to nodes |
+| detection | 2 | Device status, health checks |
+| execution | 2 | List test cases, load details |
+| analysis | 2 | Coverage summary, requirements |
+| recovery | 2 | Handle invalid input, timeouts |
+
+### Comparing Agents
+
+Use the compare endpoint to compare:
+- **Same agent, different versions**: `qa-web-manager:1.0.0,qa-web-manager:2.0.0`
+- **Different agents, same goal**: `qa-web-manager:1.0.0,qa-stb-manager:1.0.0`
+- **Leaderboard**: Global ranking by overall score
 
 ---
 
 ## 🎓 Summary
 
 - **YAML files** = Agent configuration templates
-- **Skills** = MCP tools the agent can call
+- **Skills** = MCP tools the agent can call (validated at import)
 - **Triggers** = Events that activate the agent
 - **Event Router** = Matches events to agents
 - **Agent Registry** = Stores agent definitions
 - **Agent Runtime** = Manages running instances
 - **Resource Locks** = Prevents device conflicts
+- **Dashboard** = Dark UI at `/agent-dashboard`
 
-The system is **fully event-driven** and **autonomous** - agents respond to events automatically without human intervention!
-
+The system is **event-driven** and **autonomous** - agents auto-start and respond to events automatically!

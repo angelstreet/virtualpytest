@@ -317,6 +317,10 @@ def register_all_server_routes(app):
         from routes import event_routes
         print("[@backend_server:routes] ✅ event_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing agent_benchmark_routes...")
+        from routes import agent_benchmark_routes
+        print("[@backend_server:routes] ✅ agent_benchmark_routes imported successfully")
+        
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
@@ -380,6 +384,7 @@ def register_all_server_routes(app):
             (agent_registry_routes.server_agent_registry_bp, 'Agent Registry (versioning, import/export)'),
             (agent_runtime_routes.server_agent_runtime_bp, 'Agent Runtime (instance management)'),
             (event_routes.server_event_bp, 'Event System (manual triggers, stats)'),
+            (agent_benchmark_routes.server_agent_benchmark_bp, 'Agent Benchmarks & Feedback'),
         ]
         
         for blueprint, description in blueprints:

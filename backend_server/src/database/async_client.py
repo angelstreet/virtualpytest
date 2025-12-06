@@ -33,9 +33,11 @@ class AsyncDatabase:
                 self._connection_string,
                 min_size=2,
                 max_size=10,
-                command_timeout=60
+                command_timeout=60,
+                # Disable statement caching for pgbouncer compatibility (Supabase uses pgbouncer)
+                statement_cache_size=0
             )
-            print("[@async_db] ✅ Async PostgreSQL pool initialized")
+            print("[@async_db] ✅ Async PostgreSQL pool initialized (pgbouncer-compatible)")
         except Exception as e:
             print(f"[@async_db] ❌ Failed to create connection pool: {e}")
             raise

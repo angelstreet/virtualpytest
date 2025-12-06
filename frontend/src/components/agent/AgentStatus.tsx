@@ -7,10 +7,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Activity, Clock, Zap, DollarSign, TrendingUp, 
-  Pause, Play, StopCircle, ChevronDown, ChevronRight,
-  FileText, AlertCircle, CheckCircle, XCircle
-} from 'lucide-react';
+  AutoMode as Activity, 
+  AccessTime as Clock, 
+  FlashOn as Zap, 
+  TrendingUp,
+  Pause, 
+  PlayArrow as Play, 
+  Stop as StopCircle, 
+  ExpandMore as ChevronDown, 
+  ChevronRight,
+  Description as FileText, 
+  ErrorOutline as AlertCircle, 
+  CheckCircle, 
+  Cancel as XCircle
+} from '@mui/icons-material';
 
 interface AgentStatusProps {
   instanceId: string | null;
@@ -85,7 +95,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
   if (!instanceId) {
     return (
       <div className="text-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-        <Activity className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+        <Activity sx={{ fontSize: 48, color: '#9ca3af', mb: 1.5, mx: 'auto', display: 'block' }} />
         <p className="text-gray-600 font-medium">No agent selected</p>
         <p className="text-sm text-gray-500 mt-1">Select an agent to view details</p>
       </div>
@@ -137,26 +147,26 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
   const getSubAgentIcon = (state: string) => {
     switch (state) {
       case 'running':
-        return <Activity className="w-3 h-3 text-green-500 animate-pulse" />;
+        return <Activity sx={{ fontSize: 12, color: '#22c55e' }} className="animate-pulse" />;
       case 'completed':
-        return <CheckCircle className="w-3 h-3 text-green-600" />;
+        return <CheckCircle sx={{ fontSize: 12, color: '#16a34a' }} />;
       case 'error':
-        return <XCircle className="w-3 h-3 text-red-500" />;
+        return <XCircle sx={{ fontSize: 12, color: '#ef4444' }} />;
       default:
-        return <Pause className="w-3 h-3 text-gray-400" />;
+        return <Pause sx={{ fontSize: 12, color: '#9ca3af' }} />;
     }
   };
 
   const getLogIcon = (level: string) => {
     switch (level) {
       case 'error':
-        return <XCircle className="w-3 h-3 text-red-500" />;
+        return <XCircle sx={{ fontSize: 12, color: '#ef4444' }} />;
       case 'warning':
-        return <AlertCircle className="w-3 h-3 text-yellow-500" />;
+        return <AlertCircle sx={{ fontSize: 12, color: '#eab308' }} />;
       case 'success':
-        return <CheckCircle className="w-3 h-3 text-green-500" />;
+        return <CheckCircle sx={{ fontSize: 12, color: '#22c55e' }} />;
       default:
-        return <Activity className="w-3 h-3 text-blue-500" />;
+        return <Activity sx={{ fontSize: 12, color: '#3b82f6' }} />;
     }
   };
 
@@ -193,9 +203,9 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
           `}
         >
           {status.state === 'paused' ? (
-            <><Play className="w-4 h-4" /> Resume</>
+            <><Play fontSize="small" /> Resume</>
           ) : (
-            <><Pause className="w-4 h-4" /> Pause</>
+            <><Pause fontSize="small" /> Pause</>
           )}
         </button>
 
@@ -204,14 +214,14 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
           disabled={status.state === 'stopped' || actionInProgress !== null}
           className="flex items-center justify-center gap-2 px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <StopCircle className="w-4 h-4" /> Abort
+          <StopCircle fontSize="small" /> Abort
         </button>
 
         <button
           onClick={() => setShowLogs(!showLogs)}
           className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-medium text-sm transition-all"
         >
-          <FileText className="w-4 h-4" /> Logs
+          <FileText fontSize="small" /> Logs
         </button>
 
         <button
@@ -219,7 +229,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
           disabled={!status.subagents || status.subagents.length === 0}
           className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {showSubAgents ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          {showSubAgents ? <ChevronDown fontSize="small" /> : <ChevronRight fontSize="small" />}
           Agents
         </button>
       </div>
@@ -228,7 +238,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
       {status.current_task && (
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-3">
-            <Activity className="w-5 h-5 text-blue-500 mt-0.5 animate-pulse" />
+            <Activity sx={{ fontSize: 20, color: '#3b82f6', mt: 0.5 }} className="animate-pulse" />
             <div className="flex-1">
               <p className="font-medium text-blue-900">Current Task</p>
               <p className="text-sm text-blue-700 mt-1">{status.current_task}</p>
@@ -260,7 +270,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
       {showSubAgents && status.subagents && status.subagents.length > 0 && (
         <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
           <div className="flex items-center gap-2 mb-3">
-            <Activity className="w-5 h-5 text-purple-600" />
+            <Activity sx={{ fontSize: 20, color: '#9333ea' }} />
             <h4 className="font-medium text-purple-900">Sub-Agents ({status.subagents.length})</h4>
           </div>
           
@@ -296,7 +306,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
       {showLogs && (
         <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
           <h4 className="font-medium text-gray-900 text-sm mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4" />
+            <FileText fontSize="small" />
             Execution Logs
           </h4>
           
@@ -326,7 +336,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
         {/* Uptime */}
         <div className="p-4 bg-white border border-gray-200 rounded-lg">
           <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
-            <Clock className="w-4 h-4" />
+            <Clock fontSize="small" />
             <span>Uptime</span>
           </div>
           <p className="text-2xl font-bold text-gray-900">{getUptime()}</p>
@@ -335,7 +345,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
         {/* State Duration */}
         <div className="p-4 bg-white border border-gray-200 rounded-lg">
           <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
-            <Zap className="w-4 h-4" />
+            <Zap fontSize="small" />
             <span>State</span>
           </div>
           <p className="text-2xl font-bold text-gray-900 capitalize">{status.state}</p>
@@ -370,7 +380,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
       {/* Placeholder for future metrics */}
       <div className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-5 h-5 text-purple-600" />
+          <TrendingUp sx={{ fontSize: 20, color: '#9333ea' }} />
           <span className="font-medium text-purple-900">Performance Metrics</span>
         </div>
         <p className="text-sm text-purple-700">

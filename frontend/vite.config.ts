@@ -117,6 +117,9 @@ const registeredRoutes = [
   '/configuration/controller',
   '/configuration/library',
   '/configuration/environment',
+  // AI Agent routes
+  '/ai-agent',
+  '/agent-dashboard',
   // Dynamic routes patterns
   '/navigation-editor', // Will match /navigation-editor/* paths
   '/docs', // Will match /docs/* paths for documentation including security reports

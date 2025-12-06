@@ -1,20 +1,9 @@
 """
-Agent Skills - Tool mappings per agent
+Skill Registry - Maps agent skills to MCP tools
 
-Each agent has access to a specific subset of MCP tools.
+Skills defined in YAML agent configs must be validated against available MCP tools.
 """
 
-from .explorer_skills import EXPLORER_TOOLS
-from .builder_skills import BUILDER_TOOLS
-from .executor_skills import EXECUTOR_TOOLS
-from .analyst_skills import ANALYST_TOOLS
-from .maintainer_skills import MAINTAINER_TOOLS
+from .skill_registry import SkillRegistry, get_skill_registry, AVAILABLE_SKILLS
 
-__all__ = [
-    'EXPLORER_TOOLS',
-    'BUILDER_TOOLS', 
-    'EXECUTOR_TOOLS',
-    'ANALYST_TOOLS',
-    'MAINTAINER_TOOLS',
-]
-
+__all__ = ['SkillRegistry', 'get_skill_registry', 'AVAILABLE_SKILLS']

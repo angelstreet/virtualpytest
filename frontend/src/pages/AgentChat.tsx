@@ -24,6 +24,9 @@ import {
   useTheme,
   Fade,
   Tooltip,
+  Select,
+  MenuItem,
+  FormControl,
 } from '@mui/material';
 import {
   ArrowUpward as SendIcon,
@@ -84,6 +87,15 @@ const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
   'Analyst': { color: '#ba68c8', label: 'Analyst' },
   'Maintainer': { color: '#4fc3f7', label: 'Maintainer' },
 };
+
+// Available agents for selection
+const AVAILABLE_AGENTS = [
+  { id: 'ai-assistant', name: 'AI Assistant', description: 'General purpose', color: PALETTE.accent },
+  { id: 'qa-web-manager', name: 'QA Web Manager', description: 'Web testing specialist', color: '#4fc3f7' },
+  { id: 'qa-mobile-manager', name: 'QA Mobile Manager', description: 'Mobile app testing', color: '#81c784' },
+  { id: 'qa-stb-manager', name: 'QA STB Manager', description: 'Set-top box testing', color: '#ba68c8' },
+  { id: 'monitoring-manager', name: 'Monitoring Manager', description: 'System monitoring', color: '#ffb74d' },
+];
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
 
@@ -148,6 +160,9 @@ const AgentChat: React.FC = () => {
   const [showChat, setShowChat] = useState(true);
   const [showDevice, setShowDevice] = useState(false);
   
+  // Selected agent - default to AI Assistant (generic)
+  const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
+  
   const {
     status,
     messages,
@@ -173,7 +188,13 @@ const AgentChat: React.FC = () => {
     createNewConversation,
     switchConversation,
     deleteConversation,
+    setAgentId,
   } = useAgentChat();
+  
+  // Sync selected agent with hook
+  useEffect(() => {
+    setAgentId(selectedAgentId);
+  }, [selectedAgentId, setAgentId]);
   
   // Only show processing state if viewing the conversation that's being processed
   const showProcessing = isProcessing && activeConversationId === pendingConversationId;
@@ -962,12 +983,76 @@ const AgentChat: React.FC = () => {
         flexShrink: 0,
         bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
       }}>
-        {/* Left: Title */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <SparkleIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            AI Agent
-          </Typography>
+        {/* Left: Title + Agent Selector */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SparkleIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              AI Agent
+            </Typography>
+          </Box>
+          
+          {/* Agent Selector */}
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <Select
+              value={selectedAgentId}
+              onChange={(e) => setSelectedAgentId(e.target.value)}
+              sx={{
+                height: 32,
+                fontSize: '0.85rem',
+                bgcolor: isDarkMode ? PALETTE.inputBg : '#fff',
+                borderRadius: 1.5,
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: PALETTE.accent,
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: PALETTE.accent,
+                },
+                '& .MuiSelect-select': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  py: 0.5,
+                },
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    bgcolor: isDarkMode ? PALETTE.surface : '#fff',
+                    border: '1px solid',
+                    borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+                    boxShadow: PALETTE.cardShadow,
+                  }
+                }
+              }}
+            >
+              {AVAILABLE_AGENTS.map((agent) => (
+                <MenuItem 
+                  key={agent.id} 
+                  value={agent.id}
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    py: 1,
+                    '&:hover': { bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100' },
+                    '&.Mui-selected': { bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100' },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: agent.color }} />
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{agent.name}</Typography>
+                  </Box>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', pl: 2, fontSize: '0.7rem' }}>
+                    {agent.description}
+                  </Typography>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Box>
         
         {/* Right: Section Toggles */}

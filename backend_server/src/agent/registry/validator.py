@@ -2,13 +2,22 @@
 Agent Configuration Validator
 
 Validates agent YAML files and provides import/export functionality.
+Includes skill validation against available MCP tools.
 """
 
 import yaml
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from pydantic import ValidationError
 
 from .config_schema import AgentDefinition
+
+# Try to import skill registry, fallback gracefully if not available
+try:
+    from agent.skills import get_skill_registry, AVAILABLE_SKILLS
+    SKILL_VALIDATION_ENABLED = True
+except ImportError:
+    SKILL_VALIDATION_ENABLED = False
+    AVAILABLE_SKILLS = set()
 
 
 class AgentValidationError(Exception):
@@ -16,7 +25,21 @@ class AgentValidationError(Exception):
     pass
 
 
-def validate_agent_yaml(yaml_content: str) -> AgentDefinition:
+def validate_skills(skills: List[str]) -> Tuple[List[str], List[str]]:
+    """
+    Validate skills against available MCP tools
+    
+    Returns:
+        (valid_skills, invalid_skills)
+    """
+    if not SKILL_VALIDATION_ENABLED:
+        return skills, []
+    
+    registry = get_skill_registry()
+    return registry.validate_skills(skills)
+
+
+def validate_agent_yaml(yaml_content: str, strict_skills: bool = False) -> AgentDefinition:
     """
     Validate agent YAML and return AgentDefinition
     
@@ -39,6 +62,16 @@ def validate_agent_yaml(yaml_content: str) -> AgentDefinition:
         # Validate against schema
         agent = AgentDefinition(**data)
         
+        # Validate skills against available MCP tools
+        if agent.skills:
+            valid_skills, invalid_skills = validate_skills(agent.skills)
+            if invalid_skills:
+                warning = f"Unknown skills: {', '.join(invalid_skills)}"
+                if strict_skills:
+                    raise AgentValidationError(warning)
+                else:
+                    print(f"[@agent_validator] ⚠️ {warning}")
+        
         return agent
         
     except yaml.YAMLError as e:
@@ -49,6 +82,8 @@ def validate_agent_yaml(yaml_content: str) -> AgentDefinition:
             field = " -> ".join(str(loc) for loc in error['loc'])
             errors.append(f"{field}: {error['msg']}")
         raise AgentValidationError(f"Validation errors:\n" + "\n".join(errors))
+    except AgentValidationError:
+        raise
     except Exception as e:
         raise AgentValidationError(f"Unexpected error: {str(e)}")
 

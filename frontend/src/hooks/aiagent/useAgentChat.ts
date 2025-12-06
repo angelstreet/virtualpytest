@@ -468,8 +468,15 @@ export const useAgentChat = () => {
       session_id: session?.id,
       message: input.trim(),
       team_id: APP_CONFIG.DEFAULT_TEAM_ID,
+      agent_id: agentIdRef.current || 'ai-assistant',
     });
   }, [input, isProcessing, session?.id, activeConversationId]);
+
+  // Allow external code to set the agent
+  const agentIdRef = useRef<string>('ai-assistant');
+  const setAgentId = useCallback((agentId: string) => {
+    agentIdRef.current = agentId;
+  }, []);
 
   const handleApproval = useCallback((approved: boolean) => {
     socketRef.current?.emit('approve', { session_id: session?.id, approved });
@@ -565,6 +572,7 @@ export const useAgentChat = () => {
     handleApproval,
     stopGeneration,
     clearHistory,
+    setAgentId,
     
     // Conversation Actions
     createNewConversation,
