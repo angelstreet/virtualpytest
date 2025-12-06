@@ -34,7 +34,6 @@ def list_benchmark_tests():
     try:
         category = request.args.get('category')
         
-        @run_async
         async def _fetch():
             db = get_async_db()
             await db.connect()
@@ -58,7 +57,7 @@ def list_benchmark_tests():
                 """
                 return await db.fetch(query)
         
-        tests = _fetch()
+        tests = run_async(_fetch())
         return jsonify({'tests': tests, 'count': len(tests)}), 200
         
     except Exception as e:
@@ -84,7 +83,6 @@ def start_benchmark_run():
         version = data.get('version', '1.0.0')
         team_id = get_team_id()
         
-        @run_async
         async def _create_run():
             db = get_async_db()
             await db.connect()
@@ -106,7 +104,7 @@ def start_benchmark_run():
             
             return str(run_id), test_count
         
-        run_id, test_count = _create_run()
+        run_id, test_count = run_async(_create_run())
         
         # Note: Actual benchmark execution would be triggered here
         # For now, we just create the run record
@@ -128,7 +126,6 @@ def start_benchmark_run():
 def execute_benchmark_run(run_id: str):
     """Execute a pending benchmark run (sequential)"""
     try:
-        @run_async
         async def _execute():
             db = get_async_db()
             await db.connect()
@@ -213,7 +210,7 @@ def execute_benchmark_run(run_id: str):
                 'score_percent': score
             }, None
         
-        result, error = _execute()
+        result, error = run_async(_execute())
         
         if error:
             return jsonify({'error': error}), 400
@@ -232,7 +229,7 @@ def list_benchmark_runs():
         team_id = get_team_id()
         limit = int(request.args.get('limit', 20))
         
-        @run_async
+        
         async def _fetch():
             db = get_async_db()
             await db.connect()
@@ -260,7 +257,7 @@ def list_benchmark_runs():
                 """
                 return await db.fetch(query, team_id, limit)
         
-        runs = _fetch()
+        runs = run_async(_fetch())
         
         # Convert to serializable format
         runs_list = []
@@ -285,7 +282,7 @@ def list_benchmark_runs():
 def get_benchmark_run(run_id: str):
     """Get benchmark run details with results"""
     try:
-        @run_async
+        
         async def _fetch():
             db = get_async_db()
             await db.connect()
@@ -309,7 +306,7 @@ def get_benchmark_run(run_id: str):
             
             return dict(run), [dict(r) for r in results]
         
-        run, results = _fetch()
+        run, results = run_async(_fetch())
         
         if not run:
             return jsonify({'error': 'Run not found'}), 404
@@ -372,7 +369,7 @@ def submit_feedback():
         execution_id = data.get('execution_id')
         task_description = data.get('task_description')
         
-        @run_async
+        
         async def _submit():
             db = get_async_db()
             await db.connect()
@@ -393,7 +390,7 @@ def submit_feedback():
             
             return str(feedback_id)
         
-        feedback_id = _submit()
+        feedback_id = run_async(_submit())
         
         return jsonify({
             'feedback_id': feedback_id,
@@ -412,7 +409,7 @@ def list_feedback():
         team_id = get_team_id()
         limit = int(request.args.get('limit', 50))
         
-        @run_async
+        
         async def _fetch():
             db = get_async_db()
             await db.connect()
@@ -436,7 +433,7 @@ def list_feedback():
                     LIMIT $2
                 """, team_id, limit)
         
-        feedback = _fetch()
+        feedback = run_async(_fetch())
         
         feedback_list = []
         for f in feedback:
@@ -463,7 +460,7 @@ def get_agent_scores():
         agent_id = request.args.get('agent_id')
         team_id = get_team_id()
         
-        @run_async
+        
         async def _fetch():
             db = get_async_db()
             await db.connect()
@@ -481,7 +478,7 @@ def get_agent_scores():
                     ORDER BY overall_score DESC
                 """, team_id)
         
-        scores = _fetch()
+        scores = run_async(_fetch())
         
         scores_list = []
         for s in scores:
@@ -507,7 +504,7 @@ def get_leaderboard():
         limit = int(request.args.get('limit', 20))
         goal_type = request.args.get('goal_type')  # Filter by goal type
         
-        @run_async
+        
         async def _fetch():
             db = get_async_db()
             await db.connect()
@@ -523,7 +520,7 @@ def get_leaderboard():
                 LIMIT $2
             """, team_id, limit)
         
-        leaderboard = _fetch()
+        leaderboard = run_async(_fetch())
         
         entries = []
         for entry in leaderboard:
@@ -564,7 +561,7 @@ def compare_agents():
         if not agent_pairs:
             return jsonify({'error': 'No valid agent:version pairs found'}), 400
         
-        @run_async
+        
         async def _fetch():
             db = get_async_db()
             await db.connect()
@@ -596,7 +593,7 @@ def compare_agents():
             
             return results
         
-        comparison = _fetch()
+        comparison = run_async(_fetch())
         
         # Find winner
         winner = max(comparison, key=lambda x: x.get('overall_score', 0))

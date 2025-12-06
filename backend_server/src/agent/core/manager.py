@@ -36,7 +36,13 @@ class QAManagerAgent:
     - Reports results
     """
     
-    SYSTEM_PROMPT = """You are the QA Manager, a Senior QA Lead who orchestrates testing automation.
+    BASE_SYSTEM_PROMPT = """You are {agent_name}, {agent_specialty}.
+
+## Your Identity
+- **Name**: {agent_nickname}
+- **Specialty**: {specialty}
+- **Platform Focus**: {platform}
+- **Key Areas**: {focus_areas}
 
 ## Your Role
 1. Understand user requests
@@ -121,19 +127,80 @@ Detect the mode from user messages:
 
 Be efficient. The user wants results."""
 
-    def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None):
+    @property
+    def system_prompt(self) -> str:
+        """Get the system prompt customized for the selected agent"""
+        config = self.agent_config
+        return self.BASE_SYSTEM_PROMPT.format(
+            agent_name=config.get('name', 'QA Manager'),
+            agent_nickname=config.get('nickname', 'Atlas'),
+            agent_specialty=config.get('specialty', 'General QA assistant'),
+            specialty=config.get('specialty', 'General QA assistant'),
+            platform=config.get('platform', 'all'),
+            focus_areas=', '.join(config.get('focus_areas', ['general assistance'])),
+        )
+
+    # Agent-specific configurations
+    AGENT_CONFIGS = {
+        'ai-assistant': {
+            'name': 'Atlas',
+            'nickname': 'Atlas',
+            'specialty': 'General purpose AI assistant for all QA tasks',
+            'platform': 'all',
+            'focus_areas': ['navigation', 'data queries', 'general assistance'],
+        },
+        'qa-web-manager': {
+            'name': 'Sherlock',
+            'nickname': 'Sherlock',
+            'specialty': 'Web testing specialist - browser automation, DOM analysis, web performance',
+            'platform': 'web',
+            'focus_areas': ['web automation', 'browser testing', 'responsive design', 'web performance'],
+            'preferred_subagents': ['explorer', 'executor'],
+        },
+        'qa-mobile-manager': {
+            'name': 'Scout',
+            'nickname': 'Scout',
+            'specialty': 'Mobile testing specialist - Android/iOS, Appium, touch gestures',
+            'platform': 'mobile',
+            'focus_areas': ['mobile automation', 'touch gestures', 'app testing', 'device compatibility'],
+            'preferred_subagents': ['explorer', 'executor'],
+        },
+        'qa-stb-manager': {
+            'name': 'Watcher',
+            'nickname': 'Watcher',
+            'specialty': 'Set-top box testing specialist - TV apps, remote control, D-pad navigation',
+            'platform': 'stb',
+            'focus_areas': ['TV app testing', 'remote control', 'EPG', 'channel switching'],
+            'preferred_subagents': ['explorer', 'executor'],
+        },
+        'monitoring-manager': {
+            'name': 'Guardian',
+            'nickname': 'Guardian',
+            'specialty': 'System monitoring specialist - alerts, health checks, incident response',
+            'platform': 'all',
+            'focus_areas': ['system health', 'alert monitoring', 'incident analysis', 'performance'],
+            'preferred_subagents': ['analyst'],
+        },
+    }
+
+    def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
         """
         Initialize QA Manager
         
         Args:
             api_key: Optional API key to use (overrides environment)
             user_identifier: Optional user/session identifier for retrieving stored API key
+            agent_id: Selected agent ID for specialized behavior
         """
         self.logger = logging.getLogger(__name__)
         self.user_identifier = user_identifier
         self._api_key = api_key
         self._client = None
         self.tool_bridge = ToolBridge()
+        
+        # Store selected agent config
+        self.agent_id = agent_id or 'ai-assistant'
+        self.agent_config = self.AGENT_CONFIGS.get(self.agent_id, self.AGENT_CONFIGS['ai-assistant'])
         
         # Initialize specialist agents (pass API key to each)
         self.agents = {
@@ -144,7 +211,7 @@ Be efficient. The user wants results."""
             "maintainer": MaintainerAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
         }
         
-        self.logger.info("QA Manager initialized with 5 specialist agents")
+        self.logger.info(f"QA Manager initialized as {self.agent_config['nickname']} ({self.agent_id}) with 5 specialist agents")
     
     def _get_api_key_safe(self) -> Optional[str]:
         """Get API key safely without raising exceptions"""
@@ -377,7 +444,7 @@ Be efficient. The user wants results."""
             response = self.client.messages.create(
                 model=DEFAULT_MODEL,
                 max_tokens=1024,
-                system=self.SYSTEM_PROMPT,
+                system=self.system_prompt,  # Agent-specific prompt
                 messages=turn_messages,
                 tools=tools
             )

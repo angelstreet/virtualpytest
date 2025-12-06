@@ -58,21 +58,22 @@ _manager = None
 _session_manager = None
 
 
-def get_manager(team_id: str = None):
+def get_manager(team_id: str = None, agent_id: str = None):
     """
     Get or create QA Manager instance (lazy load)
     
     Args:
         team_id: Team/user identifier for API key retrieval
+        agent_id: Selected agent ID (e.g., 'qa-web-manager', 'qa-mobile-manager')
         
     Returns:
-        QAManagerAgent instance
+        QAManagerAgent instance configured for the selected agent
     """
     # Always create a new manager with the team_id to ensure correct API key
     # (In-memory storage means we can't cache the manager globally)
     from agent.core.manager import QAManagerAgent
-    logger.info(f"Initializing QA Manager agent for team: {team_id or 'default'}...")
-    return QAManagerAgent(user_identifier=team_id)
+    logger.info(f"Initializing QA Manager agent for team: {team_id or 'default'}, agent: {agent_id or 'ai-assistant'}...")
+    return QAManagerAgent(user_identifier=team_id, agent_id=agent_id)
 
 
 def get_session_manager():
@@ -313,11 +314,12 @@ def register_agent_socketio_handlers(socketio):
         """
         Handle user message
         
-        Data: { "session_id": "...", "message": "...", "team_id": "..." }
+        Data: { "session_id": "...", "message": "...", "team_id": "...", "agent_id": "..." }
         """
         session_id = data.get('session_id')
         message = data.get('message')
         team_id = data.get('team_id')
+        agent_id = data.get('agent_id', 'ai-assistant')  # Default to generic assistant
         
         if not session_id or not message:
             socketio.emit('error', {
@@ -325,8 +327,8 @@ def register_agent_socketio_handlers(socketio):
             }, namespace='/agent')
             return
         
-        # Log user message
-        log_agent_event('USER_MESSAGE', session_id, {'message': message, 'team_id': team_id})
+        # Log user message with agent_id
+        log_agent_event('USER_MESSAGE', session_id, {'message': message, 'team_id': team_id, 'agent_id': agent_id})
         
         session_mgr = get_session_manager()
         session = session_mgr.get_session(session_id)
@@ -337,13 +339,14 @@ def register_agent_socketio_handlers(socketio):
             }, namespace='/agent')
             return
         
-        # Store team_id in session context for API key retrieval
+        # Store team_id and agent_id in session context
         if team_id:
             session.set_context('team_id', team_id)
+        session.set_context('agent_id', agent_id)
         
         # Try to get manager - handle API key not configured
         try:
-            manager = get_manager(team_id=team_id)
+            manager = get_manager(team_id=team_id, agent_id=agent_id)
         except Exception as e:
             logger.warning(f"Failed to initialize manager: {e}")
             # Emit friendly error asking for API key

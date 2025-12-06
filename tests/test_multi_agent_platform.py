@@ -8,27 +8,30 @@ import asyncio
 import sys
 import os
 
-# Add backend to path
-backend_src = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend_server', 'src'))
-sys.path.insert(0, backend_src)
+# Add all required paths
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+backend_src = os.path.join(project_root, 'backend_server', 'src')
 
-# Set PYTHONPATH to include backend_server/src
-os.environ['PYTHONPATH'] = backend_src + ':' + os.environ.get('PYTHONPATH', '')
+sys.path.insert(0, backend_src)
+sys.path.insert(0, project_root)
+
+# Set PYTHONPATH for subprocesses
+os.environ['PYTHONPATH'] = f"{backend_src}:{project_root}:" + os.environ.get('PYTHONPATH', '')
 
 # Now import - these will work because we're in the right directory context
-from backend_server.src.events.event_bus import get_event_bus, Event, EventPriority
-from backend_server.src.resources.lock_manager import get_lock_manager
-from backend_server.src.agent.registry.registry import get_agent_registry
-from backend_server.src.agent.registry.validator import validate_agent_yaml, export_agent_yaml
-from backend_server.src.agent.registry.config_schema import (
+from events.event_bus import get_event_bus, Event, EventPriority
+from resources.lock_manager import get_lock_manager
+from agent.registry.registry import get_agent_registry
+from agent.registry.validator import validate_agent_yaml, export_agent_yaml
+from agent.registry.config_schema import (
     AgentDefinition,
     AgentMetadata,
     AgentGoal,
     AgentGoalType,
     EventTrigger
 )
-from backend_server.src.agent.runtime.runtime import get_agent_runtime
-from backend_server.src.events.event_router import get_event_router
+from agent.runtime.runtime import get_agent_runtime
+from events.event_router import get_event_router
 
 
 async def test_1_event_bus():
