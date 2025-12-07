@@ -29,6 +29,7 @@ import { Box, Button } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import NavigationDropdown from './Navigation_Dropdown';
 import NavigationGroupedDropdown from './Navigation_GroupedDropdown';
 
@@ -40,7 +41,7 @@ const NavigationBar: React.FC = () => {
   useEffect(() => {
     const fetchSlackConfig = async () => {
       try {
-        const response = await fetch('/server/integrations/slack/config');
+        const response = await fetch(buildServerUrl('/server/integrations/slack/config'));
         const data = await response.json();
         if (data.success && data.config?.url) {
           setSlackUrl(data.config.url);
