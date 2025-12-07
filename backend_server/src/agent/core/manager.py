@@ -151,49 +151,6 @@ Be efficient. Provide DATA, not explanations."""
             current_page=current_page,
         )
 
-    # Agent-specific configurations
-    AGENT_CONFIGS = {
-        'ai-assistant': {
-            'name': 'Atlas',
-            'nickname': 'Atlas',
-            'specialty': 'General purpose AI assistant for all QA tasks',
-            'platform': 'all',
-            'focus_areas': ['navigation', 'data queries', 'general assistance'],
-        },
-        'qa-web-manager': {
-            'name': 'Sherlock',
-            'nickname': 'Sherlock',
-            'specialty': 'Web testing specialist - browser automation, DOM analysis, web performance',
-            'platform': 'web',
-            'focus_areas': ['web automation', 'browser testing', 'responsive design', 'web performance'],
-            'preferred_subagents': ['explorer', 'executor'],
-        },
-        'qa-mobile-manager': {
-            'name': 'Scout',
-            'nickname': 'Scout',
-            'specialty': 'Mobile testing specialist - Android/iOS, Appium, touch gestures',
-            'platform': 'mobile',
-            'focus_areas': ['mobile automation', 'touch gestures', 'app testing', 'device compatibility'],
-            'preferred_subagents': ['explorer', 'executor'],
-        },
-        'qa-stb-manager': {
-            'name': 'Watcher',
-            'nickname': 'Watcher',
-            'specialty': 'Set-top box testing specialist - TV apps, remote control, D-pad navigation',
-            'platform': 'stb',
-            'focus_areas': ['TV app testing', 'remote control', 'EPG', 'channel switching'],
-            'preferred_subagents': ['explorer', 'executor'],
-        },
-        'monitoring-manager': {
-            'name': 'Guardian',
-            'nickname': 'Guardian',
-            'specialty': 'System monitoring specialist - alerts, health checks, incident response',
-            'platform': 'all',
-            'focus_areas': ['system health', 'alert monitoring', 'incident analysis', 'performance'],
-            'preferred_subagents': ['analyst'],
-        },
-    }
-
     def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
         """
         Initialize QA Manager
@@ -209,9 +166,32 @@ Be efficient. Provide DATA, not explanations."""
         self._client = None
         self.tool_bridge = ToolBridge()
         
-        # Store selected agent config
+        # Load agent config from registry (YAML source of truth)
         self.agent_id = agent_id or 'ai-assistant'
-        self.agent_config = self.AGENT_CONFIGS.get(self.agent_id, self.AGENT_CONFIGS['ai-assistant'])
+        self.agent_config = self._load_agent_config(self.agent_id)
+    
+    def _load_agent_config(self, agent_id: str) -> Dict[str, Any]:
+        """Load agent config from YAML registry"""
+        from ..registry import get_agent_registry
+        
+        registry = get_agent_registry()
+        agent_def = registry.get(agent_id)
+        
+        if not agent_def:
+            raise ValueError(f"Agent '{agent_id}' not found in registry. Check YAML templates.")
+        
+        # Convert AgentDefinition to config dict for system prompt
+        metadata = agent_def.metadata
+        config = agent_def.config or {}
+        return {
+            'name': metadata.name,
+            'nickname': metadata.nickname or metadata.name,
+            'specialty': metadata.description,
+            'platform': config.get('platform_filter', 'all'),
+            'focus_areas': metadata.tags or [],
+            'skills': agent_def.skills or [],
+            'subagents': [s.id for s in (agent_def.subagents or [])],
+        }
         
         # Initialize specialist agents (pass API key to each)
         self.agents = {
@@ -223,6 +203,11 @@ Be efficient. Provide DATA, not explanations."""
         }
         
         self.logger.info(f"QA Manager initialized as {self.agent_config['nickname']} ({self.agent_id}) with 5 specialist agents")
+    
+    @property
+    def nickname(self) -> str:
+        """Get the display name for events"""
+        return self.agent_config.get('nickname', 'Atlas')
     
     def _get_api_key_safe(self) -> Optional[str]:
         """Get API key safely without raising exceptions"""
@@ -344,12 +329,12 @@ Be efficient. Provide DATA, not explanations."""
         if not self.api_key_configured:
             yield AgentEvent(
                 type=EventType.ERROR,
-                agent="QA Manager",
+                agent=self.nickname,
                 content="⚠️ API key not configured. Please enter your Anthropic API key to continue.",
             )
             yield AgentEvent(
                 type=EventType.SESSION_ENDED,
-                agent="QA Manager",
+                agent=self.nickname,
                 content="Session ended - API key required",
             )
             return
@@ -399,7 +384,7 @@ Be efficient. Provide DATA, not explanations."""
         if session.pending_approval:
             yield AgentEvent(
                 type=EventType.ERROR,
-                agent="QA Manager",
+                agent=self.nickname,
                 content="Please respond to the pending approval first.",
             )
             return
@@ -410,7 +395,7 @@ Be efficient. Provide DATA, not explanations."""
         
         yield AgentEvent(
             type=EventType.MODE_DETECTED,
-            agent="QA Manager",
+            agent=self.nickname,
             content=f"Mode detected: {mode}",
         )
         
@@ -422,7 +407,7 @@ Be efficient. Provide DATA, not explanations."""
         # Use Claude to understand and plan
         yield AgentEvent(
             type=EventType.THINKING,
-            agent="QA Manager",
+            agent=self.nickname,
             content="Analyzing your request...",
         )
         
@@ -469,7 +454,7 @@ Be efficient. Provide DATA, not explanations."""
             # Track with Langfuse if enabled
             if LANGFUSE_ENABLED:
                 track_generation(
-                    agent_name="QA Manager",
+                    agent_name=self.nickname,
                     model=DEFAULT_MODEL,
                     messages=turn_messages,
                     response=response,
@@ -489,7 +474,7 @@ Be efficient. Provide DATA, not explanations."""
                 # Yield tool call event
                 yield AgentEvent(
                     type=EventType.TOOL_CALL,
-                    agent="QA Manager",
+                    agent=self.nickname,
                     content=f"Calling tool: {tool_use.name}",
                     tool_name=tool_use.name,
                     tool_params=tool_use.input,
@@ -503,7 +488,7 @@ Be efficient. Provide DATA, not explanations."""
                     # Track tool call with Langfuse
                     if LANGFUSE_ENABLED:
                         track_tool_call(
-                            agent_name="QA Manager",
+                            agent_name=self.nickname,
                             tool_name=tool_use.name,
                             tool_input=tool_use.input,
                             tool_output=result,
@@ -513,7 +498,7 @@ Be efficient. Provide DATA, not explanations."""
                     
                     yield AgentEvent(
                         type=EventType.TOOL_RESULT,
-                        agent="QA Manager",
+                        agent=self.nickname,
                         content="Tool execution successful",
                         tool_name=tool_use.name,
                         tool_result=result,
@@ -532,7 +517,7 @@ Be efficient. Provide DATA, not explanations."""
                     # Track failed tool call with Langfuse
                     if LANGFUSE_ENABLED:
                         track_tool_call(
-                            agent_name="QA Manager",
+                            agent_name=self.nickname,
                             tool_name=tool_use.name,
                             tool_input=tool_use.input,
                             tool_output=str(e),
@@ -542,7 +527,7 @@ Be efficient. Provide DATA, not explanations."""
                     
                     yield AgentEvent(
                         type=EventType.ERROR,
-                        agent="QA Manager",
+                        agent=self.nickname,
                         content=f"Tool error: {str(e)}",
                         error=str(e)
                     )
@@ -557,7 +542,7 @@ Be efficient. Provide DATA, not explanations."""
                 plan = text_content
                 yield AgentEvent(
                     type=EventType.MESSAGE,
-                    agent="QA Manager",
+                    agent=self.nickname,
                     content=plan,
                     metrics=metrics
                 )
@@ -574,7 +559,7 @@ Be efficient. Provide DATA, not explanations."""
              # Flush Langfuse before returning
              if LANGFUSE_ENABLED:
                  flush()
-             yield AgentEvent(type=EventType.SESSION_ENDED, agent="QA Manager", content="Task completed")
+             yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Task completed")
              return
         
         # Delegate to appropriate agents
@@ -590,7 +575,7 @@ Be efficient. Provide DATA, not explanations."""
             # 1. QA Manager says it's delegating (completes QA Manager's message)
             yield AgentEvent(
                 type=EventType.AGENT_DELEGATED,
-                agent="QA Manager",
+                agent=self.nickname,
                 content=f"Delegating to {agent.name}...",
             )
             
@@ -611,7 +596,7 @@ Be efficient. Provide DATA, not explanations."""
                 if session.cancelled:
                     yield AgentEvent(
                         type=EventType.ERROR,
-                        agent="QA Manager",
+                        agent=self.nickname,
                         content="🛑 Operation stopped by user."
                     )
                     session.reset_cancellation()
@@ -643,7 +628,7 @@ Be efficient. Provide DATA, not explanations."""
                     
                     yield AgentEvent(
                         type=EventType.APPROVAL_REQUIRED,
-                        agent="QA Manager",
+                        agent=self.nickname,
                         content="Approval needed to continue",
                         approval_id=approval.id,
                         approval_options=approval.options,
@@ -667,7 +652,7 @@ Be efficient. Provide DATA, not explanations."""
                 session.set_context("execution_results", agent_result)
                 yield AgentEvent(
                     type=EventType.MESSAGE,
-                    agent="QA Manager",
+                    agent=self.nickname,
                     content="Execution complete. Passing results to Analyst for analysis...",
                 )
             
@@ -683,13 +668,13 @@ Be efficient. Provide DATA, not explanations."""
         
         yield AgentEvent(
             type=EventType.MESSAGE,
-            agent="QA Manager",
+            agent=self.nickname,
             content=self._generate_summary(session),
         )
         
         yield AgentEvent(
             type=EventType.SESSION_ENDED,
-            agent="QA Manager",
+            agent=self.nickname,
             content="Task completed",
         )
         
@@ -827,7 +812,7 @@ Provide clear classifications and actionable recommendations."""
         if not session.pending_approval:
             yield AgentEvent(
                 type=EventType.ERROR,
-                agent="QA Manager",
+                agent=self.nickname,
                 content="No pending approval",
             )
             return
@@ -837,7 +822,7 @@ Provide clear classifications and actionable recommendations."""
         
         yield AgentEvent(
             type=EventType.APPROVAL_RECEIVED,
-            agent="QA Manager",
+            agent=self.nickname,
             content=f"Approval {'granted' if approved else 'rejected'}",
         )
         
@@ -864,7 +849,7 @@ Provide clear classifications and actionable recommendations."""
         else:
             yield AgentEvent(
                 type=EventType.MESSAGE,
-                agent="QA Manager",
+                agent=self.nickname,
                 content="Action cancelled. What would you like to do instead?",
             )
 

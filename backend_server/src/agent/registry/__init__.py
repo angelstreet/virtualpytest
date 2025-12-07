@@ -19,7 +19,7 @@ from .config_schema import (
     AgentConfig
 )
 from .validator import validate_agent_yaml, export_agent_yaml, AgentValidationError
-from .registry import AgentRegistry, get_agent_registry
+from .registry import AgentRegistry, get_agent_registry, reload_agents
 
 __all__ = [
     'AgentDefinition',
@@ -34,6 +34,7 @@ __all__ = [
     'export_agent_yaml',
     'AgentValidationError',
     'AgentRegistry',
-    'get_agent_registry'
+    'get_agent_registry',
+    'reload_agents'
 ]
 

@@ -1,8 +1,9 @@
-# Agent Configuration: Executor
+# Agent Configuration: Executor (Internal Sub-Agent)
 # Version: 1.0.0
 # Author: system
-# 
-# Test execution specialist that runs testcases and campaigns.
+#
+# Internal sub-agent for test execution and device control.
+# Used by all platform managers (web, mobile, STB).
 #
 ---
 metadata:
@@ -10,61 +11,55 @@ metadata:
   name: Executor
   nickname: Runner
   icon: "⚡"
+  selectable: false
   version: 1.0.0
   author: system
-  description: Executes testcases and campaigns on devices
+  description: Test execution and device automation specialist
   tags:
+    - internal
     - execution
-    - testing
     - automation
 
 goal:
   type: on-demand
   description: |
-    Execute testcases and campaigns on physical devices, capture results,
-    and report execution status.
-
-triggers:
-  - type: task.execute_test
-    priority: normal
-  
-  - type: task.execute_campaign
-    priority: normal
-  
-  - type: alert.blackscreen
-    priority: critical
-    filters:
-      auto_validate: true
-
-event_pools:
-  - own.executor-tasks
-  - shared.alerts
+    Execute test cases and control devices.
+    Run validation flows, capture results, and report status.
 
 subagents: []
 
 skills:
-  # Execution
+  # Host/Device Discovery
+  - get_compatible_hosts
+  - get_device_info
+  - list_hosts
+  
+  # Device Control
+  - take_control
+  - navigate_to_node
+  - get_execution_status
+  
+  # Test Cases
   - list_testcases
   - load_testcase
   - execute_testcase
-  - execute_campaign
-  - get_execution_status
-  
-  # Device
-  - take_control
-  - navigate_to_node
-  - get_device_info
-  - get_compatible_hosts
+  - execute_testcase_by_id
   
   # Navigation
-  - list_userinterfaces
-  - get_userinterface_complete
+  - list_navigation_nodes
   - list_nodes
-  - list_edges
   
-  # Results
-  - record_execution_result
-  - get_execution_results
+  # Device Actions (platform-specific at runtime)
+  - execute_device_action
+  - list_actions
+  
+  # Screen Capture (all platforms)
+  - capture_screenshot
+  - dump_ui_elements
+  
+  # Verifications
+  - list_verifications
+  - verify_node
 
 permissions:
   devices:
@@ -74,12 +69,7 @@ permissions:
   database:
     - read
     - write.execution_results
-    - write.testcase_executions
+    - write.results
 
 config:
-  max_parallel_tasks: 1  # One device at a time
-  approval_required_for: []
-  auto_retry: false  # Don't auto-retry failed tests
-  feedback_collection: true
-  timeout_seconds: 900  # 15 minutes per test
-
+  timeout_seconds: 1800

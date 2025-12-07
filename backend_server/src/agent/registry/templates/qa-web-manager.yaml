@@ -11,9 +11,10 @@ metadata:
   name: QA Web Manager
   nickname: Sherlock
   icon: "🧪"
+  selectable: true
   version: 1.0.0
   author: system
-  description: Quality validation specialist for web-based userinterfaces
+  description: QA for web app
   tags:
     - qa
     - web
@@ -70,7 +71,7 @@ skills:
   - get_coverage_summary
   - get_uncovered_requirements
   
-  # User Interfaces (Web)
+  # User Interfaces
   - list_userinterfaces
   - get_userinterface_complete
   - list_nodes
@@ -81,20 +82,41 @@ skills:
   - list_testcases
   - load_testcase
   
-  # Device Navigation (Web browsers)
+  # Device Control
   - take_control
   - navigate_to_node
   - get_device_info
   - get_compatible_hosts
   
+  # WEB-SPECIFIC: UI Element Discovery (Web CAN use dump)
+  - dump_ui_elements
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
+  - capture_screenshot
+  
+  # WEB-SPECIFIC: AI Exploration
+  - start_ai_exploration
+  - approve_exploration_plan
+  - validate_exploration_edges
+  - get_node_verification_suggestions
+  - approve_node_verifications
+  - finalize_exploration
+  
+  # WEB-SPECIFIC: Tree Building
+  - create_node
+  - create_edge
+  - update_node
+  - update_edge
+  - save_node_screenshot
+  
   # Execution
   - execute_testcase
   - get_execution_status
+  - execute_device_action
   
-  # Verifications (Web-specific)
+  # Verifications
   - list_verifications
-  - verify_element_visible
-  - verify_page_loaded
+  - verify_node
 
 permissions:
   devices:
@@ -112,13 +134,12 @@ permissions:
     - slack
 
 config:
-  max_parallel_tasks: 5  # Can run multiple browser tests in parallel
+  max_parallel_tasks: 5
   approval_required_for:
     - create_jira_ticket
     - delete_testcase
   auto_retry: true
   feedback_collection: true
-  timeout_seconds: 1800  # 30 minutes for web tests
+  timeout_seconds: 1800
   budget_limit_usd: 30.00
   platform_filter: web
-

@@ -1,235 +1,173 @@
 """
 Agent Registry Service
 
-Manages storage, retrieval, and versioning of agent definitions.
-Uses sync Supabase client for database operations.
+System agents are loaded from YAML templates on startup (source of truth).
+Database is only used for user-created custom agents.
 """
 
+import logging
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from agent.registry.config_schema import AgentDefinition
-from agent.registry.validator import validate_agent_dict, AgentValidationError
-from shared.src.lib.database import agent_registry_db
+from agent.registry.validator import validate_agent_yaml, validate_agent_dict, AgentValidationError
+
+logger = logging.getLogger(__name__)
 
 
 class AgentRegistry:
     """
     Agent Registry Service
     
-    Provides CRUD operations for agent definitions with versioning support.
-    Uses sync database operations via shared DB layer.
+    System agents: Loaded from YAML templates on startup, cached in memory.
+    Custom agents: Stored in database (future feature).
+    
+    NOTE: Agents are global system resources, NOT team-scoped.
     """
     
+    # Class-level cache for system agents (loaded from YAML)
+    _system_agents: Dict[str, AgentDefinition] = {}
+    _loaded: bool = False
+    
     def __init__(self):
-        pass  # No async DB connection needed
+        # Auto-load YAML templates on first instantiation
+        if not AgentRegistry._loaded:
+            self.load_system_agents()
     
-    def register(
-        self, 
-        agent: AgentDefinition,
-        team_id: str = 'default',
-        created_by: Optional[str] = None
-    ) -> str:
+    @classmethod
+    def load_system_agents(cls) -> None:
         """
-        Register new agent or new version
+        Load all system agents from YAML templates into memory.
+        Called once on server startup.
+        """
+        templates_dir = Path(__file__).parent / 'templates'
         
-        Args:
-            agent: AgentDefinition to register
-            team_id: Team namespace
-            created_by: User ID who created this agent
-            
+        if not templates_dir.exists():
+            logger.warning(f"[@registry] Templates directory not found: {templates_dir}")
+            cls._loaded = True
+            return
+        
+        yaml_files = list(templates_dir.glob('*.yaml'))
+        logger.info(f"[@registry] Loading {len(yaml_files)} agent templates from {templates_dir}")
+        
+        loaded = 0
+        for yaml_file in sorted(yaml_files):
+            try:
+                with open(yaml_file, 'r') as f:
+                    yaml_content = f.read()
+                
+                agent = validate_agent_yaml(yaml_content)
+                cls._system_agents[agent.metadata.id] = agent
+                
+                logger.info(f"[@registry] ✅ Loaded: {agent.metadata.nickname} ({agent.metadata.id})")
+                loaded += 1
+                
+            except AgentValidationError as e:
+                logger.error(f"[@registry] ❌ Validation failed for {yaml_file.name}: {e}")
+            except Exception as e:
+                logger.error(f"[@registry] ❌ Failed to load {yaml_file.name}: {e}")
+        
+        cls._loaded = True
+        logger.info(f"[@registry] Loaded {loaded}/{len(yaml_files)} system agents")
+    
+    @classmethod
+    def reload(cls) -> None:
+        """Reload all system agents from YAML (for development)"""
+        cls._system_agents.clear()
+        cls._loaded = False
+        cls.load_system_agents()
+    
+    def list_agents(self) -> List[AgentDefinition]:
+        """
+        List all system agents.
+        
+        NOTE: No team_id - agents are global system resources.
+        
         Returns:
-            UUID of registered agent
-            
-        Raises:
-            AgentValidationError: If agent configuration is invalid
+            List of AgentDefinition objects
         """
-        # Register agent
-        agent_id = agent_registry_db.register_agent(
-            agent_id=agent.metadata.id,
-            name=agent.metadata.name,
-            version=agent.metadata.version,
-            author=agent.metadata.author,
-            description=agent.metadata.description,
-            goal_type=agent.goal.type.value,
-            goal_description=agent.goal.description,
-            definition=agent.to_dict(),
-            team_id=team_id,
-            created_by=created_by,
-            tags=agent.metadata.tags
-        )
-        
-        if not agent_id:
-            raise Exception(f"Failed to register agent {agent.metadata.id}")
-        
-        # Register event triggers
-        if agent.triggers:
-            triggers = [
-                {
-                    'type': t.type,
-                    'priority': t.priority,
-                    'filters': t.filters
-                }
-                for t in agent.triggers
-            ]
-            agent_registry_db.register_triggers(agent.metadata.id, triggers, team_id)
-        
-        print(f"[@registry] ✅ Registered: {agent.metadata.id} v{agent.metadata.version}")
-        return str(agent_id)
+        return list(self._system_agents.values())
     
-    def get(
-        self, 
-        agent_id: str, 
-        version: Optional[str] = None,
-        team_id: str = 'default'
-    ) -> Optional[AgentDefinition]:
+    def get(self, agent_id: str) -> Optional[AgentDefinition]:
         """
-        Get agent by ID and version
+        Get agent by ID.
         
         Args:
-            agent_id: Agent identifier
-            version: Version (if None, returns latest published version)
-            team_id: Team namespace
+            agent_id: Agent identifier (e.g., 'qa-web-manager')
             
         Returns:
             AgentDefinition or None if not found
         """
-        definition = agent_registry_db.get_agent(agent_id, version, team_id)
-        
-        if definition:
-            return AgentDefinition.from_dict(definition)
-        return None
+        return self._system_agents.get(agent_id)
     
-    def list_agents(
-        self, 
-        team_id: str = 'default',
-        status: Optional[str] = None
-    ) -> List[AgentDefinition]:
+    def get_selectable_agents(self) -> List[AgentDefinition]:
         """
-        List all agents (latest versions)
+        Get only agents that can be selected by users in the UI.
         
-        Args:
-            team_id: Team namespace
-            status: Filter by status (draft, published, deprecated)
-            
         Returns:
-            List of AgentDefinition objects
+            List of AgentDefinition objects where selectable=True
         """
-        definitions = agent_registry_db.list_agents(team_id, status)
-        return [AgentDefinition.from_dict(d) for d in definitions]
+        return [
+            agent for agent in self._system_agents.values()
+            if agent.metadata.selectable
+        ]
     
-    def list_versions(
-        self, 
-        agent_id: str,
-        team_id: str = 'default'
-    ) -> List[Dict[str, Any]]:
+    def get_internal_agents(self) -> List[AgentDefinition]:
         """
-        List all versions of an agent
+        Get only internal sub-agents (not user-selectable).
         
-        Args:
-            agent_id: Agent identifier
-            team_id: Team namespace
-            
         Returns:
-            List of version info dictionaries
+            List of AgentDefinition objects where selectable=False
         """
-        return agent_registry_db.list_agent_versions(agent_id, team_id)
+        return [
+            agent for agent in self._system_agents.values()
+            if not agent.metadata.selectable
+        ]
     
-    def get_agents_for_event(
-        self, 
-        event_type: str,
-        team_id: str = 'default'
-    ) -> List[AgentDefinition]:
+    def get_agents_by_platform(self, platform: str) -> List[AgentDefinition]:
         """
-        Get all agents that should handle a specific event type
+        Get agents filtered by platform.
         
         Args:
-            event_type: Event type (e.g., 'alert.blackscreen')
-            team_id: Team namespace
-            
-        Returns:
-            List of AgentDefinition objects
-        """
-        definitions = agent_registry_db.get_agents_for_event(event_type, team_id)
-        return [AgentDefinition.from_dict(d) for d in definitions]
-    
-    def publish(
-        self, 
-        agent_id: str, 
-        version: str,
-        team_id: str = 'default'
-    ) -> bool:
-        """
-        Publish an agent version (make it active)
-        
-        Args:
-            agent_id: Agent identifier
-            version: Version to publish
-            team_id: Team namespace
-            
-        Returns:
-            True if published, False if not found
-        """
-        return agent_registry_db.publish_agent(agent_id, version, team_id)
-    
-    def deprecate(
-        self, 
-        agent_id: str, 
-        version: str,
-        team_id: str = 'default'
-    ) -> bool:
-        """
-        Deprecate an agent version
-        
-        Args:
-            agent_id: Agent identifier
-            version: Version to deprecate
-            team_id: Team namespace
-            
-        Returns:
-            True if deprecated, False if not found
-        """
-        return agent_registry_db.deprecate_agent(agent_id, version, team_id)
-    
-    def delete(
-        self, 
-        agent_id: str, 
-        version: str,
-        team_id: str = 'default'
-    ) -> bool:
-        """
-        Delete an agent version
-        
-        Args:
-            agent_id: Agent identifier
-            version: Version to delete
-            team_id: Team namespace
-            
-        Returns:
-            True if deleted, False if not found
-        """
-        return agent_registry_db.delete_agent(agent_id, version, team_id)
-    
-    def search(
-        self,
-        query: str,
-        team_id: str = 'default'
-    ) -> List[AgentDefinition]:
-        """
-        Search agents by name, description, or tags
-        
-        Args:
-            query: Search query string
-            team_id: Team namespace
+            platform: 'web', 'mobile', 'stb', or 'all'
             
         Returns:
             List of matching AgentDefinition objects
         """
-        definitions = agent_registry_db.search_agents(query, team_id)
-        return [AgentDefinition.from_dict(d) for d in definitions]
+        result = []
+        for agent in self._system_agents.values():
+            agent_platform = agent.config.get('platform_filter') if agent.config else None
+            if agent_platform is None or agent_platform == platform or platform == 'all':
+                result.append(agent)
+        return result
+    
+    def get_agents_for_event(self, event_type: str) -> List[AgentDefinition]:
+        """
+        Get all agents that should handle a specific event type.
+        
+        Args:
+            event_type: Event type (e.g., 'alert.blackscreen')
+            
+        Returns:
+            List of AgentDefinition objects with matching triggers
+        """
+        result = []
+        for agent in self._system_agents.values():
+            if agent.triggers:
+                for trigger in agent.triggers:
+                    if trigger.type == event_type:
+                        result.append(agent)
+                        break
+        return result
+    
+    def exists(self, agent_id: str) -> bool:
+        """Check if an agent exists"""
+        return agent_id in self._system_agents
 
 
 # Global instance
 _agent_registry: Optional[AgentRegistry] = None
+
 
 def get_agent_registry() -> AgentRegistry:
     """Get or create global agent registry instance"""
@@ -237,3 +175,8 @@ def get_agent_registry() -> AgentRegistry:
     if _agent_registry is None:
         _agent_registry = AgentRegistry()
     return _agent_registry
+
+
+def reload_agents() -> None:
+    """Reload all agents from YAML (for development/hot-reload)"""
+    AgentRegistry.reload()

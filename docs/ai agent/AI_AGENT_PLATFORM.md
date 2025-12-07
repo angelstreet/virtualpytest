@@ -63,20 +63,66 @@ Event Sources → Event Bus → Agent Runtime → Parallel Agents → Actions �
 
 ### Pre-configured Agents
 
+**User-Selectable Agents** (shown in UI dropdown):
+
 | Agent | Nickname | Icon | Platform | Purpose |
 |-------|----------|------|----------|---------|
-| `ai-assistant` | Atlas | 🤖 | All | General purpose, routes to specialists |
+| `ai-assistant` | Atlas | 🤖 | All | Main entrance, general purpose |
 | `qa-web-manager` | Sherlock | 🧪 | Web | Browser testing specialist |
 | `qa-mobile-manager` | Scout | 🔍 | Mobile | Android/iOS testing |
 | `qa-stb-manager` | Watcher | 📺 | STB/TV | Set-top box validation |
 | `monitoring-manager` | Guardian | 🛡️ | All | System health monitoring |
-| `qa-manager` | Captain | 🎖️ | All | Coordinator with sub-agents |
-| `explorer` | Pathfinder | 🧭 | All | UI discovery specialist |
-| `executor` | Runner | ⚡ | All | Test execution specialist |
+
+**Internal Sub-Agents** (not user-selectable):
+
+| Agent | Nickname | Icon | Role |
+|-------|----------|------|------|
+| `qa-manager` | Captain | 🎖️ | Internal orchestrator |
+| `explorer` | Pathfinder | 🧭 | UI discovery specialist |
+| `executor` | Runner | ⚡ | Test execution specialist |
 
 ---
 
 ## 2. Architecture
+
+### Agent Selection Philosophy
+
+**Atlas is the main entrance.** All other selectable agents are specialists:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              USER SELECTS IN DROPDOWN                            │
+├─────────────────────────────────────────────────────────────────┤
+│  Atlas       → General purpose, routes to specialists            │
+│  Sherlock    → Shortcut for web testing                         │
+│  Scout       → Shortcut for mobile testing                      │
+│  Watcher     → Shortcut for STB testing                         │
+│  Guardian    → Shortcut for monitoring                          │
+│  + Custom agents imported via YAML                              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                    ALL delegate to
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              INTERNAL SUB-AGENTS (Hidden)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Captain (qa-manager)    → Orchestrator                         │
+│  Pathfinder (explorer)   → UI discovery                         │
+│  Runner (executor)       → Test execution                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- No distinction between "selectable" and "internal" in architecture
+- All 8 agents defined in YAML templates (`selectable: true/false`)
+- Frontend filters by `selectable: true` for dropdown
+- Backend uses agent's nickname for all events
+- Users can add custom agents via YAML import
+
+---
+
+## 2b. Core Components
 
 ### Core Components
 
@@ -201,8 +247,9 @@ TV1:     [Task D] → ...
 metadata:
   id: qa-web-manager
   name: QA Web Manager
-  nickname: Sherlock        # Fun name for badges
+  nickname: Sherlock        # Display name (shown in UI)
   icon: "🧪"                # Emoji icon
+  selectable: true          # true = shown in dropdown, false = internal sub-agent
   version: 1.0.0
   author: system
   description: Web testing specialist
@@ -264,6 +311,66 @@ config:
 | **testcase** | `list_testcases`, `execute_testcase` |
 | **verification** | `list_verifications`, `verify_element` |
 | **userinterface** | `list_userinterfaces`, `get_userinterface_complete` |
+
+### Platform-Specific Skills
+
+| Platform | UI Inspection | Why |
+|----------|---------------|-----|
+| **Web** | `dump_ui_elements` ✅ | DOM hierarchy available |
+| **Mobile** | `dump_ui_elements` ✅ | ADB UI hierarchy available |
+| **STB/TV** | `capture_screenshot` only ❌ | No UI hierarchy access, use AI vision |
+
+**STB/TV agents MUST use:**
+- `capture_screenshot` → AI vision analysis
+- `get_transcript` → Audio analysis
+- **NOT** `dump_ui_elements` (will fail)
+
+### Single Source of Truth
+
+Agent configuration flows: **YAML → Memory → API → Frontend**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. YAML Templates (backend_server/src/agent/registry/templates) │
+│    Defines: id, name, nickname, icon, selectable, skills        │
+│    SOURCE OF TRUTH for system agents                            │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │ loaded on startup
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. Memory Cache (AgentRegistry._system_agents)                  │
+│    - All agents loaded into memory                              │
+│    - No database for system agents                              │
+│    - Agents are global (no team_id)                             │
+│    - Reload via POST /server/agents/reload                      │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │ exposed via
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. REST API (GET /server/agents)                                │
+│    Returns all agents with full metadata                        │
+│    No team_id parameter - agents are system-wide                │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │ consumed by
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. Frontend (AgentChat.tsx, AgentDashboard.tsx)                 │
+│    • Loads agents from API on mount                             │
+│    • Filters by selectable: true for dropdown                   │
+│    • Uses nickname everywhere (chat, dashboard, badges)         │
+│    • Includes internal agents in nickname lookup                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Backend uses nickname in all events:**
+```python
+# manager.py
+@property
+def nickname(self) -> str:
+    return self.agent_config.get('nickname', 'Atlas')
+
+yield AgentEvent(type=EventType.THINKING, agent=self.nickname, ...)
+```
 
 ---
 
@@ -517,25 +624,23 @@ GET/DELETE /server/agent/sessions/<id>
 ### Agent Registry
 
 ```bash
-# List agents
-GET /server/agents?team_id=<team_id>
+# List all agents (loaded from YAML templates)
+GET /server/agents
 
-# Get agent
-GET /server/agents/<agent_id>?team_id=<team_id>
+# List only selectable agents
+GET /server/agents?selectable=true
+GET /server/agents/selectable
 
-# Get agent status (includes enabled state and running instances)
-GET /server/agents/<agent_id>/status?team_id=<team_id>
-
-# Enable/disable agent auto-start
-PUT /server/agents/<agent_id>/enabled
-Body: {"enabled": true}
-
-# Import from YAML
-POST /server/agents/import
-Content-Type: text/yaml
+# Get agent by ID
+GET /server/agents/<agent_id>
 
 # Export to YAML
 GET /server/agents/<agent_id>/export
+
+# Reload agents from YAML (development)
+POST /server/agents/reload
+
+# Note: No team_id - agents are global system resources
 ```
 
 ### Agent Runtime
@@ -654,11 +759,13 @@ Global state provider wrapping the application:
 
 ### Agent Chat Features
 
-- **Agent selector** dropdown with nicknames
+- **Agent selector** dropdown (loads agents from API, filters by `selectable: true`)
+- **Nicknames everywhere** (Atlas, Sherlock, Scout, Watcher, Guardian)
 - **Conversation history** sidebar
 - **Real-time streaming** of agent responses
 - **Tool call visualization** (collapsible)
 - **Approval requests** when needed
+- **Agent delegation visible** (e.g., "Atlas delegates to Pathfinder...")
 
 ---
 
@@ -763,14 +870,15 @@ backend_server/src/
 │   │   ├── config_schema.py       # Pydantic models
 │   │   ├── registry.py            # CRUD operations
 │   │   ├── validator.py           # YAML validation
-│   │   └── templates/             # Agent YAMLs
-│   │       ├── qa-web-manager.yaml
-│   │       ├── qa-mobile-manager.yaml
-│   │       ├── qa-stb-manager.yaml
-│   │       ├── monitoring-manager.yaml
-│   │       ├── qa-manager.yaml
-│   │       ├── explorer.yaml
-│   │       └── executor.yaml
+│   │   └── templates/             # Agent YAMLs (Source of Truth)
+│   │       ├── ai-assistant.yaml          # Atlas (main entrance)
+│   │       ├── qa-web-manager.yaml        # Sherlock
+│   │       ├── qa-mobile-manager.yaml     # Scout
+│   │       ├── qa-stb-manager.yaml        # Watcher
+│   │       ├── monitoring-manager.yaml    # Guardian
+│   │       ├── qa-manager.yaml            # Captain (internal)
+│   │       ├── explorer.yaml              # Pathfinder (internal)
+│   │       └── executor.yaml              # Runner (internal)
 │   ├── runtime/
 │   │   ├── runtime.py
 │   │   └── state.py

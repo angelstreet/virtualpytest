@@ -33,6 +33,7 @@ interface AgentDefinition {
   triggers: string[];
   lastRun?: string;
   instanceId?: string;
+  selectable?: boolean;  // If false, agent is internal (sub-agent)
 }
 
 interface AgentLog {
@@ -148,7 +149,24 @@ export const AgentDashboard: React.FC = () => {
         return;
       }
       const data = await response.json();
-      setAgents(data.agents?.length ? data.agents : getDefaultAgents());
+      if (data.agents?.length) {
+        // Map API response (with nested metadata) to flat AgentDefinition
+        const mapped = data.agents.map((a: any) => ({
+          id: a.metadata?.id || a.id,
+          name: a.metadata?.name || a.name,
+          nickname: a.metadata?.nickname,
+          icon: a.metadata?.icon,
+          version: a.metadata?.version || a.version || '1.0.0',
+          description: a.metadata?.description || a.description || '',
+          status: a.status || 'active',
+          type: a.goal?.type || 'on-demand',
+          triggers: a.triggers?.map((t: any) => t.type) || [],
+          selectable: a.metadata?.selectable !== false,
+        }));
+        setAgents(mapped);
+      } else {
+        setAgents(getDefaultAgents());
+      }
       setError(null);
     } catch (err) {
       setAgents(getDefaultAgents());

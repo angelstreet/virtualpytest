@@ -17,8 +17,7 @@ Focused documentation on agent workflow, skills, sub-agents, and registry.
 │   {                                                                          │
 │     session_id: "...",                                                       │
 │     message: "Run login test on Chrome",                                     │
-│     agent_id: "qa-web-manager",  ← Selected agent                           │
-│     team_id: "team_1"                                                        │
+│     agent_id: "qa-web-manager"  ← Selected agent                            │
 │   }                                                                          │
 └─────────────────────────────────────────────────────────────────────────────┘
                                      │
@@ -28,7 +27,7 @@ Focused documentation on agent workflow, skills, sub-agents, and registry.
 │                                                                              │
 │   server_agent_routes.py:                                                    │
 │   ├── Extract agent_id from request                                         │
-│   ├── Load agent config (AGENT_CONFIGS[agent_id])                           │
+│   ├── Load agent config from YAML cache (memory)                            │
 │   ├── Create QAManagerAgent with agent_id                                   │
 │   └── Process message with agent-specific system prompt                      │
 │                                                                              │
@@ -43,13 +42,22 @@ Focused documentation on agent workflow, skills, sub-agents, and registry.
 
 ## 2. Available Agents
 
+### User-Selectable Agents (shown in UI dropdown)
+
 | Agent ID | Nickname | Icon | Platform | Specialty |
 |----------|----------|------|----------|-----------|
-| `ai-assistant` | **Atlas** | 🤖 | All | General purpose, routes to specialists |
+| `ai-assistant` | **Atlas** | 🤖 | All | General purpose, main entrance |
 | `qa-web-manager` | **Sherlock** | 🧪 | Web | Browser testing, DOM, web performance |
 | `qa-mobile-manager` | **Scout** | 🔍 | Mobile | Android/iOS, Appium, touch gestures |
 | `qa-stb-manager` | **Watcher** | 📺 | STB/TV | Remote control, EPG, D-pad navigation |
 | `monitoring-manager` | **Guardian** | 🛡️ | All | Alerts, health checks, incidents |
+
+### Internal Agents (sub-agents, not user-selectable)
+
+| Agent ID | Nickname | Icon | Role |
+|----------|----------|------|------|
+| `explorer` | **Pathfinder** | 🧭 | UI discovery specialist |
+| `executor` | **Runner** | ⚡ | Test execution specialist |
 
 ---
 
@@ -98,97 +106,39 @@ Each manager agent can delegate to specialized sub-agents:
 
 ---
 
-## 4. Skills (MCP Tools)
+## 4. Platform-Specific Skills
 
-Each agent/sub-agent has access to specific MCP tools.
+Each agent has skills tailored to its platform:
 
-### Explorer Skills (`skills/explorer_skills.py`)
+### Web Agent Skills (Sherlock)
 
 ```python
-EXPLORER_TOOLS = [
-    # Host/Device discovery
-    "get_compatible_hosts",
-    "get_device_info",
-    
-    # Screen analysis
-    "dump_ui_elements",
-    "analyze_screen_for_action",
-    "analyze_screen_for_verification",
-    "capture_screenshot",
-    
-    # AI Exploration (automated tree building)
-    "start_ai_exploration",
-    "approve_exploration_plan",
-    "validate_exploration_edges",
-    "get_node_verification_suggestions",
-    "finalize_exploration",
-    
-    # Navigation
-    "preview_userinterface",
-    "list_navigation_nodes",
-    "create_userinterface",
-    "list_userinterfaces",
-]
+# Web CAN use UI dump (DOM hierarchy)
+- dump_ui_elements           # ✅ Works on web
+- analyze_screen_for_action  # ✅ Selector scoring
+- analyze_screen_for_verification
+- capture_screenshot         # ✅ Always available
 ```
 
-### Builder Skills (`skills/builder_skills.py`)
+### Mobile Agent Skills (Scout)
 
 ```python
-BUILDER_TOOLS = [
-    # Requirements
-    "create_requirement",
-    "list_requirements",
-    "get_requirement",
-    "update_requirement",
-    
-    # Test cases
-    "save_testcase",
-    "generate_and_save_testcase",
-    "list_testcases",
-    "load_testcase",
-    
-    # Coverage
-    "get_coverage_summary",
-    "get_uncovered_requirements",
-]
+# Mobile CAN use UI dump (ADB hierarchy)
+- dump_ui_elements           # ✅ Works via ADB
+- analyze_screen_for_action  # ✅ Selector scoring
+- analyze_screen_for_verification
+- capture_screenshot         # ✅ Always available
+- execute_device_action      # swipe, tap, gestures
 ```
 
-### Executor Skills (`skills/executor_skills.py`)
+### STB/TV Agent Skills (Watcher)
 
 ```python
-EXECUTOR_TOOLS = [
-    # Device control
-    "take_control",
-    "get_device_info",
-    "get_execution_status",
-    
-    # Test execution
-    "execute_testcase",
-    "execute_testcase_by_id",
-    
-    # Navigation
-    "navigate_to_node",
-    "list_navigation_nodes",
-]
-```
-
-### Manager Skills (All agents have access)
-
-```python
-MANAGER_TOOLS = [
-    # Data queries
-    "list_testcases",
-    "list_userinterfaces",
-    "list_requirements",
-    "get_coverage_summary",
-    
-    # UI Navigation (browser control)
-    "get_available_pages",
-    "navigate_to_page",
-    "interact_with_element",
-    "highlight_element",
-    "show_toast",
-]
+# STB CANNOT use UI dump - use AI vision instead
+- capture_screenshot         # ✅ Required for STB
+- get_transcript            # ✅ Audio analysis
+- execute_device_action      # D-pad, remote keys
+# ❌ dump_ui_elements NOT available on STB!
 ```
 
 ---
@@ -204,45 +154,57 @@ The QA Manager detects the user's intent and routes to appropriate sub-agents:
 | **ANALYZE** | "analyze", "investigate", "why did" | Analyst | Deep analysis |
 | **MAINTAIN** | "fix", "repair", "broken", "selector" | Maintainer | Self-healing |
 
-### Mode Detection Logic
-
-```python
-def detect_mode(self, message: str) -> str:
-    message_lower = message.lower()
-    
-    # CREATE mode
-    if any(kw in message_lower for kw in ["automate", "create", "build", "explore"]):
-        return Mode.CREATE
-    
-    # MAINTAIN mode
-    if any(kw in message_lower for kw in ["fix", "repair", "broken"]):
-        return Mode.MAINTAIN
-    
-    # VALIDATE mode
-    if any(kw in message_lower for kw in ["run", "test", "validate", "execute"]):
-        return Mode.VALIDATE
-    
-    # Default: ANALYZE (direct answer)
-    return Mode.ANALYZE
-```
-
 ---
 
 ## 6. Agent Registry
 
-Agent configurations are stored in YAML files and the database.
+System agents are loaded from YAML templates on startup.
+
+### Architecture: YAML → Memory (No Database)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. YAML Templates (Source of Truth)                             │
+│    backend_server/src/agent/registry/templates/*.yaml           │
+│    - Defines: id, name, nickname, icon, selectable, skills      │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │ loaded on startup
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. Memory Cache (AgentRegistry._system_agents)                  │
+│    - All agents loaded into memory                              │
+│    - No database for system agents                              │
+│    - Reloadable via /server/agents/reload                       │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │ exposed via
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. REST API                                                      │
+│    GET /server/agents → Returns all agents                      │
+│    No team_id - agents are global system resources              │
+└────────────────────────┬─────────────────────────────────────────┘
+                         │ consumed by
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. Frontend                                                      │
+│    - AgentChat.tsx loads agents from API                        │
+│    - Filters by selectable: true for dropdown                   │
+│    - Uses nickname for display everywhere                       │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ### YAML Templates Location
 
 ```
 backend_server/src/agent/registry/templates/
-├── qa-web-manager.yaml      # Sherlock
-├── qa-mobile-manager.yaml   # Scout
-├── qa-stb-manager.yaml      # Watcher
-├── monitoring-manager.yaml  # Guardian
-├── qa-manager.yaml          # Captain (orchestrator)
-├── explorer.yaml            # Pathfinder
-└── executor.yaml            # Runner
+├── ai-assistant.yaml        # Atlas (main entrance, selectable: true)
+├── qa-web-manager.yaml      # Sherlock (selectable: true)
+├── qa-mobile-manager.yaml   # Scout (selectable: true)
+├── qa-stb-manager.yaml      # Watcher (selectable: true)
+├── monitoring-manager.yaml  # Guardian (selectable: true)
+├── qa-manager.yaml          # Captain (selectable: false, internal)
+├── explorer.yaml            # Pathfinder (selectable: false, internal)
+└── executor.yaml            # Runner (selectable: false, internal)
 ```
 
 ### YAML Configuration Structure
@@ -254,6 +216,7 @@ metadata:
   name: QA Web Manager
   nickname: Sherlock
   icon: "🧪"
+  selectable: true          # Shown in UI dropdown (false = internal sub-agent)
   version: 1.0.0
   description: Web testing specialist
 
@@ -266,29 +229,18 @@ triggers:
     priority: critical
     filters:
       platform: web
-  - type: build.deployed
-    priority: high
 
 subagents:
   - id: explorer
     delegate_for: [ui_discovery, web_navigation_mapping]
-  - id: executor
-    delegate_for: [web_test_execution, browser_automation]
 
 skills:
-  - list_testcases
-  - execute_testcase
-  - take_control
-  - verify_element_visible
-  - navigate_to_node
-
-permissions:
-  devices: [read, take_control]
-  database: [read, write.testcases, write.results]
+  # WEB-SPECIFIC: UI dump works
+  - dump_ui_elements
+  - analyze_screen_for_action
+  - capture_screenshot
 
 config:
-  max_parallel_tasks: 5
-  timeout_seconds: 1800
   platform_filter: web
 ```
 
@@ -296,14 +248,17 @@ config:
 
 ```bash
 # List all agents
-GET /server/agents?team_id=<team_id>
+GET /server/agents
 
-# Get agent details
-GET /server/agents/<agent_id>?team_id=<team_id>
+# List selectable agents only
+GET /server/agents?selectable=true
+GET /server/agents/selectable
 
-# Import from YAML
-POST /server/agents/import
-Content-Type: text/yaml
+# Get agent by ID
+GET /server/agents/<agent_id>
+
+# Reload from YAML (development)
+POST /server/agents/reload
 
 # Export to YAML
 GET /server/agents/<agent_id>/export
@@ -311,73 +266,7 @@ GET /server/agents/<agent_id>/export
 
 ---
 
-## 7. Agent Configuration (Runtime)
-
-Agents are configured in `manager.py`:
-
-```python
-AGENT_CONFIGS = {
-    'ai-assistant': {
-        'name': 'Atlas',
-        'nickname': 'Atlas',
-        'specialty': 'General purpose AI assistant',
-        'platform': 'all',
-        'focus_areas': ['navigation', 'data queries', 'general assistance'],
-    },
-    'qa-web-manager': {
-        'name': 'Sherlock',
-        'nickname': 'Sherlock',
-        'specialty': 'Web testing specialist - browser automation, DOM analysis',
-        'platform': 'web',
-        'focus_areas': ['web automation', 'browser testing', 'responsive design'],
-        'preferred_subagents': ['explorer', 'executor'],
-    },
-    'qa-mobile-manager': {
-        'name': 'Scout',
-        'nickname': 'Scout',
-        'specialty': 'Mobile testing specialist - Android/iOS, Appium',
-        'platform': 'mobile',
-        'focus_areas': ['mobile automation', 'touch gestures', 'app testing'],
-        'preferred_subagents': ['explorer', 'executor'],
-    },
-    # ... more agents
-}
-```
-
----
-
-## 8. End-to-End Example
-
-### User: "Run smoke test on Pixel 5" (Selected: Scout)
-
-```
-1. Frontend sends:
-   { agent_id: "qa-mobile-manager", message: "Run smoke test on Pixel 5" }
-
-2. Backend creates QAManagerAgent with agent_id="qa-mobile-manager"
-
-3. System prompt includes:
-   "You are Scout, Mobile testing specialist - Android/iOS, Appium..."
-
-4. Mode detection: "run" + "test" → VALIDATE mode
-
-5. Manager delegates to Executor:
-   - Executor.run("Run smoke test on Pixel 5")
-   - Executor uses: take_control, execute_testcase, get_execution_status
-
-6. Executor returns results
-
-7. Manager delegates to Analyst:
-   - Analyst analyzes results
-   - Returns summary
-
-8. Response to user:
-   "✅ Smoke test passed! 15/15 steps completed on Pixel 5."
-```
-
----
-
-## 9. File Structure
+## 7. File Structure
 
 ```
 backend_server/src/agent/
@@ -394,11 +283,11 @@ backend_server/src/agent/
 │   ├── tool_bridge.py          # MCP ↔ Agent bridge
 │   └── message_types.py        # Event types
 ├── registry/
-│   ├── templates/              # YAML agent configs
+│   ├── templates/              # YAML agent configs (Source of Truth)
+│   │   ├── ai-assistant.yaml
 │   │   ├── qa-web-manager.yaml
-│   │   ├── qa-mobile-manager.yaml
 │   │   └── ...
-│   ├── registry.py             # CRUD operations
+│   ├── registry.py             # YAML loading + memory cache
 │   └── config_schema.py        # Pydantic models
 ├── skills/
 │   ├── explorer_skills.py      # Explorer's MCP tools
@@ -411,6 +300,5 @@ backend_server/src/agent/
 
 ---
 
-*Document Version: 1.0*  
+*Document Version: 2.0*  
 *Last Updated: December 2024*
-

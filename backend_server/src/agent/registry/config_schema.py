@@ -120,6 +120,14 @@ class AgentMetadata(BaseModel):
         default=None,
         description="Short display name (e.g., 'Sherlock', 'Atlas'). Falls back to name if not set."
     )
+    icon: Optional[str] = Field(
+        default=None,
+        description="Emoji icon for UI display (e.g., '🧪', '🔍')"
+    )
+    selectable: bool = Field(
+        default=True,
+        description="If true, agent appears in UI dropdown. If false, agent is internal (sub-agent)."
+    )
     version: str = Field(
         ...,
         pattern=r"^\d+\.\d+\.\d+(-[a-z0-9]+)?$",

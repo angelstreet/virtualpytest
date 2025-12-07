@@ -87,23 +87,20 @@ const PALETTE = {
 const SIDEBAR_WIDTH = 240;
 const RIGHT_PANEL_WIDTH = 320;
 
-const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
-  'QA Manager': { color: '#607d8b', label: 'Orchestrator' },
-  'Explorer': { color: '#81c784', label: 'Explorer' },
-  'Builder': { color: '#ffb74d', label: 'Builder' },
-  'Executor': { color: '#e57373', label: 'Executor' },
-  'Analyst': { color: '#ba68c8', label: 'Analyst' },
-  'Maintainer': { color: '#4fc3f7', label: 'Maintainer' },
+// Agent color palette (used for UI display of agent badges/avatars)
+const AGENT_COLORS: Record<string, string> = {
+  'ai-assistant': PALETTE.accent,
+  'qa-web-manager': '#4fc3f7',
+  'qa-mobile-manager': '#81c784', 
+  'qa-stb-manager': '#ba68c8',
+  'monitoring-manager': '#ffb74d',
+  'qa-manager': '#607d8b',
+  'explorer': '#81c784',
+  'builder': '#ffb74d',
+  'executor': '#e57373',
+  'analyst': '#ba68c8',
+  'maintainer': '#4fc3f7',
 };
-
-// Default agents (fallback when API unavailable)
-const DEFAULT_AGENTS = [
-  { id: 'ai-assistant', name: 'AI Assistant', nickname: 'Atlas', description: 'AI Assistant', color: PALETTE.accent, tips: ['Go to dashboard', 'Show me test reports', 'What can you do?', 'How many devices?'] },
-  { id: 'qa-web-manager', name: 'QA Web Manager', nickname: 'Sherlock', description: 'Web testing', color: '#4fc3f7', tips: ['Run web regression tests', 'Automate login flow', 'Check broken links', 'Test form validation'] },
-  { id: 'qa-mobile-manager', name: 'QA Mobile Manager', nickname: 'Scout', description: 'Mobile testing', color: '#81c784', tips: ['Run smoke test on Pixel 5', 'Test app on iOS', 'Check device status', 'Screenshot all screens'] },
-  { id: 'qa-stb-manager', name: 'QA STB Manager', nickname: 'Watcher', description: 'STB testing', color: '#ba68c8', tips: ['Run STB zapping test', 'Check EPG loading', 'Test channel switch', 'Verify audio sync'] },
-  { id: 'monitoring-manager', name: 'Monitoring Manager', nickname: 'Guardian', description: 'Monitoring', color: '#ffb74d', tips: ['Show active alerts', 'Check system health', 'Run incident analysis', 'View performance metrics'] },
-];
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
 
@@ -177,43 +174,96 @@ const AgentChat: React.FC = () => {
   // Selected agent - default to AI Assistant (generic)
   const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
   
-  // Available agents (loaded from API, fallback to defaults)
-  const [availableAgents, setAvailableAgents] = useState(DEFAULT_AGENTS);
+  // Available agents for dropdown (selectable only) + all agents for nickname lookup
+  const [availableAgents, setAvailableAgents] = useState<any[]>([]);
+  const [allAgentsMap, setAllAgentsMap] = useState<Record<string, { nickname: string; icon?: string; color?: string }>>({});
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
   
-  // Load agents from API
+  // Load agents from API (ONLY source of truth)
   useEffect(() => {
     const loadAgents = async () => {
       try {
-        const response = await fetch(buildServerUrl('/server/agents'));
-        if (response.ok) {
-          const data = await response.json();
-          if (data.agents?.length) {
-            // Map API response to our format, preserving colors and tips from defaults
-            const agents = data.agents.map((a: any) => {
-              const defaultAgent = DEFAULT_AGENTS.find(d => d.id === a.id);
-              return {
-                id: a.id,
-                name: a.name,
-                nickname: a.nickname || defaultAgent?.nickname || a.name,
-                description: a.description || defaultAgent?.description || '',
-                color: defaultAgent?.color || PALETTE.accent,
-                tips: defaultAgent?.tips || [],
-              };
-            });
-            setAvailableAgents(agents.length ? agents : DEFAULT_AGENTS);
-          }
+        setAgentsLoading(true);
+        setAgentsError(null);
+        const response = await fetch(buildServerUrl('/server/agents/'));
+        
+        if (!response.ok) {
+          throw new Error('Failed to load agents from backend');
         }
+        
+        const data = await response.json();
+        
+        if (!data.agents?.length) {
+          throw new Error('No agents configured in backend');
+        }
+        
+        // Build lookup map for ALL agents (including sub-agents)
+        const agentMap: Record<string, { nickname: string; icon?: string; color?: string }> = {};
+        data.agents.forEach((a: any) => {
+          const id = a.metadata?.id || a.id;
+          const nickname = a.metadata?.nickname || a.nickname || a.name || id;
+          const icon = a.metadata?.icon || a.icon;
+          const color = AGENT_COLORS[id] || PALETTE.accent;
+          
+          // Index by all possible keys
+          agentMap[id] = { nickname, icon, color };
+          agentMap[a.name] = { nickname, icon, color };
+          agentMap[a.metadata?.id] = { nickname, icon, color };
+          agentMap[a.metadata?.name] = { nickname, icon, color };
+          if (nickname) agentMap[nickname] = { nickname, icon, color };
+        });
+        setAllAgentsMap(agentMap);
+        
+        // Filter to selectable agents only (for dropdown)
+        const selectableAgents = data.agents
+          .filter((a: any) => a.metadata?.selectable !== false)
+          .map((a: any) => {
+            const id = a.metadata?.id || a.id;
+            return {
+              id,
+              name: a.metadata?.name || a.name,
+              nickname: a.metadata?.nickname || a.nickname || a.name,
+              icon: a.metadata?.icon || a.icon || '🤖',
+              description: a.metadata?.description || a.description || '',
+              color: AGENT_COLORS[id] || PALETTE.accent,
+              tips: [], // Tips can be added to YAML later
+            };
+          });
+        
+        if (selectableAgents.length === 0) {
+          throw new Error('No selectable agents found');
+        }
+        
+        setAvailableAgents(selectableAgents);
+        setAgentsLoading(false);
       } catch (err) {
-        console.log('Using default agents (API unavailable)');
+        console.error('Failed to load agents:', err);
+        setAgentsError(err instanceof Error ? err.message : 'Failed to load agents');
+        setAgentsLoading(false);
       }
     };
     loadAgents();
   }, []);
   
-  // Agent nickname lookup (from loaded agents)
+  // Agent nickname lookup (from all loaded agents, including sub-agents)
   const getAgentNickname = (agentName: string | undefined) => {
+    if (!agentName) return 'Agent';
+    // Check loaded agents map first
+    const mapped = allAgentsMap[agentName];
+    if (mapped?.nickname) return mapped.nickname;
+    // Check selectable agents
+    const agent = availableAgents.find(a => a.name === agentName || a.id === agentName || a.nickname === agentName);
+    return agent?.nickname || agentName;
+  };
+  
+  // Get agent color (from loaded agents or fallback)
+  const getAgentColor = (agentName: string | undefined) => {
+    if (!agentName) return PALETTE.accent;
+    const mapped = allAgentsMap[agentName];
+    if (mapped?.color) return mapped.color;
     const agent = availableAgents.find(a => a.name === agentName || a.id === agentName);
-    return agent?.nickname || agentName || 'QA Manager';
+    return agent?.color || AGENT_COLORS[agentName] || PALETTE.accent;
   };
   
   // Feedback state - tracks ratings per message ID (shared concept with badge)
@@ -745,25 +795,27 @@ const AgentChat: React.FC = () => {
             </IconButton>
           </Paper>
           
-          {/* Suggestion Chips - Dynamic based on selected agent */}
-          <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {(availableAgents.find(a => a.id === selectedAgentId)?.tips || availableAgents[0]?.tips || []).map((suggestion) => (
-              <Chip 
-                key={suggestion} 
-                label={suggestion} 
-                onClick={() => setInput(suggestion)}
-                size="small"
-                sx={{ 
-                  bgcolor: isDarkMode ? PALETTE.surface : 'grey.100', 
-                  border: '1px solid', 
-                  borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
-                  borderRadius: 2,
-                  fontSize: '0.8rem',
-                  '&:hover': { borderColor: PALETTE.accent, cursor: 'pointer' },
-                }} 
-              />
-            ))}
-          </Box>
+          {/* Suggestion Chips - Can be added later when tips are in YAML */}
+          {!agentsLoading && availableAgents.length > 0 && availableAgents.find(a => a.id === selectedAgentId)?.tips?.length > 0 && (
+            <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {availableAgents.find(a => a.id === selectedAgentId)?.tips.map((suggestion: string) => (
+                <Chip 
+                  key={suggestion} 
+                  label={suggestion} 
+                  onClick={() => setInput(suggestion)}
+                  size="small"
+                  sx={{ 
+                    bgcolor: isDarkMode ? PALETTE.surface : 'grey.100', 
+                    border: '1px solid', 
+                    borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+                    borderRadius: 2,
+                    fontSize: '0.8rem',
+                    '&:hover': { borderColor: PALETTE.accent, cursor: 'pointer' },
+                  }} 
+                />
+              ))}
+            </Box>
+          )}
         </Box>
       </Fade>
     </Box>
@@ -793,6 +845,24 @@ const AgentChat: React.FC = () => {
       }}>
         <Box sx={{ width: '100%' }}>
           
+          {agentsLoading && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="body2" color="text.secondary">
+                Loading agents...
+              </Typography>
+            </Box>
+          )}
+          
+          {agentsError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>Failed to load agents</Typography>
+              <Typography variant="caption">{agentsError}</Typography>
+              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                Make sure the backend is running and agents are configured in YAML templates.
+              </Typography>
+            </Alert>
+          )}
+          
           {status === 'needs_key' && (
             <Box sx={{ textAlign: 'center', mb: 2 }}>
               <Alert severity="info" sx={{ mb: 2 }}>Please configure your Anthropic API Key.</Alert>
@@ -816,7 +886,7 @@ const AgentChat: React.FC = () => {
 
           {messages.map((msg) => {
             const isUser = msg.role === 'user';
-            const agentColor = AGENT_CONFIG[msg.agent || 'QA Manager']?.color;
+            const agentColor = getAgentColor(msg.agent);
             
             return (
               <Box 
@@ -868,7 +938,8 @@ const AgentChat: React.FC = () => {
                     const agentChain = msg.events 
                       ? [...new Set(msg.events.map(e => e.agent).filter(Boolean))]
                       : [];
-                    const delegatedAgents = agentChain.filter(a => a !== 'QA Manager' && a !== 'System');
+                    const mainAgent = msg.agent || agentChain[0];
+                    const delegatedAgents = agentChain.filter(a => a !== mainAgent && a !== 'System');
                     
                       return (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
@@ -886,7 +957,7 @@ const AgentChat: React.FC = () => {
                                 sx={{ 
                                   height: 18, 
                                   fontSize: '0.65rem',
-                                  bgcolor: AGENT_CONFIG[agent]?.color || PALETTE.accent,
+                                  bgcolor: getAgentColor(agent),
                                   color: '#fff',
                                   '& .MuiChip-label': { px: 0.75 }
                                 }}
@@ -1104,8 +1175,8 @@ const AgentChat: React.FC = () => {
                     fontSize: 11, 
                     fontWeight: 600,
                     bgcolor: session?.active_agent 
-                      ? (AGENT_CONFIG[session.active_agent]?.color || PALETTE.accent)
-                      : '#607d8b',
+                      ? getAgentColor(session.active_agent)
+                      : PALETTE.accent,
                     animation: 'pulse 1.5s infinite',
                   }}
                 >
@@ -1122,7 +1193,7 @@ const AgentChat: React.FC = () => {
               </Box>
                 
               {currentEvents.length > 0 && (
-                <Box sx={{ pl: 2, borderLeft: `2px solid ${session?.active_agent ? (AGENT_CONFIG[session.active_agent]?.color || PALETTE.accent) : PALETTE.accent}40` }}>
+                <Box sx={{ pl: 2, borderLeft: `2px solid ${session?.active_agent ? getAgentColor(session.active_agent) : PALETTE.accent}40` }}>
                   {/* Tool calls */}
                   {mergeToolEvents(currentEvents).map(renderToolActivity)}
                   {/* Thinking */}
@@ -1376,7 +1447,7 @@ const AgentChat: React.FC = () => {
           </Box>
           
           {/* Agent Selector */}
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+          <FormControl size="small" sx={{ minWidth: 180 }} disabled={agentsLoading || agentsError !== null}>
             <Select
               value={selectedAgentId}
               onChange={(e) => setSelectedAgentId(e.target.value)}

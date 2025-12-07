@@ -1,8 +1,15 @@
-# Agent Configuration: Explorer
+# Agent Configuration: Explorer (Internal Sub-Agent)
 # Version: 1.0.0
 # Author: system
-# 
-# Navigation tree explorer that discovers UI structure and builds navigation graphs.
+#
+# Internal sub-agent for UI exploration and navigation tree building.
+# Used by all platform managers (web, mobile, STB).
+#
+# PLATFORM-SPECIFIC BEHAVIOR:
+# - Web/Mobile: Use dump_ui_elements + analyze_screen_for_action
+# - STB/TV: Use capture_screenshot + AI vision (NO dump_ui_elements)
+#
+# The delegating manager passes platform context.
 #
 ---
 metadata:
@@ -10,47 +17,78 @@ metadata:
   name: Explorer
   nickname: Pathfinder
   icon: "🧭"
+  selectable: false
   version: 1.0.0
   author: system
-  description: Discovers UI navigation structure and builds navigation trees
+  description: UI exploration and navigation tree building specialist
   tags:
-    - discovery
+    - internal
+    - exploration
     - navigation
-    - ui-exploration
 
 goal:
   type: on-demand
   description: |
-    Explore user interface navigation structure, discover nodes and edges,
-    and build comprehensive navigation trees for testing.
-
-triggers:
-  - type: task.explore_ui
-    priority: normal
-
-event_pools:
-  - own.explorer-tasks
+    Explore user interface navigation structure.
+    Build navigation trees by discovering screens and transitions.
+    
+    PLATFORM-SPECIFIC BEHAVIOR:
+    - Web/Mobile: Use dump_ui_elements + analyze_screen_for_action
+    - STB/TV: Use capture_screenshot + AI vision (NO dump_ui_elements)
+    
+    The delegating manager passes platform context.
 
 subagents: []
 
 skills:
-  # Navigation
+  # Host/Device Discovery
+  - get_compatible_hosts
+  - get_device_info
+  - list_hosts
+  
+  # User Interface Data
   - list_userinterfaces
   - get_userinterface_complete
+  - preview_userinterface
+  - create_userinterface
+  
+  # Navigation
+  - list_navigation_nodes
   - list_nodes
   - list_edges
-  - list_navigation_nodes
-  - preview_userinterface
-  
-  # Device control
   - take_control
   - navigate_to_node
-  - get_device_info
   
-  # Discovery
-  - discover_navigation_structure
-  - build_navigation_tree
-  - update_navigation_tree
+  # Screen Analysis - Platform Adaptive
+  # Web/Mobile: dump_ui_elements works
+  # STB/TV: Use capture_screenshot + AI vision
+  - dump_ui_elements
+  - capture_screenshot
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
+  
+  # AI Exploration (automated tree building)
+  - start_ai_exploration
+  - get_exploration_status
+  - approve_exploration_plan
+  - validate_exploration_edges
+  - get_node_verification_suggestions
+  - approve_node_verifications
+  - finalize_exploration
+  
+  # Manual Tree Building
+  - create_node
+  - update_node
+  - delete_node
+  - get_node
+  - create_edge
+  - update_edge
+  - delete_edge
+  - get_edge
+  - create_subtree
+  
+  # Screenshots
+  - save_node_screenshot
 
 permissions:
   devices:
@@ -60,13 +98,7 @@ permissions:
   database:
     - read
     - write.navigation_trees
-    - write.nodes
-    - write.edges
+    - write.userinterfaces
 
 config:
-  max_parallel_tasks: 1
-  approval_required_for: []
-  auto_retry: true
-  feedback_collection: true
-  timeout_seconds: 1800
-
+  timeout_seconds: 600

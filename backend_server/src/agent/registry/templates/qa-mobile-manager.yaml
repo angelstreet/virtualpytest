@@ -2,8 +2,8 @@
 # Version: 1.0.0
 # Author: system
 # 
-# Specialized QA manager for mobile devices (Android/iOS)
-# Handles mobile-specific testing, gestures, and mobile UX validation
+# Specialized QA manager for Android mobile devices
+# Uses ADB for UI hierarchy (dump_ui_elements works)
 #
 ---
 metadata:
@@ -11,38 +11,33 @@ metadata:
   name: QA Mobile Manager
   nickname: Scout
   icon: "🔍"
+  selectable: true
   version: 1.0.0
   author: system
-  description: Quality validation specialist for mobile devices (Android/iOS)
+  description: QA for Android mobile app
   tags:
     - qa
     - mobile
     - android
-    - ios
-    - automation
+    - adb
 
 goal:
   type: continuous
   description: |
-    Monitor and validate quality for all mobile userinterfaces.
-    Handles mobile-specific issues, touch gestures, orientation changes, and mobile performance.
+    Monitor and validate quality for Android mobile applications.
+    Uses ADB for UI inspection and touch automation.
+    Specialized in mobile gestures, screen transitions, and app lifecycle.
 
 triggers:
-  - type: alert.blackscreen
-    priority: critical
-    filters:
-      platform: mobile
-  
   - type: alert.app_crash
     priority: critical
     filters:
       platform: mobile
   
-  - type: alert.device_offline
-    priority: high
+  - type: alert.anr
+    priority: critical
     filters:
       platform: mobile
-      device_type: ["phone", "tablet"]
   
   - type: build.deployed
     priority: high
@@ -61,14 +56,14 @@ subagents:
   - id: explorer
     version: ">=1.0.0"
     delegate_for:
-      - mobile_ui_discovery
-      - screen_mapping
+      - mobile_exploration
+      - touch_navigation_mapping
   
   - id: executor
     version: ">=1.0.0"
     delegate_for:
       - mobile_test_execution
-      - gesture_automation
+      - touch_automation
 
 skills:
   # Requirements & Coverage
@@ -77,7 +72,7 @@ skills:
   - get_coverage_summary
   - get_uncovered_requirements
   
-  # User Interfaces (Mobile)
+  # User Interfaces
   - list_userinterfaces
   - get_userinterface_complete
   - list_nodes
@@ -88,29 +83,49 @@ skills:
   - list_testcases
   - load_testcase
   
-  # Device Control (Mobile)
+  # Device Control
   - take_control
   - navigate_to_node
   - get_device_info
   - get_compatible_hosts
-  - execute_gesture
-  - rotate_device
+  
+  # MOBILE-SPECIFIC: UI Element Discovery (ADB - CAN use dump)
+  - dump_ui_elements
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
+  - capture_screenshot
+  
+  # MOBILE-SPECIFIC: AI Exploration
+  - start_ai_exploration
+  - approve_exploration_plan
+  - validate_exploration_edges
+  - get_node_verification_suggestions
+  - approve_node_verifications
+  - finalize_exploration
+  
+  # MOBILE-SPECIFIC: Tree Building
+  - create_node
+  - create_edge
+  - update_node
+  - update_edge
+  - save_node_screenshot
+  
+  # MOBILE-SPECIFIC: Device Actions (swipe, tap, etc)
+  - execute_device_action
+  - list_actions
   
   # Execution
   - execute_testcase
   - get_execution_status
   
-  # Verifications (Mobile-specific)
+  # Verifications
   - list_verifications
-  - verify_element_visible
-  - verify_screen_loaded
-  - capture_screenshot
+  - verify_node
 
 permissions:
   devices:
     - read
     - take_control
-    - execute_gestures
   
   database:
     - read
@@ -123,14 +138,12 @@ permissions:
     - slack
 
 config:
-  max_parallel_tasks: 3  # Limit parallel mobile tests
+  max_parallel_tasks: 4
   approval_required_for:
     - create_jira_ticket
     - delete_testcase
-    - factory_reset_device
   auto_retry: true
   feedback_collection: true
-  timeout_seconds: 2400  # 40 minutes for mobile tests
-  budget_limit_usd: 40.00
+  timeout_seconds: 1800
+  budget_limit_usd: 30.00
   platform_filter: mobile
-

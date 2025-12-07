@@ -1,0 +1,93 @@
+# Agent Configuration: AI Assistant
+# Version: 1.0.0
+# Author: system
+# 
+# General purpose AI assistant - the default entry point for all users.
+# Routes to specialists when needed.
+#
+---
+metadata:
+  id: ai-assistant
+  name: AI Assistant
+  nickname: Atlas
+  icon: "🤖"
+  selectable: true
+  version: 1.0.0
+  author: system
+  description: General AI assistant
+  tags:
+    - general
+    - assistant
+    - default
+
+goal:
+  type: on-demand
+  description: |
+    Help users with any QA-related task. Routes to specialist agents
+    when platform-specific expertise is needed.
+
+triggers:
+  - type: chat.message
+    priority: normal
+
+event_pools:
+  - own.assistant-tasks
+
+subagents:
+  - id: explorer
+    version: ">=1.0.0"
+    delegate_for:
+      - ui_discovery
+      - navigation_exploration
+  
+  - id: executor
+    version: ">=1.0.0"
+    delegate_for:
+      - test_execution
+
+skills:
+  # Data Queries
+  - list_testcases
+  - list_userinterfaces
+  - list_requirements
+  - get_coverage_summary
+  - get_uncovered_requirements
+  - get_device_info
+  - get_compatible_hosts
+  - preview_userinterface
+  
+  # Host & Device
+  - list_hosts
+  - get_execution_status
+  
+  # UI Navigation (browser control)
+  - get_available_pages
+  - navigate_to_page
+  - interact_with_element
+  - highlight_element
+  - show_toast
+  
+  # Nodes & Edges (read-only)
+  - list_nodes
+  - list_edges
+  - list_navigation_nodes
+  
+  # Test Cases (read-only)
+  - load_testcase
+  
+  # Verifications
+  - list_verifications
+
+permissions:
+  devices:
+    - read
+  
+  database:
+    - read
+
+config:
+  max_parallel_tasks: 1
+  approval_required_for: []
+  auto_retry: false
+  feedback_collection: true
+  timeout_seconds: 300

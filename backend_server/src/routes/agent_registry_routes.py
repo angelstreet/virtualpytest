@@ -1,50 +1,52 @@
 """
 Agent Registry REST API Routes
 
-Provides HTTP endpoints for agent CRUD operations, versioning, and import/export.
+System agents are loaded from YAML on startup.
+No team_id - agents are global system resources.
 """
 
 from flask import Blueprint, request, jsonify, Response
 from typing import Optional
-import yaml
 
 from agent.registry import (
-    AgentRegistry,
     get_agent_registry,
     AgentDefinition,
     validate_agent_yaml,
     export_agent_yaml,
-    AgentValidationError
+    AgentValidationError,
+    reload_agents
 )
 
 # Create blueprint
 server_agent_registry_bp = Blueprint('server_agent_registry', __name__, url_prefix='/server/agents')
 
 
-def get_team_id() -> str:
-    """Get team ID from request"""
-    return request.args.get('team_id', request.headers.get('X-Team-ID', 'default'))
-
-
-def get_user_id() -> Optional[str]:
-    """Get user ID from request"""
-    return request.headers.get('X-User-ID')
-
-
 @server_agent_registry_bp.route('/', methods=['GET'])
 def list_agents():
     """
-    List all agents (latest versions)
+    List all system agents (loaded from YAML templates).
     
     Query params:
-        - status: Filter by status (draft, published, deprecated)
+        - selectable: Filter by selectable (true/false)
+        - platform: Filter by platform (web/mobile/stb)
+    
+    NOTE: No team_id - agents are global system resources.
     """
     try:
-        team_id = get_team_id()
-        status = request.args.get('status')
-        
         registry = get_agent_registry()
-        agents = registry.list_agents(team_id, status)
+        
+        # Check for filters
+        selectable_filter = request.args.get('selectable')
+        platform_filter = request.args.get('platform')
+        
+        if selectable_filter == 'true':
+            agents = registry.get_selectable_agents()
+        elif selectable_filter == 'false':
+            agents = registry.get_internal_agents()
+        elif platform_filter:
+            agents = registry.get_agents_by_platform(platform_filter)
+        else:
+            agents = registry.list_agents()
         
         return jsonify({
             'agents': [agent.to_dict() for agent in agents],
@@ -58,117 +60,18 @@ def list_agents():
 @server_agent_registry_bp.route('/<agent_id>', methods=['GET'])
 def get_agent(agent_id: str):
     """
-    Get specific agent by ID
+    Get specific agent by ID.
     
-    Query params:
-        - version: Specific version (default: latest published)
+    NOTE: No team_id or version - returns system agent from YAML.
     """
     try:
-        team_id = get_team_id()
-        version = request.args.get('version')
-        
         registry = get_agent_registry()
-        agent = registry.get(agent_id, version, team_id)
+        agent = registry.get(agent_id)
         
         if not agent:
-            return jsonify({'error': 'Agent not found'}), 404
+            return jsonify({'error': f'Agent not found: {agent_id}'}), 404
         
         return jsonify(agent.to_dict()), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@server_agent_registry_bp.route('/<agent_id>/versions', methods=['GET'])
-def list_agent_versions(agent_id: str):
-    """List all versions of an agent"""
-    try:
-        team_id = get_team_id()
-        
-        registry = get_agent_registry()
-        versions = registry.list_versions(agent_id, team_id)
-        
-        return jsonify({
-            'agent_id': agent_id,
-            'versions': versions,
-            'count': len(versions)
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@server_agent_registry_bp.route('/', methods=['POST'])
-def register_agent():
-    """
-    Register new agent or version
-    
-    Body: AgentDefinition JSON
-    """
-    try:
-        team_id = get_team_id()
-        user_id = get_user_id()
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        # Validate and create agent
-        try:
-            agent = AgentDefinition(**data)
-        except Exception as e:
-            return jsonify({'error': f'Invalid agent definition: {str(e)}'}), 400
-        
-        registry = get_agent_registry()
-        agent_id = registry.register(agent, team_id, user_id)
-        
-        return jsonify({
-            'id': agent_id,
-            'agent_id': agent.metadata.id,
-            'version': agent.metadata.version,
-            'message': 'Agent registered successfully'
-        }), 201
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@server_agent_registry_bp.route('/import', methods=['POST'])
-def import_agent_yaml():
-    """
-    Import agent from YAML
-    
-    Body: YAML string or file upload
-    """
-    try:
-        team_id = get_team_id()
-        user_id = get_user_id()
-        
-        # Check if file upload or raw YAML
-        if 'file' in request.files:
-            file = request.files['file']
-            yaml_content = file.read().decode('utf-8')
-        elif request.data:
-            yaml_content = request.data.decode('utf-8')
-        else:
-            return jsonify({'error': 'No YAML content provided'}), 400
-        
-        # Validate YAML
-        try:
-            agent = validate_agent_yaml(yaml_content)
-        except AgentValidationError as e:
-            return jsonify({'error': str(e)}), 400
-        
-        # Register agent
-        registry = get_agent_registry()
-        agent_id = registry.register(agent, team_id, user_id)
-        
-        return jsonify({
-            'id': agent_id,
-            'agent_id': agent.metadata.id,
-            'version': agent.metadata.version,
-            'message': 'Agent imported successfully'
-        }), 201
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -177,20 +80,14 @@ def import_agent_yaml():
 @server_agent_registry_bp.route('/<agent_id>/export', methods=['GET'])
 def export_agent(agent_id: str):
     """
-    Export agent as YAML
-    
-    Query params:
-        - version: Specific version (default: latest published)
+    Export agent as YAML file.
     """
     try:
-        team_id = get_team_id()
-        version = request.args.get('version')
-        
         registry = get_agent_registry()
-        agent = registry.get(agent_id, version, team_id)
+        agent = registry.get(agent_id)
         
         if not agent:
-            return jsonify({'error': 'Agent not found'}), 404
+            return jsonify({'error': f'Agent not found: {agent_id}'}), 404
         
         # Export to YAML
         yaml_content = export_agent_yaml(agent)
@@ -208,123 +105,14 @@ def export_agent(agent_id: str):
         return jsonify({'error': str(e)}), 500
 
 
-@server_agent_registry_bp.route('/<agent_id>/publish', methods=['POST'])
-def publish_agent(agent_id: str):
-    """
-    Publish an agent version
-    
-    Body: { "version": "1.0.0" }
-    """
-    try:
-        team_id = get_team_id()
-        data = request.get_json()
-        version = data.get('version')
-        
-        if not version:
-            return jsonify({'error': 'Version required'}), 400
-        
-        registry = get_agent_registry()
-        success = registry.publish(agent_id, version, team_id)
-        
-        if success:
-            return jsonify({'message': 'Agent published successfully'}), 200
-        else:
-            return jsonify({'error': 'Agent not found'}), 404
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@server_agent_registry_bp.route('/<agent_id>/deprecate', methods=['POST'])
-def deprecate_agent(agent_id: str):
-    """
-    Deprecate an agent version
-    
-    Body: { "version": "1.0.0" }
-    """
-    try:
-        team_id = get_team_id()
-        data = request.get_json()
-        version = data.get('version')
-        
-        if not version:
-            return jsonify({'error': 'Version required'}), 400
-        
-        registry = get_agent_registry()
-        success = registry.deprecate(agent_id, version, team_id)
-        
-        if success:
-            return jsonify({'message': 'Agent deprecated successfully'}), 200
-        else:
-            return jsonify({'error': 'Agent not found'}), 404
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@server_agent_registry_bp.route('/<agent_id>', methods=['DELETE'])
-def delete_agent(agent_id: str):
-    """
-    Delete an agent version
-    
-    Query params:
-        - version: Version to delete (required)
-    """
-    try:
-        team_id = get_team_id()
-        version = request.args.get('version')
-        
-        if not version:
-            return jsonify({'error': 'Version required'}), 400
-        
-        registry = get_agent_registry()
-        success = registry.delete(agent_id, version, team_id)
-        
-        if success:
-            return jsonify({'message': 'Agent deleted successfully'}), 200
-        else:
-            return jsonify({'error': 'Agent not found'}), 404
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@server_agent_registry_bp.route('/search', methods=['GET'])
-def search_agents():
-    """
-    Search agents by name, description, or tags
-    
-    Query params:
-        - q: Search query
-    """
-    try:
-        team_id = get_team_id()
-        query = request.args.get('q', '')
-        
-        if not query:
-            return jsonify({'error': 'Search query required'}), 400
-        
-        registry = get_agent_registry()
-        agents = registry.search(query, team_id)
-        
-        return jsonify({
-            'query': query,
-            'agents': [agent.to_dict() for agent in agents],
-            'count': len(agents)
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 @server_agent_registry_bp.route('/events/<event_type>', methods=['GET'])
 def get_agents_for_event(event_type: str):
-    """Get all agents that handle a specific event type"""
+    """
+    Get all agents that handle a specific event type.
+    """
     try:
-        team_id = get_team_id()
-        
         registry = get_agent_registry()
-        agents = registry.get_agents_for_event(event_type, team_id)
+        agents = registry.get_agents_for_event(event_type)
         
         return jsonify({
             'event_type': event_type,
@@ -336,73 +124,81 @@ def get_agents_for_event(event_type: str):
         return jsonify({'error': str(e)}), 500
 
 
-@server_agent_registry_bp.route('/<agent_id>/enabled', methods=['PUT'])
-def set_agent_enabled(agent_id: str):
+@server_agent_registry_bp.route('/reload', methods=['POST'])
+def reload_agents_endpoint():
     """
-    Enable or disable an agent's auto-start on backend boot.
-    
-    Body: { "enabled": true/false }
-    
-    When enabled=true, agent will auto-start when backend runtime starts.
-    When enabled=false, agent won't auto-start (can still be started manually).
+    Reload all agents from YAML templates.
+    Useful for development when YAML files are modified.
     """
     try:
-        team_id = get_team_id()
-        data = request.get_json()
+        reload_agents()
         
-        if data is None or 'enabled' not in data:
-            return jsonify({'error': 'enabled field required'}), 400
+        registry = get_agent_registry()
+        agents = registry.list_agents()
         
-        enabled = bool(data['enabled'])
-        
-        from shared.src.lib.database import agent_registry_db
-        success = agent_registry_db.set_agent_enabled(agent_id, enabled, team_id)
-        
-        if success:
-            status = "enabled" if enabled else "disabled"
-            return jsonify({
-                'agent_id': agent_id,
-                'enabled': enabled,
-                'message': f'Agent {status} successfully'
-            }), 200
-        else:
-            return jsonify({'error': 'Agent not found'}), 404
+        return jsonify({
+            'message': 'Agents reloaded from YAML',
+            'count': len(agents),
+            'agents': [a.metadata.id for a in agents]
+        }), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@server_agent_registry_bp.route('/<agent_id>/status', methods=['GET'])
-def get_agent_status(agent_id: str):
+@server_agent_registry_bp.route('/selectable', methods=['GET'])
+def list_selectable_agents():
     """
-    Get agent status including enabled state and running instances.
+    List only agents that can be selected by users in the UI dropdown.
+    Convenience endpoint - same as ?selectable=true
     """
     try:
-        team_id = get_team_id()
-        
-        from shared.src.lib.database import agent_registry_db
-        from agent.runtime import get_agent_runtime
-        
-        # Get agent info from registry
-        agent_status = agent_registry_db.get_agent_status(agent_id, team_id)
-        
-        if not agent_status:
-            return jsonify({'error': 'Agent not found'}), 404
-        
-        # Get running instances
-        runtime = get_agent_runtime()
-        instances = [
-            inst for inst in runtime.list_instances(team_id)
-            if inst.get('agent_id') == agent_id
-        ]
+        registry = get_agent_registry()
+        agents = registry.get_selectable_agents()
         
         return jsonify({
-            'agent_id': agent_id,
-            'version': agent_status.get('version'),
-            'status': agent_status.get('status'),
-            'enabled': agent_status.get('enabled', True),
-            'running_instances': len(instances),
-            'instances': instances
+            'agents': [agent.to_dict() for agent in agents],
+            'count': len(agents)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Keep import endpoint for custom agents (future feature)
+@server_agent_registry_bp.route('/import', methods=['POST'])
+def import_agent_yaml():
+    """
+    Import custom agent from YAML.
+    
+    NOTE: This is for user-created custom agents, not system agents.
+    System agents should be modified by editing YAML templates and calling /reload.
+    
+    Body: YAML string or file upload
+    """
+    try:
+        # Check if file upload or raw YAML
+        if 'file' in request.files:
+            file = request.files['file']
+            yaml_content = file.read().decode('utf-8')
+        elif request.data:
+            yaml_content = request.data.decode('utf-8')
+        else:
+            return jsonify({'error': 'No YAML content provided'}), 400
+        
+        # Validate YAML
+        try:
+            agent = validate_agent_yaml(yaml_content)
+        except AgentValidationError as e:
+            return jsonify({'error': str(e)}), 400
+        
+        # For now, just validate and return success
+        # In future, this could save to database for custom agents
+        return jsonify({
+            'agent_id': agent.metadata.id,
+            'version': agent.metadata.version,
+            'nickname': agent.metadata.nickname,
+            'message': 'Agent YAML validated successfully. To add system agents, place YAML in templates/ and call /reload.'
         }), 200
         
     except Exception as e:

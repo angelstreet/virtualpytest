@@ -2,8 +2,8 @@
 # Version: 1.0.0
 # Author: system
 # 
-# Specialized QA manager for Set-Top Boxes (STB) and TV devices
-# Handles remote control navigation, video playback, and STB-specific validations
+# Specialized QA manager for set-top box and TV platforms
+# Uses screenshot + AI vision (NOT dump_ui_elements - STB cannot dump UI hierarchy)
 #
 ---
 metadata:
@@ -11,22 +11,22 @@ metadata:
   name: QA STB Manager
   nickname: Watcher
   icon: "📺"
+  selectable: true
   version: 1.0.0
   author: system
-  description: Quality validation specialist for Set-Top Boxes and TV devices
+  description: QA for STB and TV platforms
   tags:
     - qa
     - stb
     - tv
-    - remote-control
-    - video
-    - automation
+    - remote
 
 goal:
   type: continuous
   description: |
-    Monitor and validate quality for all STB and TV userinterfaces.
-    Handles remote control navigation, video playback validation, channel switching, and STB performance.
+    Monitor and validate quality for STB and TV platforms.
+    Uses AI vision for screen analysis (no UI hierarchy access).
+    Specialized in EPG, remote control, D-pad navigation.
 
 triggers:
   - type: alert.blackscreen
@@ -34,18 +34,12 @@ triggers:
     filters:
       platform: stb
   
-  - type: alert.video_playback_failed
+  - type: alert.no_signal
     priority: critical
     filters:
       platform: stb
   
-  - type: alert.device_offline
-    priority: high
-    filters:
-      platform: stb
-      device_type: ["stb", "tv", "android_tv"]
-  
-  - type: alert.channel_change_failed
+  - type: alert.epg_timeout
     priority: high
     filters:
       platform: stb
@@ -57,9 +51,6 @@ triggers:
   
   - type: schedule.stb_regression
     priority: normal
-  
-  - type: schedule.nightly_sanity
-    priority: normal
 
 event_pools:
   - shared.alerts
@@ -70,14 +61,14 @@ subagents:
   - id: explorer
     version: ">=1.0.0"
     delegate_for:
-      - stb_ui_discovery
-      - remote_navigation_mapping
+      - stb_exploration
+      - dpad_navigation_mapping
   
   - id: executor
     version: ">=1.0.0"
     delegate_for:
       - stb_test_execution
-      - remote_automation
+      - remote_control_automation
 
 skills:
   # Requirements & Coverage
@@ -86,7 +77,7 @@ skills:
   - get_coverage_summary
   - get_uncovered_requirements
   
-  # User Interfaces (STB)
+  # User Interfaces
   - list_userinterfaces
   - get_userinterface_complete
   - list_nodes
@@ -97,33 +88,47 @@ skills:
   - list_testcases
   - load_testcase
   
-  # Device Control (STB/Remote)
+  # Device Control
   - take_control
   - navigate_to_node
-  - send_remote_key
   - get_device_info
   - get_compatible_hosts
+  
+  # STB-SPECIFIC: Screenshot + AI Vision (NO dump_ui_elements!)
+  - capture_screenshot
+  - get_transcript
+  
+  # STB-SPECIFIC: Remote Control & D-pad
+  - execute_device_action
+  - list_actions
+  
+  # STB-SPECIFIC: AI Exploration
+  - start_ai_exploration
+  - approve_exploration_plan
+  - validate_exploration_edges
+  - get_node_verification_suggestions
+  - approve_node_verifications
+  - finalize_exploration
+  
+  # STB-SPECIFIC: Tree Building
+  - create_node
+  - create_edge
+  - update_node
+  - update_edge
+  - save_node_screenshot
   
   # Execution
   - execute_testcase
   - get_execution_status
   
-  # Verifications (STB-specific)
+  # Verifications
   - list_verifications
-  - verify_element_visible
-  - verify_video_playing
-  - verify_channel_loaded
-  - capture_screenshot
-  
-  # Monitoring
-  - check_video_playback
-  - monitor_channel_zapping
+  - verify_node
 
 permissions:
   devices:
     - read
     - take_control
-    - send_remote_commands
   
   database:
     - read
@@ -136,14 +141,12 @@ permissions:
     - slack
 
 config:
-  max_parallel_tasks: 2  # Limited STB devices
+  max_parallel_tasks: 3
   approval_required_for:
     - create_jira_ticket
     - delete_testcase
-    - reboot_stb
   auto_retry: true
   feedback_collection: true
-  timeout_seconds: 3600  # 60 minutes for STB tests (video playback can be long)
-  budget_limit_usd: 45.00
+  timeout_seconds: 2400
+  budget_limit_usd: 30.00
   platform_filter: stb
-
