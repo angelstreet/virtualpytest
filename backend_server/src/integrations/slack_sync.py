@@ -1,6 +1,8 @@
 """
 Slack Sync Service
 Listens to AI agent conversation events and posts to Slack channel
+
+Configuration stored in: config/integrations/slack_config.json (like JIRA)
 """
 import os
 import sys

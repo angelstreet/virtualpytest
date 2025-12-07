@@ -72,8 +72,8 @@ const SlackIntegration: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Slack workspace URL from env
-  const workspaceUrl = (import.meta as any).env?.VITE_SLACK_WORKSPACE_URL || 'https://slack.com';
+1  // Slack workspace link
+  const workspaceUrl = 'https://slack.com';
 
   // Load config and status on mount
   useEffect(() => {

@@ -30,8 +30,10 @@ backend_server/config/grafana/grafana.db-wal
 SSH.md
 backend_server/scripts/backup_grafana_db.sh
 
-# Integration credentials (JIRA API tokens, etc.)
+# Integration credentials (JIRA API tokens, Slack bot tokens, etc.)
 backend_server/config/integrations/jira_instances.json
+backend_server/config/integrations/slack_config.json
+backend_server/config/integrations/slack_threads.json
 
 # Supabase database backups
 setup/db/backup/*.sql

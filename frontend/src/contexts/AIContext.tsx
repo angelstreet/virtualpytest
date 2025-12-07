@@ -4,9 +4,22 @@ import { io, Socket } from 'socket.io-client';
 import { buildServerUrl, getServerBaseUrl } from '../utils/buildUrlUtils';
 import { APP_CONFIG } from '../config/constants';
 
-// Same storage key as useAgentChat to share API key
+// Same storage keys as useAgentChat to share data
 const STORAGE_KEY_API = 'virtualpytest_anthropic_key';
 const STORAGE_KEY_AUTO_NAV = 'virtualpytest_allow_auto_navigation';
+const STORAGE_KEY_CONVERSATIONS = 'virtualpytest_agent_conversations';
+const STORAGE_KEY_ACTIVE_CONVERSATION = 'virtualpytest_active_conversation';
+
+// Helper to generate unique IDs
+const generateId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+// Helper to extract title from messages
+const extractTitle = (messages: any[]): string => {
+  const firstUserMsg = messages.find((m: any) => m.role === 'user');
+  if (!firstUserMsg) return 'New Chat';
+  const text = firstUserMsg.content.slice(0, 50);
+  return text.length < firstUserMsg.content.length ? text.replace(/\s+\S*$/, '...') : text;
+};
 
 interface AIState {
   // Panel Visibility
@@ -78,6 +91,9 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   }, []);
   
   const socketRef = useRef<Socket | null>(null);
+  const currentConversationIdRef = useRef<string | null>(null);
+  const pendingUserMessageRef = useRef<string | null>(null);
+  const pendingEventsRef = useRef<any[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -164,6 +180,9 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     socket.on('agent_event', (event: any) => {
       console.log('🤖 Agent Event:', event.type);
       
+      // Accumulate events for saving to conversation history
+      pendingEventsRef.current = [...pendingEventsRef.current, event];
+      
       // Update execution steps based on event type
       if (event.type === 'thinking') {
         setExecutionSteps(prev => [
@@ -193,9 +212,33 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
         );
       }
       
+      // Capture AI's actual response (message/result events)
+      if (event.type === 'message' || event.type === 'result') {
+        setExecutionSteps(prev => [
+          ...prev.map(s => s.status === 'active' ? { ...s, status: 'done' as const } : s),
+          { id: `response-${Date.now()}`, label: 'AI Response', status: 'done', detail: event.content }
+        ]);
+      }
+      
       if (event.type === 'session_ended' || event.type === 'complete') {
         setProcessing(false);
         setExecutionSteps(prev => prev.map(s => ({ ...s, status: 'done' as const })));
+        
+        // Save to conversation history
+        if (pendingUserMessageRef.current) {
+          const events = pendingEventsRef.current;
+          const messageEvents = events.filter((e: any) => e.type === 'message' || e.type === 'result');
+          const agentResponse = messageEvents.map((e: any) => e.content).filter(Boolean).join('\n\n');
+          const lastAgentEvent = [...events].reverse().find((e: any) => e.agent);
+          const agentName = lastAgentEvent?.agent || 'Atlas';
+          
+          saveToConversationHistory(
+            pendingUserMessageRef.current,
+            agentResponse || 'Task completed.',
+            events,
+            agentName
+          );
+        }
       }
       
       if (event.type === 'error') {
@@ -204,6 +247,16 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
           ...prev,
           { id: `error-${Date.now()}`, label: 'Error', status: 'error', detail: event.content }
         ]);
+        
+        // Save error to conversation history
+        if (pendingUserMessageRef.current) {
+          saveToConversationHistory(
+            pendingUserMessageRef.current,
+            `Error: ${event.content}`,
+            pendingEventsRef.current,
+            'System'
+          );
+        }
       }
     });
 
@@ -267,6 +320,77 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     };
   }, [sessionId, status, navigate, allowAutoNavigation]);
 
+  // Save conversation to localStorage (shared with useAgentChat)
+  const saveToConversationHistory = useCallback((userMessage: string, agentResponse: string, events: any[], agentName: string) => {
+    try {
+      const savedConvos = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
+      let conversations = savedConvos ? JSON.parse(savedConvos) : [];
+      
+      // Create user message
+      const userMsg = {
+        id: `${Date.now()}-user`,
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date().toISOString(),
+      };
+      
+      // Create agent message with events
+      const agentMsg = {
+        id: `${Date.now()}-agent`,
+        role: 'agent',
+        content: agentResponse,
+        agent: agentName,
+        timestamp: new Date().toISOString(),
+        events: events,
+      };
+      
+      // Check if we have an active conversation from a recent command
+      let targetConvoId = currentConversationIdRef.current;
+      let targetConvo = conversations.find((c: any) => c.id === targetConvoId);
+      
+      if (!targetConvo) {
+        // Create new conversation
+        targetConvo = {
+          id: generateId(),
+          title: extractTitle([userMsg]),
+          messages: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        conversations = [targetConvo, ...conversations];
+        targetConvoId = targetConvo.id;
+      }
+      
+      // Add messages to conversation
+      targetConvo.messages = [...targetConvo.messages, userMsg, agentMsg];
+      targetConvo.title = extractTitle(targetConvo.messages);
+      targetConvo.updatedAt = new Date().toISOString();
+      
+      // Update in array
+      conversations = conversations.map((c: any) => c.id === targetConvoId ? targetConvo : c);
+      
+      // Save to localStorage
+      localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
+      if (targetConvoId) {
+        localStorage.setItem(STORAGE_KEY_ACTIVE_CONVERSATION, targetConvoId);
+      }
+      
+      // Emit event to notify useAgentChat to refresh
+      window.dispatchEvent(new CustomEvent('agent-conversation-updated', {
+        detail: { conversationId: targetConvoId }
+      }));
+      
+      // Reset tracking
+      currentConversationIdRef.current = null;
+      pendingUserMessageRef.current = null;
+      pendingEventsRef.current = [];
+      
+      console.log('🤖 AIContext: Saved conversation to history', { targetConvoId, userMessage: userMessage.slice(0, 30) });
+    } catch (err) {
+      console.error('Failed to save conversation to history:', err);
+    }
+  }, []);
+
   // Send message to backend
   const sendMessage = useCallback((message: string, agentId?: string) => {
     // Check if API key is configured
@@ -279,7 +403,6 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
           detail: '⚠️ API key not configured. Please go to AI Agent page to set your Anthropic API key.' 
         }
       ]);
-      setPilotOpen(true);
       return;
     }
     
@@ -293,7 +416,6 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
           detail: '⚠️ Not connected to AI backend. Please refresh the page.' 
         }
       ]);
-      setPilotOpen(true);
       return;
     }
 
@@ -303,7 +425,11 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     setExecutionSteps([
       { id: 'parse', label: 'Parse Command', status: 'active', detail: 'Understanding request...' }
     ]);
-    setPilotOpen(true);
+    
+    // Track for saving to conversation history
+    pendingUserMessageRef.current = message;
+    pendingEventsRef.current = [];
+    currentConversationIdRef.current = generateId(); // Create new conversation ID
 
     socketRef.current.emit('send_message', {
       session_id: sessionId,

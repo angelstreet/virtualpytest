@@ -59,8 +59,7 @@ const AVAILABLE_AGENTS = [
 ];
 
 export const AICommandBar: React.FC = () => {
-  const navigate = useNavigate();
-  const { isCommandOpen, closeCommand, selectedAgentId, setSelectedAgentId } = useAIContext();
+  const { isCommandOpen, closeCommand, selectedAgentId, setSelectedAgentId, sendMessage } = useAIContext();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const chipRef = useRef<HTMLDivElement>(null);
@@ -85,17 +84,13 @@ export const AICommandBar: React.FC = () => {
 
     const message = input.trim();
     
-    // Close command bar
+    // Send message directly via AIContext - executes in place without navigation
+    sendMessage(message, selectedAgentId);
+    
+    // Clear input and close command bar
     setInput('');
     setAgentMenuOpen(false);
     closeCommand();
-    
-    // Navigate to AI Agent page with prompt as URL param
-    const params = new URLSearchParams({
-      prompt: message,
-      agent: selectedAgentId,
-    });
-    navigate(`/ai-agent?${params.toString()}`);
   };
 
   if (!isCommandOpen) return null;

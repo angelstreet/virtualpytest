@@ -47,6 +47,7 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
 }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
+  const [isResponseExpanded, setIsResponseExpanded] = useState(false);
   
   const meta = AGENT_METADATA[agentId] || { name: agentId, nickname: agentId, icon: '🤖' };
   const runningTasks = tasks.filter(t => t.status === 'running');
@@ -224,12 +225,74 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
                 </Box>
               )}
 
-              {/* Response preview */}
-              {isComplete && currentTask.response && !currentTask.summary && (
-                <Typography sx={{ fontSize: '0.7rem', color: COLORS.textMuted, mb: 0.75, lineHeight: 1.3 }}>
-                  {currentTask.response.slice(0, 120)}
-                  {currentTask.response.length > 120 && '...'}
-                </Typography>
+              {/* AI Response (collapsible) */}
+              {isComplete && currentTask.response && (
+                <Box sx={{ mb: 0.75 }}>
+                  {/* Response Header - Click to expand/collapse */}
+                  <Box 
+                    onClick={() => setIsResponseExpanded(!isResponseExpanded)}
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 0.5, 
+                      cursor: 'pointer',
+                      py: 0.25,
+                      '&:hover': { opacity: 0.8 }
+                    }}
+                  >
+                    <ExpandMore sx={{ 
+                      fontSize: 14, 
+                      color: COLORS.accent,
+                      transform: isResponseExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s',
+                    }} />
+                    <Typography sx={{ fontSize: '0.7rem', color: COLORS.accent, fontWeight: 600 }}>
+                      AI Response
+                    </Typography>
+                  </Box>
+                  
+                  {/* Collapsed Preview */}
+                  {!isResponseExpanded && (
+                    <Typography sx={{ 
+                      fontSize: '0.7rem', 
+                      color: COLORS.textMuted, 
+                      pl: 2.5,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {currentTask.response.slice(0, 60)}{currentTask.response.length > 60 ? '...' : ''}
+                    </Typography>
+                  )}
+                  
+                  {/* Expanded Full Response */}
+                  <Collapse in={isResponseExpanded}>
+                    <Box sx={{ 
+                      px: 0.75, 
+                      py: 0.5, 
+                      mt: 0.5,
+                      bgcolor: '#1e1e1e', 
+                      borderRadius: 1, 
+                      border: `1px solid ${COLORS.border}`,
+                      maxHeight: 200,
+                      overflowY: 'auto',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: `${COLORS.border} transparent`,
+                      '&::-webkit-scrollbar': { width: 4 },
+                      '&::-webkit-scrollbar-thumb': { background: COLORS.border, borderRadius: 2 },
+                    }}>
+                      <Typography sx={{ 
+                        fontSize: '0.75rem', 
+                        color: COLORS.text, 
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}>
+                        {currentTask.response}
+                      </Typography>
+                    </Box>
+                  </Collapse>
+                </Box>
               )}
 
               {/* Error message */}

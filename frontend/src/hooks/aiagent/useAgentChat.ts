@@ -100,8 +100,8 @@ export const useAgentChat = () => {
 
   // --- Conversation Persistence ---
 
-  // Load conversations on mount
-  useEffect(() => {
+  // Load conversations from localStorage
+  const loadConversations = useCallback(() => {
     const savedConvos = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
     const savedActiveId = localStorage.getItem(STORAGE_KEY_ACTIVE_CONVERSATION);
     
@@ -112,16 +112,32 @@ export const useAgentChat = () => {
         // Restore active conversation or use most recent
         if (savedActiveId && parsed.find((c: Conversation) => c.id === savedActiveId)) {
           setActiveConversationId(savedActiveId);
-          activeConversationIdRef.current = savedActiveId; // Initialize ref
+          activeConversationIdRef.current = savedActiveId;
         } else if (parsed.length > 0) {
           setActiveConversationId(parsed[0].id);
-          activeConversationIdRef.current = parsed[0].id; // Initialize ref
+          activeConversationIdRef.current = parsed[0].id;
         }
       } catch (err) {
         console.error('Failed to load conversations:', err);
       }
     }
   }, []);
+
+  // Load conversations on mount
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Listen for updates from AIContext (Cmd+K commands)
+  useEffect(() => {
+    const handleConversationUpdate = () => {
+      console.log('🔄 useAgentChat: Received conversation update from AIContext');
+      loadConversations();
+    };
+
+    window.addEventListener('agent-conversation-updated', handleConversationUpdate);
+    return () => window.removeEventListener('agent-conversation-updated', handleConversationUpdate);
+  }, [loadConversations]);
 
   // Save conversations on change
   useEffect(() => {

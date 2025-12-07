@@ -2,12 +2,11 @@ import React from 'react';
 import { Box, Fab, Tooltip } from '@mui/material';
 import { AutoAwesome } from '@mui/icons-material';
 import { AICommandBar } from './AICommandBar';
-import { AgentPilotPanel } from './panels/AgentPilotPanel';
 import { LogTerminalPanel } from './panels/LogTerminalPanel';
 import { useAIContext } from '../../contexts/AIContext';
 
 export const AIOmniOverlay: React.FC = () => {
-  const { isPilotOpen, isLogsOpen, openCommand } = useAIContext();
+  const { isLogsOpen, openCommand } = useAIContext();
 
   return (
     <Box sx={{ position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none' }}>
@@ -48,14 +47,7 @@ export const AIOmniOverlay: React.FC = () => {
         </Tooltip>
       </Box>
 
-      {/* 2. Right Panel (Agent Pilot) */}
-      {isPilotOpen && (
-        <Box sx={{ pointerEvents: 'auto' }}>
-          <AgentPilotPanel />
-        </Box>
-      )}
-
-      {/* 3. Bottom Panel (Logs) */}
+      {/* Bottom Panel (Logs) - Agent Pilot replaced by GlobalAgentBadges */}
       {isLogsOpen && (
         <Box sx={{ pointerEvents: 'auto' }}>
           <LogTerminalPanel />

@@ -72,16 +72,60 @@ export const AgentActivityBridge: React.FC = () => {
         failTask(agentId, currentTaskIdRef.current, lastStep.detail || 'Task failed');
       } else {
         // Build summary from captured execution steps
-        const toolCalls = stepsToUse.filter(s => s.label !== 'Parse Command' && s.label !== 'Thinking');
+        const toolCalls = stepsToUse.filter(s => 
+          s.label !== 'Parse Command' && 
+          s.label !== 'Thinking' && 
+          s.label !== 'AI Response'
+        );
+        
+        // Extract AI response (from 'AI Response' step which contains message/result events)
+        let response = '';
+        const aiResponseSteps = stepsToUse.filter(s => s.label === 'AI Response');
+        if (aiResponseSteps.length > 0) {
+          // Combine all AI response content
+          response = aiResponseSteps
+            .map(s => s.detail)
+            .filter(Boolean)
+            .join('\n\n');
+        }
+        
+        // Fallback: try to extract from tool results if no AI response
+        if (!response) {
+          const lastToolResult = [...stepsToUse].reverse().find(s => 
+            s.detail && 
+            s.label !== 'Thinking' && 
+            s.label !== 'Parse Command' &&
+            s.label !== 'AI Response'
+          );
+          if (lastToolResult?.detail) {
+            try {
+              const parsed = JSON.parse(lastToolResult.detail);
+              if (parsed.content && Array.isArray(parsed.content)) {
+                const textContent = parsed.content.find((c: any) => c.type === 'text');
+                if (textContent?.text) {
+                  response = textContent.text;
+                }
+              }
+            } catch {
+              // Not JSON - don't use raw tool output
+            }
+          }
+        }
+        
+        // Final fallback
+        if (!response) {
+          response = 'Task completed successfully';
+        }
+        
         const summary = toolCalls.length > 0 ? {
           title: 'Task Complete',
           data: {
-            'Steps completed': toolCalls.length,
-            'Last action': toolCalls[toolCalls.length - 1]?.label || 'Processing',
+            'Tools used': toolCalls.length,
+            'Last tool': toolCalls[toolCalls.length - 1]?.label || 'Processing',
           }
         } : undefined;
         
-        completeTask(agentId, currentTaskIdRef.current, 'Task completed successfully', summary);
+        completeTask(agentId, currentTaskIdRef.current, response, summary);
       }
       
       console.log(`🎯 Bridge: Completed badge task ${currentTaskIdRef.current}`);
