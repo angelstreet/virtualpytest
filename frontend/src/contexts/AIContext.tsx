@@ -436,8 +436,10 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       message: message,
       team_id: APP_CONFIG.DEFAULT_TEAM_ID,
       agent_id: effectiveAgentId,
+      allow_auto_navigation: allowAutoNavigation,
+      current_page: location.pathname,
     });
-  }, [sessionId, status, selectedAgentId]);
+  }, [sessionId, status, selectedAgentId, allowAutoNavigation, location.pathname]);
 
   // Toggle functions
   const toggleCommand = useCallback(() => setCmdOpen(prev => !prev), []);

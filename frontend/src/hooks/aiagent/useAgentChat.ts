@@ -485,6 +485,8 @@ export const useAgentChat = () => {
       message: input.trim(),
       team_id: APP_CONFIG.DEFAULT_TEAM_ID,
       agent_id: agentIdRef.current || 'ai-assistant',
+      allow_auto_navigation: allowAutoNavigationRef.current,
+      current_page: currentPageRef.current,
     });
   }, [input, isProcessing, session?.id, activeConversationId]);
 
@@ -492,6 +494,15 @@ export const useAgentChat = () => {
   const agentIdRef = useRef<string>('ai-assistant');
   const setAgentId = useCallback((agentId: string) => {
     agentIdRef.current = agentId;
+  }, []);
+
+  // Navigation context refs (set by parent component)
+  const allowAutoNavigationRef = useRef<boolean>(false);
+  const currentPageRef = useRef<string>('/');
+  
+  const setNavigationContext = useCallback((allowAutoNavigation: boolean, currentPage: string) => {
+    allowAutoNavigationRef.current = allowAutoNavigation;
+    currentPageRef.current = currentPage;
   }, []);
 
   const handleApproval = useCallback((approved: boolean) => {
@@ -589,6 +600,7 @@ export const useAgentChat = () => {
     stopGeneration,
     clearHistory,
     setAgentId,
+    setNavigationContext,
     
     // Conversation Actions
     createNewConversation,

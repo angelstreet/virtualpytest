@@ -2,7 +2,7 @@
 
 VirtualPyTest AI Agent is a multi-agent platform for automated QA testing, powered by Claude.
 
-**Implementation Status: ~85% Complete**
+**Implementation Status: ~90% Complete**
 
 ---
 
@@ -11,13 +11,14 @@ VirtualPyTest AI Agent is a multi-agent platform for automated QA testing, power
 1. [Overview](#1-overview)
 2. [Architecture](#2-architecture)
 3. [Agent Types & Configuration](#3-agent-types--configuration)
-4. [Interactive Navigation](#4-interactive-navigation)
-5. [Global Badge System](#5-global-badge-system)
-6. [API Reference](#6-api-reference)
-7. [Frontend Integration](#7-frontend-integration)
-8. [Scoring & Feedback](#8-scoring--feedback)
-9. [Quick Start](#9-quick-start)
-10. [File Structure](#10-file-structure)
+4. [2-Step Workflow](#4-2-step-workflow)
+5. [Interactive Navigation](#5-interactive-navigation)
+6. [Global Badge System](#6-global-badge-system)
+7. [API Reference](#7-api-reference)
+8. [Frontend Integration](#8-frontend-integration)
+9. [Scoring & Feedback](#9-scoring--feedback)
+10. [Quick Start](#10-quick-start)
+11. [File Structure](#11-file-structure)
 
 ---
 
@@ -221,7 +222,105 @@ config:
 
 ---
 
-## 4. Interactive Navigation
+## 4. 2-Step Workflow
+
+The AI agent follows a mandatory 2-step workflow for all requests, separating **navigation** (visual context) from **task execution** (actual work).
+
+### Workflow Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER REQUEST                             │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ STEP 1: NAVIGATION (Optional - for visual context)              │
+├─────────────────────────────────────────────────────────────────┤
+│ Skip if:                                                         │
+│   • Auto-navigation toggle is OFF                               │
+│   • User is already on target page                              │
+│   • Request has no relevant page                                │
+│                                                                  │
+│ Execute if: Toggle ON + Not on page + Page exists               │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ STEP 2: TASK EXECUTION (Required unless navigation-only)        │
+├─────────────────────────────────────────────────────────────────┤
+│ Skip if: Request is purely navigation ("go to X")               │
+│                                                                  │
+│ Execute: Use tools to provide ACTUAL DATA                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Request Classification
+
+| Request Type | Step 1 (Navigate) | Step 2 (Execute) |
+|--------------|-------------------|------------------|
+| "go to incidents" | ✅ Navigate | ❌ Skip |
+| "how many alerts?" | ✅ Navigate (if enabled) | ✅ Fetch data |
+| "list test cases" | ✅ Navigate (if enabled) | ✅ Fetch data |
+| "run regression" | ❌ Skip | ✅ Execute |
+
+### Auto-Navigation Toggle
+
+Users can control whether the AI navigates their browser:
+
+- **Toggle ON**: AI navigates to relevant page, then executes task
+- **Toggle OFF**: AI skips navigation, directly executes task
+
+The toggle is available in the AgentChat UI (top bar).
+
+### Context Passed to Backend
+
+Frontend sends navigation context with every message:
+
+```typescript
+socketRef.current.emit('send_message', {
+  session_id: sessionId,
+  message: message,
+  team_id: teamId,
+  agent_id: agentId,
+  allow_auto_navigation: true,    // Toggle state
+  current_page: '/ai-agent',      // User's current location
+});
+```
+
+### Page Mapping
+
+| Keywords | Target Page |
+|----------|-------------|
+| alerts, incidents | `/monitoring/incidents` |
+| devices, device control | `/device-control` |
+| reports, test reports | `/test-results/reports` |
+| heatmap | `/monitoring/heatmap` |
+| test cases | `/test-plan/test-cases` |
+| dashboard | `/` |
+
+### Example Flow
+
+**User asks**: "How many alerts are there?"
+
+```
+1. AI receives context:
+   - allow_auto_navigation: true
+   - current_page: /ai-agent
+
+2. Step 1 (Navigation):
+   - Check: Is navigation enabled? → YES
+   - Check: Is user on /monitoring/incidents? → NO
+   - Action: navigate_to_page("incidents")
+
+3. Step 2 (Task Execution):
+   - Use available tools to fetch alert data
+   - Return: "There are 5 active alerts and 12 closed alerts."
+```
+
+---
+
+## 5. Interactive Navigation
 
 The AI can control the user's browser within the React application.
 
@@ -298,7 +397,7 @@ const RunButton = () => {
 
 ---
 
-## 5. Global Badge System
+## 6. Global Badge System
 
 Floating badges show real-time agent activity across all pages.
 
@@ -352,7 +451,7 @@ Floating badges show real-time agent activity across all pages.
 
 ---
 
-## 6. API Reference
+## 7. API Reference
 
 ### Chat & Sessions
 
@@ -441,13 +540,25 @@ GET /api/benchmarks/compare?ids=agent1:1.0.0,agent2:1.0.0
 | Event | Direction | Data |
 |-------|-----------|------|
 | `join_session` | Client → Server | `{session_id}` |
-| `send_message` | Client → Server | `{session_id, message, agent_id}` |
+| `send_message` | Client → Server | `{session_id, message, agent_id, allow_auto_navigation, current_page}` |
 | `agent_event` | Server → Client | Thinking, tool_call, message, etc. |
 | `ui_action` | Server → Client | navigate, interact, highlight, toast |
 
+**`send_message` payload:**
+```json
+{
+  "session_id": "uuid",
+  "message": "how many alerts?",
+  "team_id": "default",
+  "agent_id": "ai-assistant",
+  "allow_auto_navigation": true,
+  "current_page": "/ai-agent"
+}
+```
+
 ---
 
-## 7. Frontend Integration
+## 8. Frontend Integration
 
 ### AI Context
 
@@ -493,7 +604,7 @@ Global state provider wrapping the application:
 
 ---
 
-## 8. Scoring & Feedback
+## 9. Scoring & Feedback
 
 ### Score Formula
 
@@ -526,7 +637,7 @@ Overall = (Benchmark × 40%) + (UserRating × 30%) + (SuccessRate × 20%) + (Cos
 
 ---
 
-## 9. Quick Start
+## 10. Quick Start
 
 ### Prerequisites
 
@@ -574,7 +685,7 @@ curl -X POST http://localhost:5109/api/events/publish \
 
 ---
 
-## 10. File Structure
+## 11. File Structure
 
 ```
 backend_server/src/
@@ -674,6 +785,9 @@ setup/db/schema/
 | Skill Registry & Validation | ✅ |
 | Auto-start Agents | ✅ |
 | Interactive Navigation | ✅ |
+| **2-Step Workflow (Navigate → Execute)** | ✅ |
+| **Auto-Navigation Toggle** | ✅ |
+| **Page Context Awareness** | ✅ |
 | Global Badge System | ✅ |
 | User Feedback (1-5 stars) | ✅ |
 | Benchmark Tests | ✅ |
@@ -729,6 +843,7 @@ AGENT_MAX_TOKENS=8192
 
 ---
 
-*Document Version: 2.0*  
-*Last Updated: December 2024*
+*Document Version: 2.1*  
+*Last Updated: December 2024*  
+*Changelog: Added 2-Step Workflow documentation*
 

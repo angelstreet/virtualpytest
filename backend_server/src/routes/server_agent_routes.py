@@ -15,6 +15,14 @@ from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
 
+# Slack integration hook
+try:
+    from integrations.agent_slack_hook import on_agent_message_websocket, on_user_message_websocket
+    SLACK_HOOK_AVAILABLE = True
+except ImportError:
+    SLACK_HOOK_AVAILABLE = False
+    logger.info("Slack hook not available")
+
 # =============================================================================
 # Agent Conversation Logger - Separate file for debugging
 # =============================================================================
@@ -314,12 +322,21 @@ def register_agent_socketio_handlers(socketio):
         """
         Handle user message
         
-        Data: { "session_id": "...", "message": "...", "team_id": "...", "agent_id": "..." }
+        Data: { 
+            "session_id": "...", 
+            "message": "...", 
+            "team_id": "...", 
+            "agent_id": "...",
+            "allow_auto_navigation": true/false,
+            "current_page": "/path/to/page"
+        }
         """
         session_id = data.get('session_id')
         message = data.get('message')
         team_id = data.get('team_id')
         agent_id = data.get('agent_id', 'ai-assistant')  # Default to generic assistant
+        allow_auto_navigation = data.get('allow_auto_navigation', False)
+        current_page = data.get('current_page', '/')
         
         if not session_id or not message:
             socketio.emit('error', {
@@ -328,7 +345,17 @@ def register_agent_socketio_handlers(socketio):
             return
         
         # Log user message with agent_id
-        log_agent_event('USER_MESSAGE', session_id, {'message': message, 'team_id': team_id, 'agent_id': agent_id})
+        log_agent_event('USER_MESSAGE', session_id, {
+            'message': message, 
+            'team_id': team_id, 
+            'agent_id': agent_id,
+            'allow_auto_navigation': allow_auto_navigation,
+            'current_page': current_page
+        })
+        
+        # Post user message to Slack
+        if SLACK_HOOK_AVAILABLE:
+            on_user_message_websocket(session_id, 'User', message)
         
         session_mgr = get_session_manager()
         session = session_mgr.get_session(session_id)
@@ -339,10 +366,12 @@ def register_agent_socketio_handlers(socketio):
             }, namespace='/agent')
             return
         
-        # Store team_id and agent_id in session context
+        # Store context in session for 2-step workflow
         if team_id:
             session.set_context('team_id', team_id)
         session.set_context('agent_id', agent_id)
+        session.set_context('allow_auto_navigation', allow_auto_navigation)
+        session.set_context('current_page', current_page)
         
         # Try to get manager - handle API key not configured
         try:
@@ -377,6 +406,16 @@ def register_agent_socketio_handlers(socketio):
                         room=session_id,
                         namespace='/agent'
                     )
+                    
+                    # Post agent message to Slack (only final messages, not tool calls/thinking)
+                    if SLACK_HOOK_AVAILABLE and event.type in ['message', 'result']:
+                        on_agent_message_websocket(
+                            session_id, 
+                            event.agent or 'AI Agent',
+                            event.content or '',
+                            event.type
+                        )
+                    
                     await asyncio.sleep(0.05)
             except Exception as e:
                 logger.error(f"Error processing message: {e}", exc_info=True)
@@ -430,6 +469,16 @@ def register_agent_socketio_handlers(socketio):
                         room=session_id,
                         namespace='/agent'
                     )
+                    
+                    # Post agent message to Slack
+                    if SLACK_HOOK_AVAILABLE and event.type in ['message', 'result']:
+                        on_agent_message_websocket(
+                            session_id,
+                            event.agent or 'AI Agent',
+                            event.content or '',
+                            event.type
+                        )
+                    
                     await asyncio.sleep(0.05)
             except Exception as e:
                 logger.error(f"Error processing approval: {e}", exc_info=True)

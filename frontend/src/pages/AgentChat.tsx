@@ -54,7 +54,7 @@ import {
   PhoneAndroid as DevicePanelIcon,
   OpenInNew as RedirectIcon,
 } from '@mui/icons-material';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { useAgentChat, type AgentEvent, type Conversation } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 import { useAIContext } from '../contexts/AIContext';
@@ -159,6 +159,7 @@ const AgentChat: React.FC = () => {
   const isDarkMode = theme.palette.mode === 'dark';
   const { profile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const { allowAutoNavigation, setAllowAutoNavigation } = useAIContext();
   
   // Layout state - each section can be shown/hidden
@@ -198,12 +199,18 @@ const AgentChat: React.FC = () => {
     switchConversation,
     deleteConversation,
     setAgentId,
+    setNavigationContext,
   } = useAgentChat();
   
   // Sync selected agent with hook
   useEffect(() => {
     setAgentId(selectedAgentId);
   }, [selectedAgentId, setAgentId]);
+  
+  // Sync navigation context with hook (for 2-step workflow)
+  useEffect(() => {
+    setNavigationContext(allowAutoNavigation, location.pathname);
+  }, [allowAutoNavigation, location.pathname, setNavigationContext]);
   
   // Only show processing state if viewing the conversation that's being processed
   const showProcessing = isProcessing && activeConversationId === pendingConversationId;
@@ -778,8 +785,37 @@ const AgentChat: React.FC = () => {
                     
                     if (metrics.duration === 0 && metrics.input === 0) return null;
                     
+                    const copyMessage = () => {
+                      const parts: string[] = [`${msg.agent || 'Assistant'}:`];
+                      const toolCalls = msg.events?.filter(e => e.type === 'tool_call') || [];
+                      const toolResults = msg.events?.filter(e => e.type === 'tool_result') || [];
+                      
+                      toolCalls.forEach(tool => {
+                        const result = toolResults.find(r => r.tool_name === tool.tool_name);
+                        parts.push(`\n  [Tool: ${tool.tool_name}]`);
+                        if (tool.tool_params) {
+                          parts.push(`  Input: ${JSON.stringify(tool.tool_params, null, 2).split('\n').join('\n  ')}`);
+                        }
+                        if (result?.tool_result) {
+                          const resultStr = typeof result.tool_result === 'string' 
+                            ? result.tool_result 
+                            : JSON.stringify(result.tool_result, null, 2);
+                          parts.push(`  Result: ${resultStr.split('\n').join('\n  ')}`);
+                        }
+                      });
+                      
+                      const content = msg.events
+                        ?.filter(e => e.type === 'message' || e.type === 'result')
+                        .map(e => e.content)
+                        .join('\n')
+                        .trim();
+                      if (content) parts.push(`\n${content}`);
+                      
+                      navigator.clipboard.writeText(parts.join('\n'));
+                    };
+                    
                     return (
-                      <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', gap: 2, opacity: 0.5 }}>
+                      <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: 2, opacity: 0.5 }}>
                         <Tooltip title="Processing time">
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <TimeIcon sx={{ fontSize: 10 }} />
@@ -795,6 +831,15 @@ const AgentChat: React.FC = () => {
                               ↓{metrics.input.toLocaleString()} ↑{metrics.output.toLocaleString()}
                             </Typography>
                           </Box>
+                        </Tooltip>
+                        <Tooltip title="Copy message">
+                          <IconButton 
+                            size="small" 
+                            onClick={copyMessage}
+                            sx={{ p: 0, '&:hover': { opacity: 1, color: PALETTE.accent } }}
+                          >
+                            <CopyIcon sx={{ fontSize: 12 }} />
+                          </IconButton>
                         </Tooltip>
                       </Box>
                     );
