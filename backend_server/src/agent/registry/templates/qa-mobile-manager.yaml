@@ -57,18 +57,7 @@ event_pools:
   - shared.builds
   - own.qa-mobile-tasks
 
-subagents:
-  - id: explorer
-    version: ">=1.0.0"
-    delegate_for:
-      - mobile_exploration
-      - touch_navigation_mapping
-  
-  - id: executor
-    version: ">=1.0.0"
-    delegate_for:
-      - mobile_test_execution
-      - touch_automation
+subagents: []  # Scout works alone with all its skills
 
 skills:
   # Requirements & Coverage

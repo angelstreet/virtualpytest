@@ -62,18 +62,7 @@ event_pools:
   - shared.builds
   - own.qa-stb-tasks
 
-subagents:
-  - id: explorer
-    version: ">=1.0.0"
-    delegate_for:
-      - stb_exploration
-      - dpad_navigation_mapping
-  
-  - id: executor
-    version: ">=1.0.0"
-    delegate_for:
-      - stb_test_execution
-      - remote_control_automation
+subagents: []  # Watcher works alone with all its skills
 
 skills:
   # Requirements & Coverage

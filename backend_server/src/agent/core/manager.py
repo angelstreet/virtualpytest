@@ -78,13 +78,14 @@ class QAManagerAgent:
 
 ## Rules
 
-1. **Use your tools first** - If you have the tool, use it.
+1. **Use your tools first** - If you have the tool, use it directly.
 2. **Delegate if you lack the tool** - Say exactly: `DELEGATE TO [agent_id]`
 
 Examples:
 - "How many test cases?" → Use `list_testcases`, report count
-- "Navigate to home on device X" → You lack `navigate_to_node` → `DELEGATE TO explorer`
-- "Run test TC_001" → You lack `execute_testcase` → `DELEGATE TO executor`
+- "Navigate to home on mobile device" → You lack `navigate_to_node` → `DELEGATE TO qa-mobile-manager`
+- "Test login flow on web" → You lack device control → `DELEGATE TO qa-web-manager`
+- "Check STB video playback" → You lack device control → `DELEGATE TO qa-stb-manager`
 
 Be efficient. Data, not explanations."""
 
@@ -99,8 +100,8 @@ Be efficient. Data, not explanations."""
         self.agent_id = agent_id or 'ai-assistant'
         self.agent_config = self._load_agent_config(self.agent_id)
         
-        # Sub-agents loaded dynamically from YAML (not hardcoded)
-        self._sub_agents = {}
+        # Delegated managers loaded dynamically (not internal sub-agents)
+        self._delegated_managers = {}
         
         self.logger.info(f"Manager initialized as {self.agent_config['nickname']} ({self.agent_id})")
     
@@ -141,34 +142,22 @@ Be efficient. Data, not explanations."""
             'subagents_info': subagents_info,
         }
     
-    def _get_sub_agent(self, agent_id: str):
-        """Lazy-load sub-agent when needed"""
-        if agent_id in self._sub_agents:
-            return self._sub_agents[agent_id]
+    def _get_delegated_manager(self, agent_id: str) -> Optional['QAManagerAgent']:
+        """Lazy-load delegated manager when needed"""
+        if agent_id in self._delegated_managers:
+            return self._delegated_managers[agent_id]
         
-        # Import and create based on agent_id
-        # These are the actual implementation classes
-        agent_classes = {
-            'explorer': ('..agents.explorer', 'ExplorerAgent'),
-            'builder': ('..agents.builder', 'BuilderAgent'),
-            'executor': ('..agents.executor', 'ExecutorAgent'),
-            'analyst': ('..agents.analyst', 'AnalystAgent'),
-            'maintainer': ('..agents.maintainer', 'MaintainerAgent'),
-        }
-        
-        if agent_id not in agent_classes:
-            self.logger.error(f"Unknown sub-agent: {agent_id}")
-            return None
-        
-        module_path, class_name = agent_classes[agent_id]
         try:
-            import importlib
-            module = importlib.import_module(module_path, package=__name__.rsplit('.', 1)[0])
-            agent_class = getattr(module, class_name)
-            self._sub_agents[agent_id] = agent_class(self.tool_bridge, api_key=self._get_api_key_safe())
-            return self._sub_agents[agent_id]
+            # Create a new QAManagerAgent with the delegated agent_id
+            manager = QAManagerAgent(
+                api_key=self._get_api_key_safe(),
+                user_identifier=self.user_identifier,
+                agent_id=agent_id
+            )
+            self._delegated_managers[agent_id] = manager
+            return manager
         except Exception as e:
-            self.logger.error(f"Failed to load sub-agent {agent_id}: {e}")
+            self.logger.error(f"Failed to load delegated manager {agent_id}: {e}")
             return None
     
     @property
@@ -201,7 +190,7 @@ Be efficient. Data, not explanations."""
 
     def _parse_delegation(self, text: str) -> Optional[str]:
         """Parse 'DELEGATE TO [agent_id]' from Claude's response"""
-        match = re.search(r'DELEGATE\s+TO\s+(\w+)', text, re.IGNORECASE)
+        match = re.search(r'DELEGATE\s+TO\s+([\w-]+)', text, re.IGNORECASE)
         return match.group(1).lower() if match else None
 
     async def process_message(self, message: str, session: Session) -> AsyncGenerator[AgentEvent, None]:
@@ -301,67 +290,34 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
             yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
         
-        # Validate sub-agent is in our YAML config
+        # Validate delegate is in our YAML config
         if delegate_to not in self.agent_config['subagents']:
-            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_to}' - not in my sub-agents: {self.agent_config['subagents']}")
+            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_to}' - not in my subagents: {self.agent_config['subagents']}")
             yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
         
-        # Get sub-agent
-        sub_agent = self._get_sub_agent(delegate_to)
-        if not sub_agent:
-            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load sub-agent: {delegate_to}")
+        # Get delegated manager
+        delegated_manager = self._get_delegated_manager(delegate_to)
+        if not delegated_manager:
+            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load manager: {delegate_to}")
             yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
         
         session.active_agent = delegate_to
         
-        yield AgentEvent(type=EventType.AGENT_DELEGATED, agent=self.nickname, content=f"Delegating to {sub_agent.name}...")
-        yield AgentEvent(type=EventType.AGENT_STARTED, agent=sub_agent.name, content=f"{sub_agent.name} starting...")
+        yield AgentEvent(type=EventType.AGENT_DELEGATED, agent=self.nickname, content=f"Delegating to {delegated_manager.nickname}...")
         
-        # Run sub-agent with original message
-        async for event in sub_agent.run(message, session.context):
+        # Run delegated manager with original message (same session, same chat)
+        async for event in delegated_manager.process_message(message, session):
             if session.cancelled:
                 yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Stopped by user.")
                 session.reset_cancellation()
                 return
             
-            yield AgentEvent(
-                type=EventType(event.get("type", "thinking")),
-                agent=event.get("agent", delegate_to),
-                content=event.get("content", ""),
-                tool_name=event.get("tool"),
-                tool_params=event.get("params"),
-                tool_result=event.get("result"),
-                success=event.get("success"),
-                error=event.get("error"),
-                metrics=event.get("metrics"),
-            )
-            
-            if event.get("type") == "approval_required":
-                approval = ApprovalRequest(
-                    id=str(uuid.uuid4()),
-                    agent=delegate_to,
-                    action=event.get("action", "Unknown"),
-                    options=event.get("options", ["approve", "reject"]),
-                    context=event.get("context", {}),
-                )
-                session.request_approval(approval)
-                yield AgentEvent(type=EventType.APPROVAL_REQUIRED, agent=self.nickname, content="Approval needed", approval_id=approval.id, approval_options=approval.options)
-                return
-            
-            if event.get("type") == "result":
-                result = event.get("content", {})
-                session.add_result(delegate_to, result)
-                if isinstance(result, dict):
-                    for key in ["tree_id", "exploration_id", "testcase_ids"]:
-                        if key in result:
-                            session.set_context(key, result[key])
-        
-        yield AgentEvent(type=EventType.AGENT_COMPLETED, agent=sub_agent.name, content="Completed")
+            # Forward all events from delegated manager (same chat bubble)
+            yield event
         
         session.active_agent = None
-        yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
         
         if LANGFUSE_ENABLED:
             flush()
@@ -378,13 +334,13 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
         yield AgentEvent(type=EventType.APPROVAL_RECEIVED, agent=self.nickname, content=f"Approval {'granted' if approved else 'rejected'}")
         
         if approved:
-            agent = self._get_sub_agent(approval.agent)
-            if agent:
+            manager = self._get_delegated_manager(approval.agent)
+            if manager:
                 if modifications:
                     for k, v in modifications.items():
                         session.set_context(k, v)
                 
-                async for event in agent.run(f"Continue: {approval.action}", session.context):
-                    yield AgentEvent(type=EventType(event.get("type", "thinking")), agent=event.get("agent", approval.agent), content=event.get("content", ""))
+                async for event in manager.process_message(f"Continue: {approval.action}", session):
+                    yield event
         else:
             yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content="Cancelled. What next?")

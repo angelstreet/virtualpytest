@@ -1,240 +1,292 @@
 # AI Agent Architecture
 
-YAML-driven agent system. No hardcoded logic in manager.
+YAML-driven agent system. Flat hierarchy with specialized managers.
 
 ---
 
-## 1. Agent Selection Flow
+## 1. Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                        │
-│                                                                              │
-│   User selects agent: [Atlas ▼] → Sherlock (Web)                            │
-│   User types: "Go to home on device s21x"                                   │
-│                                                                              │
-│   AIContext sends:                                                           │
-│   {                                                                          │
-│     session_id: "...",                                                       │
-│     message: "Go to home on device s21x",                                   │
-│     agent_id: "qa-web-manager"  ← Selected agent                            │
-│   }                                                                          │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              BACKEND                                         │
-│                                                                              │
-│   QAManagerAgent:                                                            │
-│   ├── Load agent config from YAML (tools, sub-agents)                       │
-│   ├── Build system prompt with available tools                              │
-│   ├── Claude decides: use tools OR "DELEGATE TO [agent_id]"                 │
-│   └── If delegation → run sub-agent with original message                   │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              ATLAS                                          │
+│                         (Main Orchestrator)                                 │
+│                                                                             │
+│   Skills: READ-ONLY tools + navigate_to_page (browser only)                │
+│   Delegates to: Platform-specific MANAGER agents                           │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐          │
+│   │   Scout    │  │  Sherlock  │  │  Watcher   │  │  Guardian  │          │
+│   │  (Mobile)  │  │   (Web)    │  │   (STB)    │  │ (Monitor)  │          │
+│   │     🔍     │  │     🧪     │  │     📺     │  │     🛡️     │          │
+│   └────────────┘  └────────────┘  └────────────┘  └────────────┘          │
+│                                                                             │
+│   Each manager has ALL skills for its platform:                            │
+│   - take_control                                                           │
+│   - navigate_to_node                                                       │
+│   - execute_testcase                                                       │
+│   - dump_ui_elements                                                       │
+│   - etc.                                                                   │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Key Principle:** No sub-agents. Each manager is self-sufficient with all needed skills.
 
 ---
 
 ## 2. Available Agents
 
-### User-Selectable Agents (shown in UI dropdown)
+All agents are user-selectable (`selectable: true`):
 
 | Agent ID | Nickname | Icon | Platform | Specialty |
 |----------|----------|------|----------|-----------|
-| `ai-assistant` | **Atlas** | 🤖 | All | General purpose, main entrance |
-| `qa-web-manager` | **Sherlock** | 🧪 | Web | Browser testing, DOM, web performance |
-| `qa-mobile-manager` | **Scout** | 🔍 | Mobile | Android/iOS, Appium, touch gestures |
+| `ai-assistant` | **Atlas** | 🤖 | All | Orchestrator, delegates to specialists |
+| `qa-mobile-manager` | **Scout** | 🔍 | Mobile | Android/iOS device control & testing |
+| `qa-web-manager` | **Sherlock** | 🧪 | Web | Browser testing, DOM, web automation |
 | `qa-stb-manager` | **Watcher** | 📺 | STB/TV | Remote control, EPG, D-pad navigation |
 | `monitoring-manager` | **Guardian** | 🛡️ | All | Alerts, health checks, incidents |
 
-### Internal Agents (sub-agents, not user-selectable)
-
-| Agent ID | Nickname | Icon | Role |
-|----------|----------|------|------|
-| `explorer` | **Pathfinder** | 🧭 | UI discovery, navigation tree building |
-| `executor` | **Runner** | ⚡ | Test execution, device control |
+**No internal/hidden sub-agents.** Each selectable agent = one chat bubble.
 
 ---
 
-## 3. YAML-Driven Architecture
+## 3. Two Separate Domains
 
-**No hardcoded mode detection. No hardcoded agent mapping.**
+### Domain A: Browser Navigation (Atlas)
 
-Everything comes from YAML:
+```
+Tool: navigate_to_page
+Purpose: Navigate within VirtualPyTest web UI
+Agent: Atlas handles directly
+
+User: "go to incidents page"
+  ↓
+Atlas calls: navigate_to_page("incidents")
+  ↓
+Frontend navigates to /monitoring/incidents
+```
+
+### Domain B: Device Navigation (Managers)
+
+```
+Tool: take_control + navigate_to_node
+Purpose: Control physical/virtual devices
+Agent: Platform manager (Scout/Sherlock/Watcher)
+
+User: "go to home on horizon_android_mobile"
+  ↓
+Atlas: "DELEGATE TO qa-mobile-manager"
+  ↓
+Scout calls: take_control(userinterface="horizon_android_mobile")
+Scout calls: navigate_to_node(node="home")
+  ↓
+Device navigates to home screen
+```
+
+**These domains are completely separate. Never mix them.**
+
+---
+
+## 4. Delegation Flow
+
+```
+User: "go to home on horizon_android_mobile"
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Atlas checks:                                                    │
+│ - Platform? Mobile (android_mobile)                             │
+│ - Do I have navigate_to_node? NO                                │
+│ - Who handles mobile? Scout (qa-mobile-manager)                 │
+│                                                                  │
+│ Atlas responds: "DELEGATE TO qa-mobile-manager"                 │
+└─────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Scout (qa-mobile-manager) receives request                       │
+│                                                                  │
+│ Scout has these skills (from YAML):                             │
+│ - take_control ✓                                                │
+│ - navigate_to_node ✓                                            │
+│                                                                  │
+│ Scout executes:                                                  │
+│ 1. take_control(userinterface="horizon_android_mobile")         │
+│ 2. navigate_to_node(node="home")                                │
+│                                                                  │
+│ Done. Two tool calls. No extra prep work.                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. Tool Simplicity
+
+**`navigate_to_node` is self-sufficient:**
+
+```
+❌ WRONG (what agent was doing):
+   1. get_compatible_hosts
+   2. preview_userinterface
+   3. capture_screenshot
+   4. dump_ui_elements
+   5. list_navigation_nodes
+   6. take_control
+   7. navigate_to_node
+
+✅ CORRECT (what agent should do):
+   1. take_control(userinterface="...")
+   2. navigate_to_node(node="...")
+
+That's it. The tools handle everything internally.
+```
+
+---
+
+## 6. Platform-Specific Skills
+
+### Scout (Mobile)
+
+```yaml
+skills:
+  - take_control
+  - navigate_to_node
+  - dump_ui_elements        # ADB hierarchy
+  - capture_screenshot
+  - execute_device_action   # Touch, swipe
+  - execute_testcase
+  - start_ai_exploration
+  - get_compatible_hosts
+```
+
+### Sherlock (Web)
+
+```yaml
+skills:
+  - take_control
+  - navigate_to_node
+  - dump_ui_elements        # DOM hierarchy
+  - capture_screenshot
+  - execute_testcase
+  - start_ai_exploration
+```
+
+### Watcher (STB/TV)
+
+```yaml
+skills:
+  - take_control
+  - navigate_to_node
+  - capture_screenshot      # AI vision (no dump_ui_elements)
+  - get_transcript          # Audio analysis
+  - execute_device_action   # D-pad, remote keys
+  - execute_testcase
+```
+
+### Guardian (Monitoring)
+
+```yaml
+skills:
+  - get_alerts
+  - list_incidents
+  - get_device_health
+  - list_hosts
+```
+
+---
+
+## 7. Chat Bubble Rules
+
+| Agent | Chat Bubble |
+|-------|-------------|
+| Atlas | ✅ Own bubble |
+| Scout | ✅ Own bubble (when delegated to) |
+| Sherlock | ✅ Own bubble (when delegated to) |
+| Watcher | ✅ Own bubble (when delegated to) |
+| Guardian | ✅ Own bubble (when delegated to) |
+
+**Rule:** One selectable YAML agent = one chat bubble.
+
+---
+
+## 8. YAML Structure
+
+### Atlas (Orchestrator)
 
 ```yaml
 # ai-assistant.yaml
 metadata:
   id: ai-assistant
   nickname: Atlas
+  selectable: true
 
-skills:                    # Tools Atlas can use
+skills:
+  # READ-ONLY tools
   - list_testcases
   - list_userinterfaces
-  - navigate_to_page       # Browser navigation only
-  # NO navigate_to_node    # → Must delegate
+  - list_requirements
+  - get_coverage_summary
+  # Browser navigation only
+  - navigate_to_page
+  # NO device tools
 
-subagents:                 # Who Atlas can delegate to
-  - id: explorer
-    delegate_for:
-      - ui_discovery
-      - navigation_exploration
-  - id: executor
-    delegate_for:
-      - test_execution
+subagents:
+  - id: qa-mobile-manager
+    delegate_for: [mobile_navigation, android_testing]
+  - id: qa-web-manager
+    delegate_for: [web_navigation, browser_testing]
+  - id: qa-stb-manager
+    delegate_for: [stb_navigation, tv_testing]
+  - id: monitoring-manager
+    delegate_for: [alert_investigation, incident_response]
 ```
 
-### How Delegation Works
-
-```
-User: "Navigate to home on device s21x"
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ Atlas checks its tools (from YAML skills):                       │
-│ - list_testcases ✓                                              │
-│ - navigate_to_page ✓ (browser)                                  │
-│ - navigate_to_node ✗ (NOT in skills)                            │
-│                                                                  │
-│ Claude realizes: "I don't have navigate_to_node"                │
-│ Claude responds: "DELEGATE TO explorer"                         │
-└─────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ Manager validates: "explorer" in self.agent_config['subagents'] │
-│ Manager loads: ExplorerAgent (lazy, on demand)                  │
-│ Manager runs: explorer.run(original_message, context)           │
-└─────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ Explorer (Pathfinder) has these tools (from explorer.yaml):     │
-│ - navigate_to_node ✓                                            │
-│ - take_control ✓                                                │
-│ - start_ai_exploration ✓                                        │
-│ - ...                                                           │
-│                                                                  │
-│ Explorer executes the navigation                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 4. Sub-Agent Roles
-
-| Sub-Agent | Nickname | When Delegated | Key Skills |
-|-----------|----------|----------------|------------|
-| **Explorer** | Pathfinder | UI discovery, device navigation | `navigate_to_node`, `take_control`, `start_ai_exploration` |
-| **Executor** | Runner | Test execution | `execute_testcase`, `take_control`, `execute_device_action` |
-| **Builder** | - | Test/requirement creation | `save_testcase`, `create_requirement` |
-| **Analyst** | - | Results analysis | `get_coverage_summary`, `list_requirements` |
-| **Maintainer** | - | Fix broken selectors | `update_edge`, `dump_ui_elements` |
-
----
-
-## 5. Platform-Specific Skills
-
-Each agent's YAML defines platform-appropriate skills:
-
-### Web Agent Skills (Sherlock)
+### Scout (Mobile Manager)
 
 ```yaml
+# qa-mobile-manager.yaml
+metadata:
+  id: qa-mobile-manager
+  nickname: Scout
+  selectable: true
+
 skills:
-  - dump_ui_elements           # ✅ DOM hierarchy
-  - analyze_screen_for_action  # ✅ Selector scoring
-  - capture_screenshot         # ✅ Always available
-```
+  - take_control
+  - navigate_to_node
+  - dump_ui_elements
+  - capture_screenshot
+  - execute_device_action
+  - execute_testcase
+  - start_ai_exploration
+  - get_compatible_hosts
+  - list_navigation_nodes
 
-### Mobile Agent Skills (Scout)
-
-```yaml
-skills:
-  - dump_ui_elements           # ✅ ADB hierarchy
-  - execute_device_action      # ✅ Touch, swipe
-  - capture_screenshot         # ✅ Always available
-```
-
-### STB/TV Agent Skills (Watcher)
-
-```yaml
-skills:
-  - capture_screenshot         # ✅ Required - AI vision
-  - get_transcript            # ✅ Audio analysis
-  # NO dump_ui_elements        # ❌ Not available on STB
+subagents: []  # No sub-agents - all skills included
 ```
 
 ---
 
-## 6. Agent Registry
-
-### Architecture: YAML → Memory → API
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. YAML Templates (Source of Truth)                             │
-│    backend_server/src/agent/registry/templates/*.yaml           │
-└────────────────────────┬────────────────────────────────────────┘
-                         │ loaded on startup
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Memory Cache (AgentRegistry._system_agents)                  │
-│    - Reloadable via POST /server/agents/reload                  │
-└────────────────────────┬────────────────────────────────────────┘
-                         │ exposed via
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. REST API (GET /server/agents)                                │
-│    - No team_id - agents are global                             │
-└────────────────────────┬────────────────────────────────────────┘
-                         │ consumed by
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 4. Frontend (AgentChat.tsx)                                     │
-│    - Filters by selectable: true for dropdown                   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### YAML Templates Location
-
-```
-backend_server/src/agent/registry/templates/
-├── ai-assistant.yaml        # Atlas (selectable: true)
-├── qa-web-manager.yaml      # Sherlock (selectable: true)
-├── qa-mobile-manager.yaml   # Scout (selectable: true)
-├── qa-stb-manager.yaml      # Watcher (selectable: true)
-├── monitoring-manager.yaml  # Guardian (selectable: true)
-├── explorer.yaml            # Pathfinder (selectable: false)
-└── executor.yaml            # Runner (selectable: false)
-```
-
----
-
-## 7. File Structure
+## 9. File Structure
 
 ```
 backend_server/src/agent/
-├── agents/                      # Sub-agent implementations
-│   ├── base_agent.py
-│   ├── explorer.py             # Pathfinder
-│   ├── builder.py
-│   ├── executor.py             # Runner
-│   ├── analyst.py
-│   └── maintainer.py
 ├── core/
 │   ├── manager.py              # YAML-driven orchestrator
-│   ├── session.py              # Session management
-│   ├── tool_bridge.py          # MCP ↔ Agent bridge
-│   └── message_types.py        # Event types
+│   ├── session.py
+│   └── tool_bridge.py
 ├── registry/
-│   ├── templates/              # YAML agent configs (Source of Truth)
-│   ├── registry.py             # YAML loading
-│   └── config_schema.py        # Pydantic models
-└── config.py                   # Model config only (no Mode/MODE_AGENTS)
+│   ├── templates/              # YAML configs (Source of Truth)
+│   │   ├── ai-assistant.yaml       # Atlas
+│   │   ├── qa-mobile-manager.yaml  # Scout
+│   │   ├── qa-web-manager.yaml     # Sherlock
+│   │   ├── qa-stb-manager.yaml     # Watcher
+│   │   └── monitoring-manager.yaml # Guardian
+│   └── registry.py
+└── config.py                   # Model config only
 ```
 
 ---
 
-*Document Version: 3.0*  
+*Document Version: 4.0*  
 *Last Updated: December 2024*  
-*Changelog: Removed hardcoded mode detection - now fully YAML-driven*
+*Changelog: Simplified to flat hierarchy - no Explorer/Executor sub-agents*

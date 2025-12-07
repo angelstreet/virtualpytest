@@ -56,18 +56,7 @@ event_pools:
   - shared.builds
   - own.qa-web-tasks
 
-subagents:
-  - id: explorer
-    version: ">=1.0.0"
-    delegate_for:
-      - ui_discovery
-      - web_navigation_mapping
-  
-  - id: executor
-    version: ">=1.0.0"
-    delegate_for:
-      - web_test_execution
-      - browser_automation
+subagents: []  # Sherlock works alone with all its skills
 
 skills:
   # Requirements & Coverage

@@ -40,16 +40,36 @@ event_pools:
   - own.assistant-tasks
 
 subagents:
-  - id: explorer
+  - id: qa-mobile-manager
     version: ">=1.0.0"
     delegate_for:
-      - ui_discovery
-      - navigation_exploration
+      - mobile_qa
+      - android_testing
+      - mobile_navigation
+      - adb_operations
   
-  - id: executor
+  - id: qa-web-manager
     version: ">=1.0.0"
     delegate_for:
-      - test_execution
+      - web_qa
+      - browser_testing
+      - web_automation
+  
+  - id: qa-stb-manager
+    version: ">=1.0.0"
+    delegate_for:
+      - stb_qa
+      - tv_testing
+      - remote_control
+      - dpad_navigation
+  
+  - id: monitoring-manager
+    version: ">=1.0.0"
+    delegate_for:
+      - system_monitoring
+      - health_checks
+      - incident_detection
+      - alerting
 
 skills:
   # Data Queries
