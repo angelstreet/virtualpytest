@@ -63,24 +63,6 @@ agent_scores              # Aggregated scores (leaderboard)
 agent_feedback            # User ratings (1-5 stars)
 ```
 
-### File Structure
-
-```
-backend_server/src/agent/benchmarks/
-├── __init__.py                  # YAML loader
-├── tests/*.yaml                 # Built-in test definitions
-└── custom/*.yaml                # Custom test definitions
-
-backend_server/src/routes/
-└── agent_benchmark_routes.py    # REST API endpoints
-
-shared/src/lib/database/
-└── agent_benchmarks_db.py       # Database operations
-
-frontend/src/pages/
-└── AgentDashboard.tsx           # UI for benchmarks
-```
-
 ---
 
 ## Benchmark Categories
@@ -193,17 +175,18 @@ GET /api/benchmarks/tests?category=navigation
 {
   "tests": [
     {
-      "id": "uuid",
       "test_id": "bench_nav_001",
       "name": "List User Interfaces",
       "category": "navigation",
-      "input_prompt": "List all available user interfaces",
-      "expected_output": {"contains": ["userinterfaces"]},
+      "input_prompt": "List all available user interfaces in the system",
+      "expected_output": {"contains": ["userinterface", "list"]},
       "validation_type": "contains",
-      "timeout_seconds": 30
+      "timeout_seconds": 30,
+      "points": 1.0,
+      "applicable_agent_types": ["qa-web-manager", "qa-mobile-manager"]
     }
   ],
-  "count": 10
+  "count": 17
 }
 ```
 
@@ -433,8 +416,8 @@ curl "http://localhost:5109/api/benchmarks/runs/$RUN_ID"
 |--------|------|-------------|
 | `id` | UUID | Primary key |
 | `run_id` | UUID | Parent benchmark run |
-| `benchmark_id` | UUID | Test reference |
-| `test_id` | VARCHAR(50) | Test identifier |
+| `benchmark_id` | UUID | Optional (null for file-based tests) |
+| `test_id` | VARCHAR(50) | Test identifier from YAML |
 | `passed` | BOOLEAN | Pass/fail status |
 | `points_earned` | DECIMAL | Points scored |
 | `actual_output` | JSONB | Agent's response |
@@ -624,15 +607,7 @@ const response = await fetch(buildServerUrl('/api/benchmarks/runs'));
 
 ### Current Limitations
 
-1. **Test Execution**: Current implementation uses placeholder simulation; real agent execution requires `QAManagerAgent` integration
+1. **Test Execution**: Uses placeholder simulation; real agent execution requires `QAManagerAgent` integration
 2. **Cost Efficiency**: The 10% cost efficiency component is not yet implemented
-3. **Triggers**: Database triggers for automatic score recalculation are defined but may need manual invocation
-
----
-
-## Related Documentation
-
-- [Agent Platform Overview](./ai_agent_platform.md)
-- [Agent Registry & Routing](./agent.md)
-- [Langfuse Integration](./langfuse_integration.md)
+3. **Hot Reload**: Server restart required after adding/editing YAML tests
 
