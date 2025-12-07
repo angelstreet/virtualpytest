@@ -296,17 +296,17 @@ config:
 
 ```bash
 # List all agents
-GET /api/agents?team_id=<team_id>
+GET /server/agents?team_id=<team_id>
 
 # Get agent details
-GET /api/agents/<agent_id>?team_id=<team_id>
+GET /server/agents/<agent_id>?team_id=<team_id>
 
 # Import from YAML
-POST /api/agents/import
+POST /server/agents/import
 Content-Type: text/yaml
 
 # Export to YAML
-GET /api/agents/<agent_id>/export
+GET /server/agents/<agent_id>/export
 ```
 
 ---

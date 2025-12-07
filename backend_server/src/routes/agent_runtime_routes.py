@@ -13,7 +13,7 @@ from events import get_event_bus
 from agent.async_utils import run_async
 
 # Create blueprint
-server_agent_runtime_bp = Blueprint('server_agent_runtime', __name__, url_prefix='/api/runtime')
+server_agent_runtime_bp = Blueprint('server_agent_runtime', __name__, url_prefix='/server/runtime')
 
 
 def get_team_id() -> str:

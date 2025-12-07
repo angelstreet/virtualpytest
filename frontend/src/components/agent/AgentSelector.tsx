@@ -41,7 +41,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   useEffect(() => {
     const fetchInstances = async () => {
       try {
-        const response = await fetch('/api/runtime/instances');
+        const response = await fetch('/server/runtime/instances');
         if (!response.ok) throw new Error('Failed to fetch instances');
         
         const data = await response.json();
@@ -200,7 +200,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
             onClick={async (e) => {
               e.stopPropagation();
               try {
-                await fetch(`/api/runtime/instances/${selectedInstanceId}/stop`, {
+                await fetch(`/server/runtime/instances/${selectedInstanceId}/stop`, {
                   method: 'POST'
                 });
               } catch (err) {

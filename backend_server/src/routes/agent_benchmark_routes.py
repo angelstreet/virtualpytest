@@ -22,7 +22,7 @@ from shared.src.lib.database.agent_benchmarks_db import (
 )
 
 # Create blueprint
-server_agent_benchmark_bp = Blueprint('server_agent_benchmark', __name__, url_prefix='/api/benchmarks')
+server_agent_benchmark_bp = Blueprint('server_agent_benchmark', __name__, url_prefix='/server/benchmarks')
 
 
 def get_team_id() -> str:
@@ -73,7 +73,7 @@ def route_create_benchmark_run():
             'version': run['agent_version'],
             'total_tests': run['total_tests'],
             'status': run['status'],
-            'message': 'Benchmark run created. Execute /api/benchmarks/run/{run_id}/execute to start.'
+            'message': 'Benchmark run created. Execute /server/benchmarks/run/{run_id}/execute to start.'
         }), 201
         
     except Exception as e:

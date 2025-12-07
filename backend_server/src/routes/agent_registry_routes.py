@@ -18,7 +18,7 @@ from agent.registry import (
 )
 
 # Create blueprint
-server_agent_registry_bp = Blueprint('server_agent_registry', __name__, url_prefix='/api/agents')
+server_agent_registry_bp = Blueprint('server_agent_registry', __name__, url_prefix='/server/agents')
 
 
 def get_team_id() -> str:

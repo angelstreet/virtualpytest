@@ -473,33 +473,33 @@ GET/DELETE /server/agent/sessions/<id>
 
 ```bash
 # List agents
-GET /api/agents?team_id=<team_id>
+GET /server/agents?team_id=<team_id>
 
 # Get agent
-GET /api/agents/<agent_id>?team_id=<team_id>
+GET /server/agents/<agent_id>?team_id=<team_id>
 
 # Import from YAML
-POST /api/agents/import
+POST /server/agents/import
 Content-Type: text/yaml
 
 # Export to YAML
-GET /api/agents/<agent_id>/export
+GET /server/agents/<agent_id>/export
 ```
 
 ### Agent Runtime
 
 ```bash
 # List instances
-GET /api/runtime/instances
+GET /server/runtime/instances
 
 # Start agent
-POST /api/runtime/instances/start
+POST /server/runtime/instances/start
 Body: {"agent_id": "qa-web-manager", "version": "1.0.0"}
 
 # Stop/Pause/Resume
-POST /api/runtime/instances/<instance_id>/stop
-POST /api/runtime/instances/<instance_id>/pause
-POST /api/runtime/instances/<instance_id>/resume
+POST /server/runtime/instances/<instance_id>/stop
+POST /server/runtime/instances/<instance_id>/pause
+POST /server/runtime/instances/<instance_id>/resume
 ```
 
 ### Events
@@ -521,18 +521,18 @@ GET /api/events/stats
 
 ```bash
 # Run benchmark
-POST /api/benchmarks/run
+POST /server/benchmarks/run
 Body: {"agent_id": "qa-web-manager", "version": "1.0.0"}
 
 # Submit feedback
-POST /api/benchmarks/feedback
+POST /server/benchmarks/feedback
 Body: {"agent_id": "...", "rating": 5, "comment": "Great!"}
 
 # Get leaderboard
-GET /api/benchmarks/leaderboard
+GET /server/benchmarks/leaderboard
 
 # Compare agents
-GET /api/benchmarks/compare?ids=agent1:1.0.0,agent2:1.0.0
+GET /server/benchmarks/compare?ids=agent1:1.0.0,agent2:1.0.0
 ```
 
 ### SocketIO Events
@@ -673,7 +673,7 @@ brew services start redis           # macOS
 
 ```bash
 # Import custom agent
-curl -X POST http://localhost:5109/api/agents/import \
+curl -X POST http://localhost:5109/server/agents/import \
   -H "Content-Type: text/yaml" \
   --data-binary @my-agent.yaml
 

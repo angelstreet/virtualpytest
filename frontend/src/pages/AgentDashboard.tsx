@@ -123,13 +123,13 @@ export const AgentDashboard: React.FC = () => {
 
   const loadAgents = async () => {
     try {
-      const response = await fetch(buildServerUrl('/api/agents'));
+      const response = await fetch(buildServerUrl('/server/agents'));
       if (!response.ok) {
         setAgents(getDefaultAgents());
         return;
       }
       const data = await response.json();
-      setAgents(data.agents || getDefaultAgents());
+      setAgents(data.agents?.length ? data.agents : getDefaultAgents());
       setError(null);
     } catch (err) {
       setAgents(getDefaultAgents());
@@ -139,7 +139,7 @@ export const AgentDashboard: React.FC = () => {
 
   const loadBenchmarkRuns = async () => {
     try {
-      const response = await fetch(buildServerUrl('/api/benchmarks/runs'));
+      const response = await fetch(buildServerUrl('/server/benchmarks/runs'));
       if (response.ok) {
         const data = await response.json();
         setBenchmarkRuns(data.runs || []);
@@ -151,7 +151,7 @@ export const AgentDashboard: React.FC = () => {
 
   const loadLeaderboard = async () => {
     try {
-      const response = await fetch(buildServerUrl('/api/benchmarks/leaderboard'));
+      const response = await fetch(buildServerUrl('/server/benchmarks/leaderboard'));
       if (response.ok) {
         const data = await response.json();
         setLeaderboard(data.leaderboard || []);
@@ -219,7 +219,7 @@ export const AgentDashboard: React.FC = () => {
 
   const handleStartAgent = async (agent: AgentDefinition) => {
     try {
-      const response = await fetch(buildServerUrl('/api/runtime/instances/start'), {
+      const response = await fetch(buildServerUrl('/server/runtime/instances/start'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent_id: agent.id, version: agent.version })
@@ -238,7 +238,7 @@ export const AgentDashboard: React.FC = () => {
   const handleStopAgent = async (agent: AgentDefinition) => {
     if (!agent.instanceId) return;
     try {
-      const response = await fetch(buildServerUrl(`/api/runtime/instances/${agent.instanceId}/stop`), {
+      const response = await fetch(buildServerUrl(`/server/runtime/instances/${agent.instanceId}/stop`), {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Failed to stop agent');
@@ -272,7 +272,7 @@ export const AgentDashboard: React.FC = () => {
 
   const handleImportAgent = async () => {
     try {
-      const response = await fetch(buildServerUrl('/api/agents/import'), {
+      const response = await fetch(buildServerUrl('/server/agents/import'), {
         method: 'POST',
         headers: { 'Content-Type': 'text/yaml' },
         body: importYaml
@@ -303,7 +303,7 @@ export const AgentDashboard: React.FC = () => {
     setRunningBenchmark(true);
     try {
       // Create run
-      const createResponse = await fetch(buildServerUrl('/api/benchmarks/run'), {
+      const createResponse = await fetch(buildServerUrl('/server/benchmarks/run'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent_id: agentId, version })
@@ -312,7 +312,7 @@ export const AgentDashboard: React.FC = () => {
       const createData = await createResponse.json();
       
       // Execute run
-      const executeResponse = await fetch(buildServerUrl(`/api/benchmarks/run/${createData.run_id}/execute`), {
+      const executeResponse = await fetch(buildServerUrl(`/server/benchmarks/run/${createData.run_id}/execute`), {
         method: 'POST'
       });
       if (!executeResponse.ok) throw new Error('Failed to execute benchmark');
@@ -329,7 +329,7 @@ export const AgentDashboard: React.FC = () => {
 
   const handleSubmitFeedback = async () => {
     try {
-      const response = await fetch(buildServerUrl('/api/benchmarks/feedback'), {
+      const response = await fetch(buildServerUrl('/server/benchmarks/feedback'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

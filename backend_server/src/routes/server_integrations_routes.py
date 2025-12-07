@@ -474,11 +474,18 @@ def get_slack_config():
     try:
         config = load_slack_config()
         
+        # Build Slack URL if workspace_id and channel_id are available
+        workspace_id = config.get('workspace_id', '')
+        channel_id = config.get('channel_id', '')
+        slack_url = f"https://app.slack.com/client/{workspace_id}/{channel_id}" if workspace_id and channel_id else None
+        
         return jsonify({
             'success': True,
             'config': {
                 'enabled': config.get('enabled', False),
-                'channel_id': config.get('channel_id', ''),
+                'workspace_id': workspace_id,
+                'channel_id': channel_id,
+                'url': slack_url,
                 'sync_tool_calls': config.get('sync_tool_calls', False),
                 'sync_thinking': config.get('sync_thinking', False),
                 'has_token': bool(config.get('bot_token'))

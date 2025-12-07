@@ -9,12 +9,15 @@ import {
   Backdrop,
   Menu,
   MenuItem,
-  Typography
+  Typography,
+  Tooltip
 } from '@mui/material';
 import { 
   AutoAwesome as SparkleIcon,
   KeyboardReturn as EnterIcon,
-  KeyboardArrowDown as ArrowDownIcon
+  KeyboardArrowDown as ArrowDownIcon,
+  OpenInNew as RedirectIcon,
+  LinkOff as RedirectOffIcon
 } from '@mui/icons-material';
 import { useAIContext } from '../../contexts/AIContext';
 
@@ -58,7 +61,15 @@ const AVAILABLE_AGENTS = [
 ];
 
 export const AICommandBar: React.FC = () => {
-  const { isCommandOpen, closeCommand, selectedAgentId, setSelectedAgentId, sendMessage } = useAIContext();
+  const { 
+    isCommandOpen, 
+    closeCommand, 
+    selectedAgentId, 
+    setSelectedAgentId, 
+    sendMessage,
+    allowAutoNavigation,
+    setAllowAutoNavigation 
+  } = useAIContext();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const chipRef = useRef<HTMLDivElement>(null);
@@ -177,8 +188,36 @@ export const AICommandBar: React.FC = () => {
               }}
             />
             
-            <Box sx={{ display: 'flex', alignItems: 'center', pr: 1 }}>
-              <IconButton type="submit" sx={{ p: 1 }} aria-label="search">
+            <Box sx={{ display: 'flex', alignItems: 'center', pr: 1, gap: 0.5 }}>
+              {/* Auto-redirect toggle */}
+              <Tooltip 
+                title={allowAutoNavigation ? "Auto-redirect ON - Click to disable" : "Auto-redirect OFF - Click to enable"}
+                arrow
+                placement="top"
+                slotProps={{ popper: { sx: { zIndex: 10001 } } }}
+              >
+                <IconButton 
+                  onClick={() => setAllowAutoNavigation(!allowAutoNavigation)}
+                  sx={{ 
+                    p: 0.75,
+                    color: allowAutoNavigation ? '#d4af37' : '#666',
+                    bgcolor: allowAutoNavigation ? 'rgba(212, 175, 55, 0.12)' : 'transparent',
+                    border: '1px solid',
+                    borderColor: allowAutoNavigation ? 'rgba(212, 175, 55, 0.3)' : 'transparent',
+                    borderRadius: 1.5,
+                    transition: 'all 0.2s ease',
+                    '&:hover': { 
+                      bgcolor: allowAutoNavigation ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255,255,255,0.08)',
+                      color: allowAutoNavigation ? '#d4af37' : '#999',
+                    }
+                  }} 
+                  aria-label="toggle auto-redirect"
+                >
+                  {allowAutoNavigation ? <RedirectIcon sx={{ fontSize: 18 }} /> : <RedirectOffIcon sx={{ fontSize: 18 }} />}
+                </IconButton>
+              </Tooltip>
+              
+              <IconButton type="submit" sx={{ p: 1 }} aria-label="send">
                 <EnterIcon />
               </IconButton>
             </Box>

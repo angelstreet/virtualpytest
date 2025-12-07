@@ -74,7 +74,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
     const fetchStatus = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/runtime/instances/${instanceId}`);
+        const response = await fetch(`/server/runtime/instances/${instanceId}`);
         if (!response.ok) throw new Error('Failed to fetch status');
         
         const data = await response.json();
@@ -131,7 +131,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ instanceId }) => {
     setActionInProgress(action);
     try {
       const endpoint = action === 'abort' ? 'stop' : action;
-      const response = await fetch(`/api/runtime/instances/${instanceId}/${endpoint}`, {
+      const response = await fetch(`/server/runtime/instances/${instanceId}/${endpoint}`, {
         method: 'POST'
       });
       

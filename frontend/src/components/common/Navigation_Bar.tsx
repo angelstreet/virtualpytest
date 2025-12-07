@@ -26,7 +26,7 @@ import {
   Insights as LangfuseIcon, // For Langfuse LLM Observability
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import NavigationDropdown from './Navigation_Dropdown';
@@ -34,6 +34,23 @@ import NavigationGroupedDropdown from './Navigation_GroupedDropdown';
 
 const NavigationBar: React.FC = () => {
   const location = useLocation();
+  const [slackUrl, setSlackUrl] = useState<string>('https://slack.com');
+
+  // Fetch Slack configuration from backend
+  useEffect(() => {
+    const fetchSlackConfig = async () => {
+      try {
+        const response = await fetch('/server/integrations/slack/config');
+        const data = await response.json();
+        if (data.success && data.config?.url) {
+          setSlackUrl(data.config.url);
+        }
+      } catch (error) {
+        console.error('Failed to fetch Slack config:', error);
+      }
+    };
+    fetchSlackConfig();
+  }, []);
 
   // Navigation menu configuration
   const testGroups = [
@@ -226,7 +243,9 @@ const NavigationBar: React.FC = () => {
     },
     {
       label: 'Slack',
-      path: '/integrations/slack',
+      path: '/integrations/slack', // Required for type but not used for external
+      href: slackUrl,
+      external: true,
       icon: <IntegrationIcon fontSize="small" />,
     },
   ];

@@ -160,14 +160,14 @@ tests:
 
 ### Base URL
 ```
-/api/benchmarks
+/server/benchmarks
 ```
 
 ### Endpoints
 
 #### List Benchmark Tests
 ```http
-GET /api/benchmarks/tests?category=navigation
+GET /server/benchmarks/tests?category=navigation
 ```
 
 **Response:**
@@ -194,7 +194,7 @@ GET /api/benchmarks/tests?category=navigation
 
 #### Create Benchmark Run
 ```http
-POST /api/benchmarks/run?team_id=<team_id>
+POST /server/benchmarks/run?team_id=<team_id>
 Content-Type: application/json
 
 {
@@ -211,7 +211,7 @@ Content-Type: application/json
   "version": "1.0.0",
   "total_tests": 10,
   "status": "pending",
-  "message": "Benchmark run created. Execute /api/benchmarks/run/{run_id}/execute to start."
+  "message": "Benchmark run created. Execute /server/benchmarks/run/{run_id}/execute to start."
 }
 ```
 
@@ -219,7 +219,7 @@ Content-Type: application/json
 
 #### Execute Benchmark Run
 ```http
-POST /api/benchmarks/run/{run_id}/execute?team_id=<team_id>
+POST /server/benchmarks/run/{run_id}/execute?team_id=<team_id>
 ```
 
 **Response:**
@@ -237,7 +237,7 @@ POST /api/benchmarks/run/{run_id}/execute?team_id=<team_id>
 
 #### List Benchmark Runs
 ```http
-GET /api/benchmarks/runs?team_id=<team_id>&agent_id=qa-web-manager&limit=20
+GET /server/benchmarks/runs?team_id=<team_id>&agent_id=qa-web-manager&limit=20
 ```
 
 **Response:**
@@ -265,7 +265,7 @@ GET /api/benchmarks/runs?team_id=<team_id>&agent_id=qa-web-manager&limit=20
 
 #### Get Run Details
 ```http
-GET /api/benchmarks/runs/{run_id}
+GET /server/benchmarks/runs/{run_id}
 ```
 
 **Response:**
@@ -287,7 +287,7 @@ GET /api/benchmarks/runs/{run_id}
 
 #### Submit User Feedback
 ```http
-POST /api/benchmarks/feedback?team_id=<team_id>
+POST /server/benchmarks/feedback?team_id=<team_id>
 Content-Type: application/json
 
 {
@@ -311,7 +311,7 @@ Content-Type: application/json
 
 #### Get Leaderboard
 ```http
-GET /api/benchmarks/leaderboard?team_id=<team_id>&limit=20
+GET /server/benchmarks/leaderboard?team_id=<team_id>&limit=20
 ```
 
 **Response:**
@@ -337,7 +337,7 @@ GET /api/benchmarks/leaderboard?team_id=<team_id>&limit=20
 
 #### Compare Agents
 ```http
-GET /api/benchmarks/compare?agents=qa-web-manager:1.0.0,qa-mobile-manager:1.0.0&team_id=<team_id>
+GET /server/benchmarks/compare?agents=qa-web-manager:1.0.0,qa-mobile-manager:1.0.0&team_id=<team_id>
 ```
 
 **Response:**
@@ -359,7 +359,7 @@ GET /api/benchmarks/compare?agents=qa-web-manager:1.0.0,qa-mobile-manager:1.0.0&
 
 ```bash
 # Step 1: Create benchmark run
-RUN_ID=$(curl -s -X POST "http://localhost:5109/api/benchmarks/run?team_id=YOUR_TEAM_ID" \
+RUN_ID=$(curl -s -X POST "http://localhost:5109/server/benchmarks/run?team_id=YOUR_TEAM_ID" \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "qa-web-manager", "version": "1.0.0"}' \
   | jq -r '.run_id')
@@ -367,10 +367,10 @@ RUN_ID=$(curl -s -X POST "http://localhost:5109/api/benchmarks/run?team_id=YOUR_
 echo "Created run: $RUN_ID"
 
 # Step 2: Execute benchmark
-curl -X POST "http://localhost:5109/api/benchmarks/run/$RUN_ID/execute?team_id=YOUR_TEAM_ID"
+curl -X POST "http://localhost:5109/server/benchmarks/run/$RUN_ID/execute?team_id=YOUR_TEAM_ID"
 
 # Step 3: Check results
-curl "http://localhost:5109/api/benchmarks/runs/$RUN_ID"
+curl "http://localhost:5109/server/benchmarks/runs/$RUN_ID"
 ```
 
 ### Run a Benchmark (Frontend)
@@ -498,7 +498,7 @@ Tests are loaded at server startup. Restart to pick up new tests.
 ### Step 3: Verify
 
 ```bash
-curl http://localhost:5109/api/benchmarks/tests
+curl http://localhost:5109/server/benchmarks/tests
 # Should show your new tests
 ```
 
@@ -573,7 +573,7 @@ const [runningBenchmark, setRunningBenchmark] = useState(false);
 ```typescript
 const handleRunBenchmark = async (agentId: string, version: string) => {
   // 1. Create run
-  const createResponse = await fetch(buildServerUrl('/api/benchmarks/run'), {
+  const createResponse = await fetch(buildServerUrl('/server/benchmarks/run'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ agent_id: agentId, version })
@@ -582,7 +582,7 @@ const handleRunBenchmark = async (agentId: string, version: string) => {
   
   // 2. Execute
   const executeResponse = await fetch(
-    buildServerUrl(`/api/benchmarks/run/${run_id}/execute`),
+    buildServerUrl(`/server/benchmarks/run/${run_id}/execute`),
     { method: 'POST' }
   );
   
@@ -601,8 +601,8 @@ All benchmark operations are **team-scoped**. The frontend automatically appends
 
 ```typescript
 // Frontend sends team_id from APP_CONFIG.DEFAULT_TEAM_ID
-const response = await fetch(buildServerUrl('/api/benchmarks/runs'));
-// URL becomes: /api/benchmarks/runs?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce
+const response = await fetch(buildServerUrl('/server/benchmarks/runs'));
+// URL becomes: /server/benchmarks/runs?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce
 ```
 
 ### Current Limitations

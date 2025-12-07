@@ -48,6 +48,7 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
+  const [localFeedback, setLocalFeedback] = useState<{ rating: number; animating: boolean } | null>(null);
   
   const meta = AGENT_METADATA[agentId] || { name: agentId, nickname: agentId, icon: '🤖' };
   const runningTasks = tasks.filter(t => t.status === 'running');
@@ -58,6 +59,11 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
   const isComplete = currentTask?.status === 'completed';
   const isFailed = currentTask?.status === 'failed';
   const isManual = currentTask?.triggerType === 'manual';
+  
+  // Check if feedback has been given (either from task or local state)
+  const feedbackGiven = currentTask?.feedback || localFeedback;
+  const isPositiveFeedback = feedbackGiven && (currentTask?.feedback?.rating ?? localFeedback?.rating ?? 0) > 3;
+  const isNegativeFeedback = feedbackGiven && (currentTask?.feedback?.rating ?? localFeedback?.rating ?? 0) <= 3;
 
   const getStatusIcon = () => {
     if (failedTasks.length > 0) return <ErrorIcon sx={{ fontSize: 14, color: COLORS.error }} />;
@@ -94,22 +100,49 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
     }
   };
 
+  const handleFeedbackClick = (taskId: string, rating: number) => {
+    // Set local feedback state with animation
+    setLocalFeedback({ rating, animating: true });
+    
+    // Trigger animation end after 300ms
+    setTimeout(() => {
+      setLocalFeedback(prev => prev ? { ...prev, animating: false } : null);
+    }, 300);
+    
+    // Call the actual feedback handler
+    onFeedback(taskId, rating);
+  };
+
+  // Determine border color based on feedback
+  const getBorderColor = () => {
+    if (isPositiveFeedback) return COLORS.success;
+    if (isNegativeFeedback) return COLORS.error;
+    if (isExpanded) return COLORS.borderActive;
+    return COLORS.border;
+  };
+
+  const getBoxShadow = () => {
+    if (isPositiveFeedback) return '0 4px 24px rgba(34, 197, 94, 0.3)';
+    if (isNegativeFeedback) return '0 4px 24px rgba(239, 68, 68, 0.3)';
+    if (isExpanded) return '0 4px 24px rgba(212, 175, 55, 0.25)';
+    return '0 4px 20px rgba(0, 0, 0, 0.4)';
+  };
+
   return (
     <Paper
       elevation={8}
       sx={{
         width: BADGE_WIDTH,
         bgcolor: COLORS.bg,
-        border: `1px solid ${isExpanded ? COLORS.borderActive : COLORS.border}`,
+        border: `1px solid ${getBorderColor()}`,
         borderRadius: 2,
         overflow: 'hidden',
-        transition: 'all 0.2s ease',
-        boxShadow: isExpanded 
-          ? '0 4px 24px rgba(212, 175, 55, 0.25)' 
-          : '0 4px 20px rgba(0, 0, 0, 0.4)',
+        transition: 'all 0.3s ease',
+        boxShadow: getBoxShadow(),
+        transform: localFeedback?.animating ? 'scale(1.02)' : 'scale(1)',
         '&:hover': { 
-          borderColor: COLORS.borderActive,
-          boxShadow: '0 4px 24px rgba(212, 175, 55, 0.2)',
+          borderColor: feedbackGiven ? getBorderColor() : COLORS.borderActive,
+          boxShadow: feedbackGiven ? getBoxShadow() : '0 4px 24px rgba(212, 175, 55, 0.2)',
         },
       }}
     >
@@ -324,20 +357,44 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
 
               {/* Feedback + Actions Row */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 0.5, borderTop: `1px solid ${COLORS.border}` }}>
-                {isComplete && isManual && !currentTask.feedback && (
+                {isComplete && isManual && (
                   <>
-                    <Typography sx={{ fontSize: '0.7rem', color: COLORS.textMuted }}>Helpful?</Typography>
-                    <IconButton size="small" onClick={() => onFeedback(currentTask.id, 5)} sx={{ p: 0.25, color: COLORS.textMuted, '&:hover': { color: COLORS.success } }}>
+                    <Typography sx={{ fontSize: '0.7rem', color: feedbackGiven ? (isPositiveFeedback ? COLORS.success : COLORS.error) : COLORS.textMuted }}>
+                      {feedbackGiven ? (isPositiveFeedback ? '👍 Helpful' : '👎 Not helpful') : 'Helpful?'}
+                    </Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleFeedbackClick(currentTask.id, 5)} 
+                      disabled={!!feedbackGiven}
+                      sx={{ 
+                        p: 0.25, 
+                        color: isPositiveFeedback ? COLORS.success : COLORS.textMuted,
+                        bgcolor: isPositiveFeedback ? 'rgba(34, 197, 94, 0.15)' : 'transparent',
+                        '&:hover': { color: feedbackGiven ? undefined : COLORS.success, bgcolor: feedbackGiven ? undefined : 'rgba(34, 197, 94, 0.1)' },
+                        '&.Mui-disabled': { color: isPositiveFeedback ? COLORS.success : COLORS.textMuted, opacity: 1 },
+                      }}
+                    >
                       <ThumbUp sx={{ fontSize: 14 }} />
                     </IconButton>
-                    <IconButton size="small" onClick={() => onFeedback(currentTask.id, 1)} sx={{ p: 0.25, color: COLORS.textMuted, '&:hover': { color: COLORS.error } }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleFeedbackClick(currentTask.id, 1)} 
+                      disabled={!!feedbackGiven}
+                      sx={{ 
+                        p: 0.25, 
+                        color: isNegativeFeedback ? COLORS.error : COLORS.textMuted,
+                        bgcolor: isNegativeFeedback ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                        '&:hover': { color: feedbackGiven ? undefined : COLORS.error, bgcolor: feedbackGiven ? undefined : 'rgba(239, 68, 68, 0.1)' },
+                        '&.Mui-disabled': { color: isNegativeFeedback ? COLORS.error : COLORS.textMuted, opacity: 1 },
+                      }}
+                    >
                       <ThumbDown sx={{ fontSize: 14 }} />
                     </IconButton>
                   </>
                 )}
                 <Box sx={{ flex: 1 }} />
                 {/* View full details in AI Agent page */}
-                <Tooltip title="View full logs & reasoning">
+                <Tooltip title="Go to chat">
                   <IconButton 
                     size="small" 
                     onClick={() => navigate('/ai-agent')} 

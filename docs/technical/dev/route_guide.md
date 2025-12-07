@@ -81,8 +81,8 @@ In `backend_server/src/server.py`:
 from routes.agent_benchmark_routes import server_agent_benchmark_bp
 from routes.agent_registry_routes import server_agent_registry_bp
 
-app.register_blueprint(server_agent_benchmark_bp)  # → /api/benchmarks/*
-app.register_blueprint(server_agent_registry_bp)   # → /api/agents/*
+app.register_blueprint(server_agent_benchmark_bp)  # → /server/benchmarks/*
+app.register_blueprint(server_agent_registry_bp)   # → /server/agents/*
 ```
 
 ---
