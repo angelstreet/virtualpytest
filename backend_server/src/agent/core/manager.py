@@ -154,10 +154,13 @@ Be efficient. Data, not explanations."""
                 user_identifier=self.user_identifier,
                 agent_id=agent_id
             )
+            # Share the tool_bridge so MCP connections are reused
+            manager.tool_bridge = self.tool_bridge
             self._delegated_managers[agent_id] = manager
+            self.logger.info(f"Loaded delegated manager: {manager.nickname} ({agent_id})")
             return manager
         except Exception as e:
-            self.logger.error(f"Failed to load delegated manager {agent_id}: {e}")
+            self.logger.error(f"Failed to load delegated manager {agent_id}: {e}", exc_info=True)
             return None
     
     @property
@@ -193,17 +196,24 @@ Be efficient. Data, not explanations."""
         match = re.search(r'DELEGATE\s+TO\s+([\w-]+)', text, re.IGNORECASE)
         return match.group(1).lower() if match else None
 
-    async def process_message(self, message: str, session: Session) -> AsyncGenerator[AgentEvent, None]:
-        """Process user message - YAML-driven"""
-        self.logger.info(f"Processing: {message[:100]}...")
+    async def process_message(self, message: str, session: Session, _is_delegated: bool = False) -> AsyncGenerator[AgentEvent, None]:
+        """Process user message - YAML-driven
+        
+        Args:
+            message: User message to process
+            session: Session object
+            _is_delegated: Internal flag - True when called from parent agent delegation
+        """
+        self.logger.info(f"[{self.nickname}] Processing: {message[:100]}...")
         
         if not self.api_key_configured:
             yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="⚠️ API key not configured.")
-            yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Session ended")
+            if not _is_delegated:
+                yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Session ended")
             return
         
-        # Context window compaction
-        if session.needs_compaction(threshold=50):
+        # Context window compaction (only for root agent)
+        if not _is_delegated and session.needs_compaction(threshold=50):
             yield AgentEvent(type=EventType.THINKING, agent="System", content="Compacting history...")
             msgs = session.get_messages_for_summary()
             if msgs:
@@ -218,7 +228,9 @@ Be efficient. Data, not explanations."""
                 except Exception as e:
                     self.logger.error(f"Compaction failed: {e}")
         
-        session.add_message("user", message)
+        # Only add message if not delegated (parent already added it)
+        if not _is_delegated:
+            session.add_message("user", message)
         
         if session.pending_approval:
             yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="Respond to pending approval first.")
@@ -287,40 +299,55 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
             # No delegation - we're done
             if LANGFUSE_ENABLED:
                 flush()
-            yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
+            if not _is_delegated:
+                yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
         
         # Validate delegate is in our YAML config
         if delegate_to not in self.agent_config['subagents']:
             yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_to}' - not in my subagents: {self.agent_config['subagents']}")
-            yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
+            if not _is_delegated:
+                yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
         
         # Get delegated manager
         delegated_manager = self._get_delegated_manager(delegate_to)
         if not delegated_manager:
             yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load manager: {delegate_to}")
-            yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
+            if not _is_delegated:
+                yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
         
         session.active_agent = delegate_to
         
         yield AgentEvent(type=EventType.AGENT_DELEGATED, agent=self.nickname, content=f"Delegating to {delegated_manager.nickname}...")
+        yield AgentEvent(type=EventType.AGENT_STARTED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} taking over...")
         
-        # Run delegated manager with original message (same session, same chat)
-        async for event in delegated_manager.process_message(message, session):
-            if session.cancelled:
-                yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Stopped by user.")
-                session.reset_cancellation()
-                return
-            
-            # Forward all events from delegated manager (same chat bubble)
-            yield event
+        # Run delegated manager with original message (pass _is_delegated=True)
+        try:
+            async for event in delegated_manager.process_message(message, session, _is_delegated=True):
+                if session.cancelled:
+                    yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Stopped by user.")
+                    session.reset_cancellation()
+                    return
+                
+                # Forward all events from delegated manager
+                self.logger.debug(f"[{self.nickname}] Forwarding event from {delegated_manager.nickname}: {event.type}")
+                yield event
+        except Exception as e:
+            self.logger.error(f"[{self.nickname}] Error in delegated manager {delegated_manager.nickname}: {e}", exc_info=True)
+            yield AgentEvent(type=EventType.ERROR, agent=delegated_manager.nickname, content=f"Error: {str(e)}", error=str(e))
+        
+        yield AgentEvent(type=EventType.AGENT_COMPLETED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} completed")
         
         session.active_agent = None
         
         if LANGFUSE_ENABLED:
             flush()
+        
+        # Only root agent emits SESSION_ENDED
+        if not _is_delegated:
+            yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
     
     async def handle_approval(self, session: Session, approved: bool, modifications: Dict[str, Any] = None) -> AsyncGenerator[AgentEvent, None]:
         """Handle approval response"""
@@ -340,7 +367,9 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
                     for k, v in modifications.items():
                         session.set_context(k, v)
                 
-                async for event in manager.process_message(f"Continue: {approval.action}", session):
+                async for event in manager.process_message(f"Continue: {approval.action}", session, _is_delegated=True):
                     yield event
         else:
             yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content="Cancelled. What next?")
+        
+        yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
