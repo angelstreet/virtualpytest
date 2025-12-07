@@ -333,6 +333,9 @@ export const useAgentChat = () => {
         }
       };
       
+      // Debug: Log every event received
+      console.log(`[useAgentChat] Event received: type=${event.type}, agent=${event.agent}`);
+      
       // Track mode
       if (event.type === 'mode_detected') {
         setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
@@ -340,6 +343,7 @@ export const useAgentChat = () => {
 
       // When manager delegates: save manager's message, update active agent
       if (event.type === 'agent_delegated') {
+        console.log('[useAgentChat] AGENT_DELEGATED - saving Atlas message, switching to delegated agent');
         const agentName = event.content.replace('Delegating to ', '').replace('...', '').trim();
         
         // Include this event in the delegating agent's message (use event.agent, not hardcoded)
@@ -355,6 +359,7 @@ export const useAgentChat = () => {
 
       // When sub-agent starts: update badge
       if (event.type === 'agent_started') {
+        console.log(`[useAgentChat] AGENT_STARTED - ${event.agent} taking over`);
         setSession(prev => prev ? { ...prev, active_agent: event.agent } : null);
         setCurrentEvents([]); // Fresh start for this agent
         return;
@@ -362,7 +367,9 @@ export const useAgentChat = () => {
       
       // When sub-agent completes: save its message
       if (event.type === 'agent_completed') {
+        console.log(`[useAgentChat] AGENT_COMPLETED - saving ${event.agent} message`);
         setCurrentEvents(prev => {
+          console.log(`[useAgentChat] Saving ${prev.length} events for ${event.agent}`);
           saveCurrentEventsAsMessage(event.agent, prev);
           return []; // Clear for next agent (or QA Manager summary)
         });
@@ -371,11 +378,16 @@ export const useAgentChat = () => {
 
       // Accumulate events for current agent
       if (event.type !== 'session_ended' && event.type !== 'complete') {
-        setCurrentEvents(prev => [...prev, event]);
+        setCurrentEvents(prev => {
+          const newEvents = [...prev, event];
+          console.log(`[useAgentChat] Accumulated ${newEvents.length} events for current agent`);
+          return newEvents;
+        });
       }
 
       // Session ends: save any remaining events as final message
       if (event.type === 'session_ended' || event.type === 'complete') {
+        console.log(`[useAgentChat] SESSION_ENDED - finalizing conversation`);
         setIsProcessing(false);
         
         if (processingTimeoutRef.current) {
@@ -399,16 +411,9 @@ export const useAgentChat = () => {
         });
       }
       
-      // Failsafe: If we get an error or failed event, unstick processing
-      if (event.type === 'error' || event.type === 'failed') {
-        setIsProcessing(false);
-        pendingConversationIdRef.current = null;
-        setPendingConversationId(null);
-        if (processingTimeoutRef.current) {
-          clearTimeout(processingTimeoutRef.current);
-          processingTimeoutRef.current = null;
-        }
-      }
+      // Note: Don't stop processing on error events - tool errors are recoverable
+      // The agent will continue and try other approaches
+      // Only session_ended or complete should stop processing
     });
 
     socket.on('error', (data) => {

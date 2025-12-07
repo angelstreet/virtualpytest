@@ -196,6 +196,16 @@ Be efficient. Data, not explanations."""
         match = re.search(r'DELEGATE\s+TO\s+([\w-]+)', text, re.IGNORECASE)
         return match.group(1).lower() if match else None
 
+    def _get_subagent_info(self, agent_id: str) -> Dict[str, str]:
+        """Get nickname and description for a subagent by ID"""
+        for sa in self.agent_config.get('subagents_info', []):
+            if sa['id'] == agent_id:
+                return {
+                    'nickname': sa['nickname'],
+                    'description': sa.get('description', ''),
+                }
+        return {'nickname': agent_id, 'description': ''}
+    
     async def process_message(self, message: str, session: Session, _is_delegated: bool = False) -> AsyncGenerator[AgentEvent, None]:
         """Process user message - YAML-driven
         
@@ -204,6 +214,10 @@ Be efficient. Data, not explanations."""
             session: Session object
             _is_delegated: Internal flag - True when called from parent agent delegation
         """
+        print(f"\n{'='*60}")
+        print(f"[AGENT DEBUG] {self.nickname} process_message START")
+        print(f"[AGENT DEBUG] _is_delegated={_is_delegated}, message={message[:50]}...")
+        print(f"{'='*60}")
         self.logger.info(f"[{self.nickname}] Processing: {message[:100]}...")
         
         if not self.api_key_configured:
@@ -236,6 +250,7 @@ Be efficient. Data, not explanations."""
             yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="Respond to pending approval first.")
             return
         
+        print(f"[AGENT DEBUG] {self.nickname} yielding THINKING event")
         yield AgentEvent(type=EventType.THINKING, agent=self.nickname, content="Analyzing...")
         
         # Simple prompt - Claude decides based on tools
@@ -289,23 +304,50 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": f"Error: {e}", "is_error": True}]})
             else:
                 response_text = text_content
-                yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=response_text, metrics=metrics)
+                
+                # Check if this is a delegation response - if so, rewrite to show Nickname (Name)
+                delegate_to_check = self._parse_delegation(response_text)
+                if delegate_to_check:
+                    info = self._get_subagent_info(delegate_to_check)
+                    # Format: "Handing off to **Scout** (QA Mobile Manager)"
+                    desc_part = f" ({info['description']})" if info['description'] else ""
+                    display_text = re.sub(
+                        r'DELEGATE\s+TO\s+[\w-]+',
+                        f'Handing off to **{info["nickname"]}**{desc_part}',
+                        response_text,
+                        flags=re.IGNORECASE
+                    )
+                    print(f"[AGENT DEBUG] {self.nickname} yielding MESSAGE (delegation): {display_text[:100]}...")
+                    yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=display_text, metrics=metrics)
+                else:
+                    print(f"[AGENT DEBUG] {self.nickname} yielding MESSAGE: {response_text[:100]}...")
+                    yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=response_text, metrics=metrics)
                 break
         
-        # Check for delegation request
+        # Check for delegation request (use original response_text for parsing)
         delegate_to = self._parse_delegation(response_text)
+        print(f"[AGENT DEBUG] {self.nickname} delegation parsed: {delegate_to}")
         
         if not delegate_to:
             # No delegation - we're done
+            print(f"[AGENT DEBUG] {self.nickname} NO DELEGATION - finishing")
             if LANGFUSE_ENABLED:
                 flush()
             if not _is_delegated:
+                print(f"[AGENT DEBUG] {self.nickname} yielding SESSION_ENDED (root)")
                 yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
+            else:
+                print(f"[AGENT DEBUG] {self.nickname} NOT yielding SESSION_ENDED (delegated)")
             return
+        
+        # Get info for display
+        delegate_info = self._get_subagent_info(delegate_to)
+        print(f"[AGENT DEBUG] {self.nickname} DELEGATING to {delegate_info['nickname']} ({delegate_to})")
         
         # Validate delegate is in our YAML config
         if delegate_to not in self.agent_config['subagents']:
-            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_to}' - not in my subagents: {self.agent_config['subagents']}")
+            print(f"[AGENT DEBUG] ERROR: {delegate_to} not in subagents {self.agent_config['subagents']}")
+            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_info['nickname']}' - not in my subagents")
             if not _is_delegated:
                 yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
@@ -313,31 +355,41 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
         # Get delegated manager
         delegated_manager = self._get_delegated_manager(delegate_to)
         if not delegated_manager:
-            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load manager: {delegate_to}")
+            print(f"[AGENT DEBUG] ERROR: Failed to load delegated manager {delegate_to}")
+            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load {delegate_info['nickname']}")
             if not _is_delegated:
                 yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
             return
         
         session.active_agent = delegate_to
         
+        print(f"[AGENT DEBUG] {self.nickname} yielding AGENT_DELEGATED")
         yield AgentEvent(type=EventType.AGENT_DELEGATED, agent=self.nickname, content=f"Delegating to {delegated_manager.nickname}...")
+        print(f"[AGENT DEBUG] {self.nickname} yielding AGENT_STARTED for {delegated_manager.nickname}")
         yield AgentEvent(type=EventType.AGENT_STARTED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} taking over...")
         
         # Run delegated manager with original message (pass _is_delegated=True)
+        print(f"[AGENT DEBUG] {self.nickname} calling {delegated_manager.nickname}.process_message()")
         try:
+            event_count = 0
             async for event in delegated_manager.process_message(message, session, _is_delegated=True):
+                event_count += 1
                 if session.cancelled:
+                    print(f"[AGENT DEBUG] Session cancelled!")
                     yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Stopped by user.")
                     session.reset_cancellation()
                     return
                 
                 # Forward all events from delegated manager
-                self.logger.debug(f"[{self.nickname}] Forwarding event from {delegated_manager.nickname}: {event.type}")
+                print(f"[AGENT DEBUG] {self.nickname} forwarding event #{event_count} from {delegated_manager.nickname}: type={event.type}")
                 yield event
+            print(f"[AGENT DEBUG] {self.nickname} finished receiving events from {delegated_manager.nickname}, total={event_count}")
         except Exception as e:
+            print(f"[AGENT DEBUG] ERROR in delegated manager: {e}")
             self.logger.error(f"[{self.nickname}] Error in delegated manager {delegated_manager.nickname}: {e}", exc_info=True)
             yield AgentEvent(type=EventType.ERROR, agent=delegated_manager.nickname, content=f"Error: {str(e)}", error=str(e))
         
+        print(f"[AGENT DEBUG] {self.nickname} yielding AGENT_COMPLETED for {delegated_manager.nickname}")
         yield AgentEvent(type=EventType.AGENT_COMPLETED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} completed")
         
         session.active_agent = None
@@ -347,7 +399,10 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
         
         # Only root agent emits SESSION_ENDED
         if not _is_delegated:
+            print(f"[AGENT DEBUG] {self.nickname} yielding SESSION_ENDED (root after delegation)")
             yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
+        
+        print(f"[AGENT DEBUG] {self.nickname} process_message END")
     
     async def handle_approval(self, session: Session, approved: bool, modifications: Dict[str, Any] = None) -> AsyncGenerator[AgentEvent, None]:
         """Handle approval response"""

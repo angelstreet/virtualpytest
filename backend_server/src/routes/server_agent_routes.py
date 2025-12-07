@@ -456,12 +456,17 @@ def register_agent_socketio_handlers(socketio):
             error_msg = None
             
             try:
+                event_counter = 0
                 async for event in manager.process_message(message, session):
+                    event_counter += 1
                     event_dict = event.to_dict()
                     
                     # Count tool calls for metrics
                     if event.type == 'tool_call':
                         tool_call_count += 1
+                    
+                    # Debug: Print every event being emitted
+                    print(f"[SOCKET DEBUG] #{event_counter} Emitting event: type={event_dict.get('type')}, agent={event_dict.get('agent')}")
                     
                     # Log every agent event for debugging
                     log_agent_event('AGENT_EVENT', session_id, event_dict)
@@ -482,7 +487,10 @@ def register_agent_socketio_handlers(socketio):
                         )
                     
                     await asyncio.sleep(0.05)
+                
+                print(f"[SOCKET DEBUG] Finished emitting {event_counter} events")
             except Exception as e:
+                print(f"[SOCKET DEBUG] ERROR during event loop: {e}")
                 logger.error(f"Error processing message: {e}", exc_info=True)
                 log_agent_event('ERROR', session_id, {
                     'error': str(e),

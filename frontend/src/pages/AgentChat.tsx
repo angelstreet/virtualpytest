@@ -1186,29 +1186,34 @@ const AgentChat: React.FC = () => {
                 maxWidth: '85%',
               }}
             >
-              {/* Active Agent Badge */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: currentEvents.length > 0 ? 1.5 : 0 }}>
-                <Avatar 
-                  sx={{ 
-                    width: 28, 
-                    height: 28, 
-                    fontSize: 11, 
-                    fontWeight: 600,
-                    bgcolor: getAgentColor(selectedAgentId),
-                    animation: 'pulse 1.5s infinite',
-                  }}
-                >
-                  {getInitials(getAgentNickname(selectedAgentId))}
-                </Avatar>
-                <Box>
-                  <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
-                    {getAgentNickname(selectedAgentId)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    {session?.mode ? `${session.mode} mode` : 'Processing...'}
-                  </Typography>
-                </Box>
-              </Box>
+              {/* Active Agent Badge - shows delegated agent when active */}
+              {(() => {
+                const activeAgent = session?.active_agent || selectedAgentId;
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: currentEvents.length > 0 ? 1.5 : 0 }}>
+                    <Avatar 
+                      sx={{ 
+                        width: 28, 
+                        height: 28, 
+                        fontSize: 11, 
+                        fontWeight: 600,
+                        bgcolor: getAgentColor(activeAgent),
+                        animation: 'pulse 1.5s infinite',
+                      }}
+                    >
+                      {getInitials(getAgentNickname(activeAgent))}
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
+                        {getAgentNickname(activeAgent)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        {session?.mode ? `${session.mode} mode` : 'Processing...'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              })()}
                 
               {currentEvents.length > 0 && (
                 <Box sx={{ pl: 2, borderLeft: `2px solid ${session?.active_agent ? getAgentColor(session.active_agent) : PALETTE.accent}40` }}>
