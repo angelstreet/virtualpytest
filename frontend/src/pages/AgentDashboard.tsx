@@ -150,19 +150,22 @@ export const AgentDashboard: React.FC = () => {
       }
       const data = await response.json();
       if (data.agents?.length) {
-        // Map API response (with nested metadata) to flat AgentDefinition
-        const mapped = data.agents.map((a: any) => ({
-          id: a.metadata?.id || a.id,
-          name: a.metadata?.name || a.name,
-          nickname: a.metadata?.nickname,
-          icon: a.metadata?.icon,
-          version: a.metadata?.version || a.version || '1.0.0',
-          description: a.metadata?.description || a.description || '',
-          status: a.status || 'active',
-          type: a.goal?.type || 'on-demand',
-          triggers: a.triggers?.map((t: any) => t.type) || [],
-          selectable: a.metadata?.selectable !== false,
-        }));
+        // Map API response to flat AgentDefinition
+        // Only show selectable agents (not internal sub-agents like explorer/executor)
+        const mapped = data.agents
+          .filter((a: any) => a.metadata?.selectable !== false)
+          .map((a: any) => ({
+            id: a.metadata?.id || a.id,
+            name: a.metadata?.name || a.name,
+            nickname: a.metadata?.nickname,
+            icon: a.metadata?.icon,
+            version: a.metadata?.version || a.version || '1.0.0',
+            description: a.metadata?.description || a.description || '',
+            status: a.status || 'active',
+            type: a.goal?.type || 'on-demand',
+            triggers: a.triggers?.map((t: any) => t.type) || [],
+            selectable: true,
+          }));
         setAgents(mapped);
       } else {
         setAgents(getDefaultAgents());
@@ -472,10 +475,12 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontWeight: 600, color: '#fff', fontSize: '0.95rem' }}>{agent.name}</Typography>
+                        <Typography sx={{ fontWeight: 600, color: '#fff', fontSize: '0.95rem' }}>
+                          {agent.nickname || agent.name}
+                        </Typography>
                         {getStatusIcon(agent.status)}
                       </Box>
-                      <Typography sx={{ color: '#666', fontSize: '0.75rem' }}>v{agent.version} • {agent.type}</Typography>
+                      <Typography sx={{ color: '#666', fontSize: '0.75rem' }}>{agent.name} • v{agent.version} • {agent.type}</Typography>
                     </Box>
                     <Chip label={agent.status} size="small" sx={{ bgcolor: 'transparent', border: `1px solid ${getStatusColor(agent.status)}`, color: getStatusColor(agent.status), fontSize: '0.7rem', height: 22 }} />
                   </Box>

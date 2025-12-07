@@ -338,14 +338,14 @@ export const useAgentChat = () => {
         setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
       }
 
-      // When QA Manager delegates: save QA Manager's message, update active agent
+      // When manager delegates: save manager's message, update active agent
       if (event.type === 'agent_delegated') {
         const agentName = event.content.replace('Delegating to ', '').replace('...', '').trim();
         
-        // Include this event in QA Manager's message, then save
+        // Include this event in the delegating agent's message (use event.agent, not hardcoded)
         setCurrentEvents(prev => {
           const eventsWithDelegation = [...prev, event];
-          saveCurrentEventsAsMessage('QA Manager', eventsWithDelegation);
+          saveCurrentEventsAsMessage(event.agent, eventsWithDelegation);
           return []; // Clear for next agent
         });
         
@@ -385,7 +385,9 @@ export const useAgentChat = () => {
         
         setCurrentEvents(prevEvents => {
           if (prevEvents.length > 0) {
-            saveCurrentEventsAsMessage('QA Manager', prevEvents);
+            // Use event.agent if available, otherwise use session's active agent
+            const finalAgent = event.agent || session?.active_agent || 'System';
+            saveCurrentEventsAsMessage(finalAgent, prevEvents);
           }
           
           // Clear pending conversation

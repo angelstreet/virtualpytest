@@ -96,6 +96,10 @@ class AgentConfig(BaseModel):
         default=None,
         description="Monthly budget limit in USD"
     )
+    platform_filter: Optional[str] = Field(
+        default=None,
+        description="Platform focus: web, mobile, stb, or None for all"
+    )
 
 
 class AgentGoal(BaseModel):
@@ -128,6 +132,10 @@ class AgentMetadata(BaseModel):
         default=True,
         description="If true, agent appears in UI dropdown. If false, agent is internal (sub-agent)."
     )
+    default: bool = Field(
+        default=False,
+        description="If true, this agent is the default selection in UI"
+    )
     version: str = Field(
         ...,
         pattern=r"^\d+\.\d+\.\d+(-[a-z0-9]+)?$",
@@ -138,6 +146,10 @@ class AgentMetadata(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+    suggestions: List[str] = Field(
+        default_factory=list,
+        description="Example prompts to show in chat UI (e.g., 'Automate login test', 'Run regression suite')"
+    )
 
 
 class AgentDefinition(BaseModel):

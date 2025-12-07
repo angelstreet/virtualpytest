@@ -171,8 +171,9 @@ const AgentChat: React.FC = () => {
   // Track if we've processed URL params
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
   
-  // Selected agent - default to AI Assistant (generic)
-  const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
+  // Selected agent - will be set from API (looks for agent with default: true)
+  // Fallback to 'ai-assistant' for initial render
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('ai-assistant');
   
   // Available agents for dropdown (selectable only) + all agents for nickname lookup
   const [availableAgents, setAvailableAgents] = useState<any[]>([]);
@@ -227,7 +228,7 @@ const AgentChat: React.FC = () => {
               icon: a.metadata?.icon || a.icon || '🤖',
               description: a.metadata?.description || a.description || '',
               color: AGENT_COLORS[id] || PALETTE.accent,
-              tips: [], // Tips can be added to YAML later
+              tips: a.metadata?.suggestions || [], // Load from YAML suggestions
             };
           });
         
@@ -236,6 +237,12 @@ const AgentChat: React.FC = () => {
         }
         
         setAvailableAgents(selectableAgents);
+        
+        // Set default agent from YAML (looks for default: true)
+        const defaultAgent = data.agents.find((a: any) => a.metadata?.default === true);
+        const defaultId = defaultAgent?.metadata?.id || selectableAgents[0]?.id || 'ai-assistant';
+        setSelectedAgentId(defaultId);
+        
         setAgentsLoading(false);
       } catch (err) {
         console.error('Failed to load agents:', err);
@@ -795,7 +802,7 @@ const AgentChat: React.FC = () => {
             </IconButton>
           </Paper>
           
-          {/* Suggestion Chips - Can be added later when tips are in YAML */}
+          {/* Suggestion Chips - Loaded from YAML metadata.suggestions */}
           {!agentsLoading && availableAgents.length > 0 && availableAgents.find(a => a.id === selectedAgentId)?.tips?.length > 0 && (
             <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
               {availableAgents.find(a => a.id === selectedAgentId)?.tips.map((suggestion: string) => (
@@ -1174,17 +1181,15 @@ const AgentChat: React.FC = () => {
                     height: 28, 
                     fontSize: 11, 
                     fontWeight: 600,
-                    bgcolor: session?.active_agent 
-                      ? getAgentColor(session.active_agent)
-                      : PALETTE.accent,
+                    bgcolor: getAgentColor(selectedAgentId),
                     animation: 'pulse 1.5s infinite',
                   }}
                 >
-                  {getInitials(session?.active_agent || 'QA Manager')}
+                  {getInitials(getAgentNickname(selectedAgentId))}
                 </Avatar>
                 <Box>
                   <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
-                    {getAgentNickname(session?.active_agent)}
+                    {getAgentNickname(selectedAgentId)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                     {session?.mode ? `${session.mode} mode` : 'Processing...'}

@@ -12,6 +12,7 @@ metadata:
   nickname: Atlas
   icon: "🤖"
   selectable: true
+  default: true
   version: 1.0.0
   author: system
   description: General AI assistant
@@ -19,6 +20,11 @@ metadata:
     - general
     - assistant
     - default
+  suggestions:
+    - "List all test cases"
+    - "Show me device status"
+    - "Get coverage summary"
+    - "How many alerts are active?"
 
 goal:
   type: on-demand

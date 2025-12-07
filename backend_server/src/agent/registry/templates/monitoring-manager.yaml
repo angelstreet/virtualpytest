@@ -20,6 +20,11 @@ metadata:
     - health-check
     - incident-detection
     - alerting
+  suggestions:
+    - "Check device health status"
+    - "Show active alerts and incidents"
+    - "Run system health check"
+    - "Analyze recent performance metrics"
 
 goal:
   type: continuous

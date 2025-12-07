@@ -20,6 +20,11 @@ metadata:
     - web
     - browser
     - automation
+  suggestions:
+    - "Automate login flow for sauce-demo"
+    - "Test responsive design on Chrome"
+    - "Validate form submissions"
+    - "Check page load performance"
 
 goal:
   type: continuous

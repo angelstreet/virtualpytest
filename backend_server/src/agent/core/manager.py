@@ -141,12 +141,12 @@ Be efficient. Provide DATA, not explanations."""
         current_page = ctx.get('current_page', '/')
         
         return self.BASE_SYSTEM_PROMPT.format(
-            agent_name=config.get('name', 'QA Manager'),
-            agent_nickname=config.get('nickname', 'Atlas'),
-            agent_specialty=config.get('specialty', 'General QA assistant'),
-            specialty=config.get('specialty', 'General QA assistant'),
-            platform=config.get('platform', 'all'),
-            focus_areas=', '.join(config.get('focus_areas', ['general assistance'])),
+            agent_name=config['name'],
+            agent_nickname=config['nickname'],
+            agent_specialty=config['specialty'],
+            specialty=config['specialty'],
+            platform=config['platform'],
+            focus_areas=', '.join(config['focus_areas']),
             allow_auto_navigation=str(allow_auto_nav).lower(),
             current_page=current_page,
         )
@@ -169,6 +169,17 @@ Be efficient. Provide DATA, not explanations."""
         # Load agent config from registry (YAML source of truth)
         self.agent_id = agent_id or 'ai-assistant'
         self.agent_config = self._load_agent_config(self.agent_id)
+        
+        # Initialize specialist agents (pass API key to each)
+        self.agents = {
+            "explorer": ExplorerAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "builder": BuilderAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "executor": ExecutorAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "analyst": AnalystAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+            "maintainer": MaintainerAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
+        }
+        
+        self.logger.info(f"QA Manager initialized as {self.agent_config['nickname']} ({self.agent_id}) with 5 specialist agents")
     
     def _load_agent_config(self, agent_id: str) -> Dict[str, Any]:
         """Load agent config from YAML registry"""
@@ -182,32 +193,25 @@ Be efficient. Provide DATA, not explanations."""
         
         # Convert AgentDefinition to config dict for system prompt
         metadata = agent_def.metadata
-        config = agent_def.config or {}
+        config = agent_def.config
+        
+        # Access Pydantic model attributes (not dict)
+        platform = config.platform_filter if config else None
+        
         return {
             'name': metadata.name,
             'nickname': metadata.nickname or metadata.name,
             'specialty': metadata.description,
-            'platform': config.get('platform_filter', 'all'),
+            'platform': platform or 'all',
             'focus_areas': metadata.tags or [],
             'skills': agent_def.skills or [],
             'subagents': [s.id for s in (agent_def.subagents or [])],
         }
-        
-        # Initialize specialist agents (pass API key to each)
-        self.agents = {
-            "explorer": ExplorerAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
-            "builder": BuilderAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
-            "executor": ExecutorAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
-            "analyst": AnalystAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
-            "maintainer": MaintainerAgent(self.tool_bridge, api_key=self._get_api_key_safe()),
-        }
-        
-        self.logger.info(f"QA Manager initialized as {self.agent_config['nickname']} ({self.agent_id}) with 5 specialist agents")
     
     @property
     def nickname(self) -> str:
         """Get the display name for events"""
-        return self.agent_config.get('nickname', 'Atlas')
+        return self.agent_config['nickname']
     
     def _get_api_key_safe(self) -> Optional[str]:
         """Get API key safely without raising exceptions"""

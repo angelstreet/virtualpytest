@@ -432,16 +432,16 @@ def register_agent_socketio_handlers(socketio):
             manager = get_manager(team_id=team_id, agent_id=agent_id)
         except Exception as e:
             logger.warning(f"Failed to initialize manager: {e}")
-            # Emit friendly error asking for API key
+            # Emit friendly error asking for API key (use generic System agent)
             socketio.emit('agent_event', {
                 'type': 'error',
-                'agent': 'QA Manager',
+                'agent': 'System',
                 'content': '⚠️ API key not configured. Please enter your Anthropic API key to continue.',
                 'timestamp': datetime.now().isoformat()
             }, room=session_id, namespace='/agent')
             socketio.emit('agent_event', {
                 'type': 'session_ended',
-                'agent': 'QA Manager', 
+                'agent': 'System', 
                 'content': 'Session ended - API key required',
                 'timestamp': datetime.now().isoformat()
             }, room=session_id, namespace='/agent')
@@ -586,7 +586,7 @@ def register_agent_socketio_handlers(socketio):
                 # Emit cancelled event immediately so UI updates
                 socketio.emit('agent_event', {
                     'type': 'error',
-                    'agent': 'QA Manager',
+                    'agent': 'System',
                     'content': '🛑 Stopping...'
                 }, room=session_id, namespace='/agent')
     

@@ -20,6 +20,11 @@ metadata:
     - mobile
     - android
     - adb
+  suggestions:
+    - "Test app on Android Pixel 5"
+    - "Validate touch gestures on mobile"
+    - "Check app crash handling"
+    - "Test offline mode behavior"
 
 goal:
   type: continuous

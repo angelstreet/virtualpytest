@@ -48,9 +48,15 @@ class AgentRegistry:
             return
         
         yaml_files = list(templates_dir.glob('*.yaml'))
-        logger.info(f"[@registry] Loading {len(yaml_files)} agent templates from {templates_dir}")
+        logger.info(f"[@registry] ═══════════════════════════════════════════════")
+        logger.info(f"[@registry] Loading {len(yaml_files)} agent templates...")
+        logger.info(f"[@registry] ═══════════════════════════════════════════════")
         
         loaded = 0
+        selectable = []
+        internal = []
+        errors = []
+        
         for yaml_file in sorted(yaml_files):
             try:
                 with open(yaml_file, 'r') as f:
@@ -59,16 +65,46 @@ class AgentRegistry:
                 agent = validate_agent_yaml(yaml_content)
                 cls._system_agents[agent.metadata.id] = agent
                 
-                logger.info(f"[@registry] ✅ Loaded: {agent.metadata.nickname} ({agent.metadata.id})")
+                # Categorize for summary
+                meta = agent.metadata
+                platform = agent.config.platform_filter if agent.config else 'all'
+                
+                if meta.selectable:
+                    selectable.append(f"  {meta.icon} {meta.nickname:12} ({meta.id}) - {platform}")
+                else:
+                    internal.append(f"  {meta.icon} {meta.nickname:12} ({meta.id})")
+                
                 loaded += 1
                 
             except AgentValidationError as e:
-                logger.error(f"[@registry] ❌ Validation failed for {yaml_file.name}: {e}")
+                errors.append(f"  ❌ {yaml_file.name}: {e}")
             except Exception as e:
-                logger.error(f"[@registry] ❌ Failed to load {yaml_file.name}: {e}")
+                errors.append(f"  ❌ {yaml_file.name}: {e}")
         
         cls._loaded = True
-        logger.info(f"[@registry] Loaded {loaded}/{len(yaml_files)} system agents")
+        
+        # Print summary
+        logger.info(f"[@registry] ")
+        logger.info(f"[@registry] ✅ User-Selectable Agents ({len(selectable)}):")
+        for line in selectable:
+            logger.info(f"[@registry] {line}")
+        
+        if internal:
+            logger.info(f"[@registry] ")
+            logger.info(f"[@registry] 🔧 Internal Sub-Agents ({len(internal)}):")
+            for line in internal:
+                logger.info(f"[@registry] {line}")
+        
+        if errors:
+            logger.info(f"[@registry] ")
+            logger.error(f"[@registry] ⚠️ Failed to Load ({len(errors)}):")
+            for line in errors:
+                logger.error(f"[@registry] {line}")
+        
+        logger.info(f"[@registry] ")
+        logger.info(f"[@registry] ═══════════════════════════════════════════════")
+        logger.info(f"[@registry] Total: {loaded}/{len(yaml_files)} agents loaded")
+        logger.info(f"[@registry] ═══════════════════════════════════════════════")
     
     @classmethod
     def reload(cls) -> None:
@@ -136,7 +172,7 @@ class AgentRegistry:
         """
         result = []
         for agent in self._system_agents.values():
-            agent_platform = agent.config.get('platform_filter') if agent.config else None
+            agent_platform = agent.config.platform_filter if agent.config else None
             if agent_platform is None or agent_platform == platform or platform == 'all':
                 result.append(agent)
         return result
