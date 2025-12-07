@@ -144,8 +144,10 @@ export const AgentActivityProvider: React.FC<{ children: React.ReactNode }> = ({
         { id: 'process', label: 'Processing', status: 'active', timestamp: new Date().toISOString() },
       ],
       startedAt: new Date().toISOString(),
-      redirectedFrom: window.location.pathname,
+      redirectedFrom: window.location.pathname !== '/ai-agent' ? window.location.pathname : undefined,
     };
+
+    console.log('🎯 AgentActivity: Starting task', { agentId, taskId, triggerType, redirectedFrom: task.redirectedFrom });
 
     setActivities(prev => ({
       ...prev,
@@ -181,9 +183,14 @@ export const AgentActivityProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const completeTask = useCallback((agentId: string, taskId: string, response: string, summary?: AgentTask['summary']) => {
+    console.log('🎯 AgentActivity: Completing task', { agentId, taskId });
+    
     setActivities(prev => {
       const activity = prev[agentId];
-      if (!activity) return prev;
+      if (!activity) {
+        console.warn('🎯 AgentActivity: No activity found for', agentId);
+        return prev;
+      }
 
       return {
         ...prev,
@@ -205,13 +212,14 @@ export const AgentActivityProvider: React.FC<{ children: React.ReactNode }> = ({
       };
     });
 
-    // Auto-dismiss auto tasks after 10 seconds
+    // Auto-dismiss auto tasks after 30 seconds (increased from 10)
+    // Manual tasks should stay visible until user dismisses
     setActivities(prev => {
       const task = prev[agentId]?.tasks.find(t => t.id === taskId);
       if (task?.triggerType !== 'manual') {
         completionTimeouts.current[taskId] = setTimeout(() => {
           dismissTask(agentId, taskId);
-        }, 10000);
+        }, 30000); // 30 seconds for auto tasks
       }
       return prev;
     });

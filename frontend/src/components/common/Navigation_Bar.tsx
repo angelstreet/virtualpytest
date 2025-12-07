@@ -224,6 +224,11 @@ const NavigationBar: React.FC = () => {
       path: '/integrations/jira',
       icon: <IntegrationIcon fontSize="small" />,
     },
+    {
+      label: 'Slack',
+      path: '/integrations/slack',
+      icon: <IntegrationIcon fontSize="small" />,
+    },
   ];
 
   const configurationItems = [

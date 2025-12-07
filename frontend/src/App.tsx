@@ -58,6 +58,7 @@ const SecurityReports = React.lazy(() => import('./pages/SecurityReports'));
 const UserApiWorkspaces = React.lazy(() => import('./pages/UserApiWorkspaces'));
 const UserApiWorkspaceDetail = React.lazy(() => import('./pages/UserApiWorkspaceDetail'));
 const JiraIntegration = React.lazy(() => import('./pages/JiraIntegration'));
+const SlackIntegration = React.lazy(() => import('./pages/SlackIntegration'));
 const Teams = React.lazy(() => import('./pages/Teams'));
 const Users = React.lazy(() => import('./pages/Users'));
 const AgentChat = React.lazy(() => import('./pages/AgentChat'));
@@ -353,6 +354,10 @@ const App: React.FC = () => {
                   {/* Integrations Routes - Protected by permission */}
                   <Route element={<ProtectedRoute requiredPermission="jira_integration" />}>
                     <Route path="/integrations/jira" element={<JiraIntegration />} />
+                  </Route>
+                  
+                  <Route element={<ProtectedRoute requiredPermission="slack_integration" />}>
+                    <Route path="/integrations/slack" element={<SlackIntegration />} />
                   </Route>
 
                   {/* Teams & Users Management - Admin only */}

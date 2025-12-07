@@ -304,7 +304,12 @@ export const GlobalAgentBadges: React.FC = () => {
   const manualAgents = new Set(manualTasks.map(t => t.agentId));
   const autoAgents = new Set(autoTasks.filter(t => !manualAgents.has(t.agentId)).map(t => t.agentId));
 
-  if (Object.keys(activities).length === 0) return null;
+  if (Object.keys(activities).length === 0) {
+    console.log('🎯 GlobalAgentBadges: No activities to display');
+    return null;
+  }
+  
+  console.log('🎯 GlobalAgentBadges: Rendering badges for', Object.keys(activities).length, 'agents');
 
   return (
     <Box

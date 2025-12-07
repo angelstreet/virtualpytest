@@ -10,15 +10,39 @@ import { useAIContext } from '../../contexts/AIContext';
 import { useAgentActivity } from '../../contexts/AgentActivityContext';
 
 export const AgentActivityBridge: React.FC = () => {
-  const { isProcessing, activeTask, executionSteps } = useAIContext();
+  const { isProcessing, activeTask, executionSteps, selectedAgentId } = useAIContext();
   const { startTask, updateTaskStep, completeTask, failTask } = useAgentActivity();
   
   const currentTaskIdRef = useRef<string | null>(null);
-  const lastAgentIdRef = useRef<string>('ai-assistant');
+  const lastAgentIdRef = useRef<string>(selectedAgentId || 'ai-assistant');
   const wasProcessingRef = useRef(false);
+  const capturedStepsRef = useRef<typeof executionSteps>([]);
+  
+  // Update last agent ID when selectedAgentId changes
+  useEffect(() => {
+    if (selectedAgentId) {
+      lastAgentIdRef.current = selectedAgentId;
+    }
+  }, [selectedAgentId]);
+  
+  // Capture steps continuously while processing to avoid losing them
+  useEffect(() => {
+    if (isProcessing && executionSteps.length > 0) {
+      capturedStepsRef.current = [...executionSteps];
+      console.log('🎯 Bridge: Captured steps', executionSteps.length);
+    }
+  }, [isProcessing, executionSteps]);
 
   // Track processing state changes
   useEffect(() => {
+    console.log('🎯 Bridge: State change', { 
+      isProcessing, 
+      wasProcessing: wasProcessingRef.current, 
+      activeTask, 
+      hasCurrentTask: !!currentTaskIdRef.current,
+      agentId: lastAgentIdRef.current,
+    });
+    
     // Detect when processing starts
     if (isProcessing && !wasProcessingRef.current && activeTask) {
       // Extract agent ID from task context if available
@@ -27,19 +51,28 @@ export const AgentActivityBridge: React.FC = () => {
       // Start a new task in the badge system
       const taskId = startTask(agentId, activeTask, 'manual');
       currentTaskIdRef.current = taskId;
-      console.log(`🎯 Bridge: Started badge task ${taskId} for ${agentId}`);
+      console.log(`🎯 Bridge: Started badge task ${taskId} for ${agentId}`, { activeTask });
     }
     
     // Detect when processing stops
     if (!isProcessing && wasProcessingRef.current && currentTaskIdRef.current) {
       const agentId = lastAgentIdRef.current || 'ai-assistant';
-      const lastStep = executionSteps[executionSteps.length - 1];
+      
+      // Use captured steps (they might have been cleared from AIContext already)
+      const stepsToUse = capturedStepsRef.current.length > 0 ? capturedStepsRef.current : executionSteps;
+      const lastStep = stepsToUse[stepsToUse.length - 1];
+      
+      console.log(`🎯 Bridge: Processing stopped, completing task ${currentTaskIdRef.current}`, { 
+        lastStep,
+        stepsCount: stepsToUse.length,
+        usedCaptured: capturedStepsRef.current.length > 0
+      });
       
       if (lastStep?.status === 'error') {
         failTask(agentId, currentTaskIdRef.current, lastStep.detail || 'Task failed');
       } else {
-        // Build summary from execution steps
-        const toolCalls = executionSteps.filter(s => s.label !== 'Parse Command' && s.label !== 'Thinking');
+        // Build summary from captured execution steps
+        const toolCalls = stepsToUse.filter(s => s.label !== 'Parse Command' && s.label !== 'Thinking');
         const summary = toolCalls.length > 0 ? {
           title: 'Task Complete',
           data: {
@@ -52,6 +85,9 @@ export const AgentActivityBridge: React.FC = () => {
       }
       
       console.log(`🎯 Bridge: Completed badge task ${currentTaskIdRef.current}`);
+      
+      // Clear captured steps after completion
+      capturedStepsRef.current = [];
       currentTaskIdRef.current = null;
     }
     
@@ -63,8 +99,9 @@ export const AgentActivityBridge: React.FC = () => {
     if (!currentTaskIdRef.current || !isProcessing) return;
     
     const lastStep = executionSteps[executionSteps.length - 1];
-    if (lastStep) {
+    if (lastStep && lastStep.label !== 'Parse Command') {
       const agentId = lastAgentIdRef.current || 'ai-assistant';
+      console.log('🎯 Bridge: Updating step', lastStep.label);
       updateTaskStep(agentId, currentTaskIdRef.current, {
         id: lastStep.id,
         label: lastStep.label,
@@ -74,6 +111,30 @@ export const AgentActivityBridge: React.FC = () => {
       });
     }
   }, [executionSteps, isProcessing, updateTaskStep]);
+
+  // Listen for navigation events from AI agent
+  useEffect(() => {
+    const handleNavigation = (event: any) => {
+      if (!currentTaskIdRef.current) return;
+      
+      const { to } = event.detail;
+      const agentId = lastAgentIdRef.current || 'ai-assistant';
+      
+      console.log(`🎯 Bridge: Navigation detected - updating task with redirectedTo: ${to}`);
+      
+      // Update the current task with the navigation destination
+      updateTaskStep(agentId, currentTaskIdRef.current, {
+        id: `nav-${Date.now()}`,
+        label: `Navigated to ${to}`,
+        status: 'done',
+        detail: `Redirected to ${to}`,
+        timestamp: new Date().toISOString(),
+      });
+    };
+
+    window.addEventListener('ai-navigation', handleNavigation);
+    return () => window.removeEventListener('ai-navigation', handleNavigation);
+  }, [updateTaskStep]);
 
   // This component doesn't render anything
   return null;

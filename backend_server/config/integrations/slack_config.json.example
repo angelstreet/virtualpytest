@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "bot_token": "xoxb-your-bot-token-here",
+  "channel_id": "C1234567890",
+  "sync_tool_calls": false,
+  "sync_thinking": false
+}
+

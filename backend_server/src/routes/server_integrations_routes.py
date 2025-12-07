@@ -422,3 +422,263 @@ def test_jira_connection(instance_id):
             'error': str(e)
         }), 500
 
+
+# ============================================================================
+# SLACK CONFIGURATION
+# ============================================================================
+
+SLACK_CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'integrations' / 'slack_config.json'
+
+def load_slack_config():
+    """Load Slack configuration from JSON file"""
+    try:
+        if not SLACK_CONFIG_PATH.exists():
+            print(f"[@integrations_routes] Slack config not found: {SLACK_CONFIG_PATH}")
+            return {
+                'enabled': False,
+                'bot_token': '',
+                'channel_id': '',
+                'sync_tool_calls': False,
+                'sync_thinking': False
+            }
+        
+        with open(SLACK_CONFIG_PATH, 'r') as f:
+            config = json.load(f)
+        
+        print(f"[@integrations_routes] Loaded Slack config (enabled={config.get('enabled')})")
+        return config
+    except Exception as e:
+        print(f"[@integrations_routes] Error loading Slack config: {e}")
+        return {'enabled': False}
+
+def save_slack_config(config):
+    """Save Slack configuration to JSON file"""
+    try:
+        SLACK_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(SLACK_CONFIG_PATH, 'w') as f:
+            json.dump(config, f, indent=2)
+        print(f"[@integrations_routes] Saved Slack config")
+        return True
+    except Exception as e:
+        print(f"[@integrations_routes] Error saving Slack config: {e}")
+        return False
+
+
+# ============================================================================
+# SLACK ROUTES
+# ============================================================================
+
+@server_integrations_bp.route('/slack/config', methods=['GET'])
+def get_slack_config():
+    """Get Slack configuration (without token for security)"""
+    try:
+        config = load_slack_config()
+        
+        return jsonify({
+            'success': True,
+            'config': {
+                'enabled': config.get('enabled', False),
+                'channel_id': config.get('channel_id', ''),
+                'sync_tool_calls': config.get('sync_tool_calls', False),
+                'sync_thinking': config.get('sync_thinking', False),
+                'has_token': bool(config.get('bot_token'))
+            }
+        })
+    except Exception as e:
+        print(f"[@integrations_routes:get_slack_config] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@server_integrations_bp.route('/slack/config', methods=['POST'])
+def update_slack_config():
+    """Update Slack configuration"""
+    try:
+        data = request.get_json()
+        config = load_slack_config()
+        
+        # Update fields
+        if 'bot_token' in data:
+            config['bot_token'] = data['bot_token']
+        if 'channel_id' in data:
+            config['channel_id'] = data['channel_id']
+        if 'enabled' in data:
+            config['enabled'] = data['enabled']
+        if 'sync_tool_calls' in data:
+            config['sync_tool_calls'] = data['sync_tool_calls']
+        if 'sync_thinking' in data:
+            config['sync_thinking'] = data['sync_thinking']
+        
+        if not save_slack_config(config):
+            return jsonify({
+                'success': False,
+                'error': 'Failed to save configuration'
+            }), 500
+        
+        # Reload the sync service if it exists
+        try:
+            from integrations.slack_sync import reload_slack_config
+            reload_slack_config()
+        except ImportError:
+            pass  # Service not running or not imported yet
+        
+        return jsonify({
+            'success': True,
+            'config': {
+                'enabled': config.get('enabled', False),
+                'channel_id': config.get('channel_id', ''),
+                'has_token': bool(config.get('bot_token'))
+            }
+        })
+    except Exception as e:
+        print(f"[@integrations_routes:update_slack_config] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@server_integrations_bp.route('/slack/test', methods=['POST'])
+def test_slack_connection():
+    """Test Slack connection with provided or saved credentials"""
+    try:
+        data = request.get_json()
+        token = data.get('bot_token')
+        
+        # If no token provided, use saved config
+        if not token:
+            config = load_slack_config()
+            token = config.get('bot_token')
+        
+        if not token:
+            return jsonify({
+                'success': False,
+                'error': 'No bot token provided'
+            }), 400
+        
+        # Test connection using slack-sdk
+        from slack_sdk import WebClient
+        from slack_sdk.errors import SlackApiError
+        
+        client = WebClient(token=token)
+        response = client.auth_test()
+        
+        return jsonify({
+            'success': True,
+            'team': response.get('team', 'Unknown'),
+            'user': response.get('user', 'Unknown'),
+            'bot_id': response.get('bot_id', 'Unknown')
+        })
+    except Exception as e:
+        error_msg = str(e)
+        if 'invalid_auth' in error_msg:
+            error_msg = 'Invalid bot token. Please check your credentials.'
+        elif 'not_authed' in error_msg:
+            error_msg = 'Authentication failed. Token may be expired.'
+        
+        print(f"[@integrations_routes:test_slack_connection] Error: {error_msg}")
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        }), 400
+
+
+@server_integrations_bp.route('/slack/status', methods=['GET'])
+def get_slack_status():
+    """Get Slack sync status and statistics"""
+    try:
+        config = load_slack_config()
+        
+        # Load thread statistics
+        threads_path = BACKEND_SERVER_ROOT / 'config' / 'integrations' / 'slack_threads.json'
+        thread_count = 0
+        last_sync = None
+        
+        if threads_path.exists():
+            with open(threads_path, 'r') as f:
+                threads = json.load(f)
+                thread_count = len(threads)
+                # Get most recent sync time if available
+                if threads:
+                    last_sync = threads.get('_last_sync')
+        
+        status = {
+            'enabled': config.get('enabled', False),
+            'configured': bool(config.get('bot_token') and config.get('channel_id')),
+            'channel_id': config.get('channel_id', ''),
+            'conversations_synced': thread_count,
+            'last_sync': last_sync,
+            'sync_tool_calls': config.get('sync_tool_calls', False),
+            'sync_thinking': config.get('sync_thinking', False)
+        }
+        
+        return jsonify({
+            'success': True,
+            'status': status
+        })
+    except Exception as e:
+        print(f"[@integrations_routes:get_slack_status] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@server_integrations_bp.route('/slack/send-test', methods=['POST'])
+def send_test_message():
+    """Send a test message to Slack channel"""
+    try:
+        config = load_slack_config()
+        
+        if not config.get('enabled'):
+            return jsonify({
+                'success': False,
+                'error': 'Slack integration is disabled'
+            }), 400
+        
+        if not config.get('bot_token') or not config.get('channel_id'):
+            return jsonify({
+                'success': False,
+                'error': 'Slack not configured. Please set bot token and channel ID.'
+            }), 400
+        
+        from slack_sdk import WebClient
+        from slack_sdk.errors import SlackApiError
+        
+        client = WebClient(token=config['bot_token'])
+        
+        # Send test message
+        response = client.chat_postMessage(
+            channel=config['channel_id'],
+            text="🤖 VirtualPyTest - Test Message",
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*VirtualPyTest AI Integration*\n\nThis is a test message to verify Slack connectivity. ✅"
+                    }
+                }
+            ]
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Test message sent successfully',
+            'timestamp': response.get('ts')
+        })
+    except Exception as e:
+        error_msg = str(e)
+        if 'channel_not_found' in error_msg:
+            error_msg = 'Channel not found. Please check the channel ID.'
+        elif 'not_in_channel' in error_msg:
+            error_msg = 'Bot is not a member of this channel. Please invite the bot first.'
+        
+        print(f"[@integrations_routes:send_test_message] Error: {error_msg}")
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        }), 400
+

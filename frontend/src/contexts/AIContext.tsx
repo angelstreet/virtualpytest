@@ -215,6 +215,16 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       if (event.action === 'navigate' && event.payload?.path) {
         if (allowAutoNavigation) {
           console.log(`🤖 Navigating to: ${event.payload.path}`);
+          
+          // Emit navigation event for badge tracking
+          window.dispatchEvent(new CustomEvent('ai-navigation', {
+            detail: {
+              from: location.pathname,
+              to: event.payload.path,
+              sessionId,
+            }
+          }));
+          
           navigate(event.payload.path);
         } else {
           console.log(`🤖 Navigation blocked (disabled): ${event.payload.path}`);
