@@ -4,12 +4,11 @@ Sure! Here's how the routes are architected in this codebase:
 
 ```
 backend_server/src/routes/
-├── agent_benchmark_routes.py    # /api/benchmarks/*
-├── agent_registry_routes.py     # /api/agents/*
-├── agent_runtime_routes.py      # /api/runtime/*
-├── event_routes.py              # /api/events/*
-├── server_agent_routes.py       # WebSocket + /api/agent/*
-└── ... other routes
+├── server_integrations_routes.py    # /server/integrations/* (JIRA, Slack)
+├── server_agent_routes.py           # WebSocket + /server/agent/*
+├── server_control_routes.py         # /server/control/*
+├── server_device_routes.py          # /server/device/*
+└── ... other server_* routes
 ```
 
 ---

@@ -115,35 +115,53 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
     >
       {/* Header - Always visible */}
       <Box
-        onClick={onToggle}
         sx={{
           py: 0.75,
           px: 1,
           display: 'flex',
           alignItems: 'center',
           gap: 0.75,
-          cursor: 'pointer',
           '&:hover': { bgcolor: COLORS.bgHover },
         }}
       >
-        <Typography sx={{ fontSize: 16 }}>{meta.icon}</Typography>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography sx={{ fontWeight: 600, color: COLORS.text, fontSize: '0.85rem' }}>
-              {meta.nickname}
+        <Box 
+          onClick={onToggle}
+          sx={{ flex: 1, minWidth: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.75 }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography sx={{ fontWeight: 600, color: COLORS.text, fontSize: '0.85rem' }}>
+                {meta.nickname}
+              </Typography>
+              {tasks.length > 1 && (
+                <Chip label={tasks.length} size="small" sx={{ height: 16, fontSize: '0.65rem', bgcolor: '#333', color: COLORS.textMuted }} />
+              )}
+              {getStatusIcon()}
+            </Box>
+            <Typography sx={{ color: COLORS.textMuted, fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {currentTask?.prompt || 'Processing...'}
             </Typography>
-            {tasks.length > 1 && (
-              <Chip label={tasks.length} size="small" sx={{ height: 16, fontSize: '0.65rem', bgcolor: '#333', color: COLORS.textMuted }} />
-            )}
-            {getStatusIcon()}
           </Box>
-          <Typography sx={{ color: COLORS.textMuted, fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {currentTask?.prompt || 'Processing...'}
-          </Typography>
+          {!isExpanded && runningTasks.length > 0 && getProgressDots()}
+          <IconButton size="small" sx={{ color: COLORS.textMuted, p: 0.25 }} component="span">
+            {isExpanded ? <ExpandMore sx={{ fontSize: 18 }} /> : <ExpandLess sx={{ fontSize: 18 }} />}
+          </IconButton>
         </Box>
-        {!isExpanded && runningTasks.length > 0 && getProgressDots()}
-        <IconButton size="small" sx={{ color: COLORS.textMuted, p: 0.25 }}>
-          {isExpanded ? <ExpandMore sx={{ fontSize: 18 }} /> : <ExpandLess sx={{ fontSize: 18 }} />}
+        {/* Discreet close button - always visible */}
+        <IconButton 
+          size="small" 
+          onClick={(e) => {
+            e.stopPropagation();
+            if (currentTask) onDismiss(currentTask.id);
+          }}
+          sx={{ 
+            color: COLORS.textMuted, 
+            p: 0.25, 
+            opacity: 0.5,
+            '&:hover': { opacity: 1, color: COLORS.text } 
+          }}
+        >
+          <Close sx={{ fontSize: 14 }} />
         </IconButton>
       </Box>
 
@@ -172,8 +190,8 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
               sx={{ 
                 minHeight: 24,
                 '& .MuiTab-root': { minHeight: 24, py: 0, px: 1, fontSize: '0.7rem', color: COLORS.textMuted, minWidth: 'auto' },
-                '& .Mui-selected': { color: COLORS.accent },
-                '& .MuiTabs-indicator': { bgcolor: COLORS.accent, height: 1 },
+                '& .Mui-selected': { color: '#fff', fontWeight: 600 },
+                '& .MuiTabs-indicator': { bgcolor: COLORS.accent, height: 2 },
               }}
             >
               {tasks.map((t, i) => (

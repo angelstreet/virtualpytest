@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Paper, 
@@ -185,32 +184,34 @@ export const AICommandBar: React.FC = () => {
             </Box>
           </Paper>
           
-          {/* Agent-specific suggestions */}
-          <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
-            {selectedAgent.tips.map((tip) => (
-              <Chip
-                key={tip}
-                label={tip}
-                size="small"
-                onClick={() => setInput(tip)}
-                sx={{
-                  bgcolor: 'rgba(60, 60, 60, 0.9)',
-                  color: '#b0b0b0',
-                  fontSize: '0.75rem',
-                  height: 26,
-                  border: '1px solid rgba(100, 100, 100, 0.3)',
-                  backdropFilter: 'blur(4px)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  '&:hover': { 
-                    bgcolor: 'rgba(80, 80, 80, 0.95)',
-                    color: '#e0e0e0',
-                    borderColor: 'rgba(150, 150, 150, 0.4)'
-                  }
-                }}
-              />
-            ))}
-          </Box>
+          {/* Agent-specific suggestions - hide when dropdown is open */}
+          <Fade in={!agentMenuOpen} timeout={150}>
+            <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {selectedAgent.tips.map((tip) => (
+                <Chip
+                  key={tip}
+                  label={tip}
+                  size="small"
+                  onClick={() => setInput(tip)}
+                  sx={{
+                    bgcolor: 'rgba(60, 60, 60, 0.9)',
+                    color: '#b0b0b0',
+                    fontSize: '0.75rem',
+                    height: 26,
+                    border: '1px solid rgba(100, 100, 100, 0.3)',
+                    backdropFilter: 'blur(4px)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    '&:hover': { 
+                      bgcolor: 'rgba(80, 80, 80, 0.95)',
+                      color: '#e0e0e0',
+                      borderColor: 'rgba(150, 150, 150, 0.4)'
+                    }
+                  }}
+                />
+              ))}
+            </Box>
+          </Fade>
         </Box>
       </Fade>
       
@@ -221,16 +222,22 @@ export const AICommandBar: React.FC = () => {
         onClose={() => setAgentMenuOpen(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        disableScrollLock
+        disableAutoFocusItem
+        transitionDuration={150}
         sx={{ zIndex: 10000 }}
-        PaperProps={{
-          sx: {
-            bgcolor: '#2a2a2a',
-            border: '1px solid #444',
-            borderRadius: 2,
-            mt: 0.5,
-            minWidth: 220,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-            py: 0.5,
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: '#2a2a2a',
+              border: '1px solid #444',
+              borderRadius: 2,
+              mt: 0.5,
+              minWidth: 220,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+              py: 0.5,
+              overflow: 'hidden',
+            }
           }
         }}
       >

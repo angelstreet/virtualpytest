@@ -286,10 +286,55 @@ All endpoints are at `/server/integrations/slack/`:
 - ✅ Permissions follow principle of least privilege
 - ✅ API endpoints protected by authentication
 
+## Testing the Integration
+
+### Test with curl:
+
+```bash
+# 1. Check status
+curl http://localhost:5109/server/integrations/slack/status
+
+# 2. Test connection
+curl -X POST http://localhost:5109/server/integrations/slack/test \
+  -H "Content-Type: application/json"
+
+# 3. Send test message to Slack
+curl -X POST http://localhost:5109/server/integrations/slack/send-test \
+  -H "Content-Type: application/json"
+```
+
+If step 3 succeeds, you should see a message in your Slack channel!
+
+### Connect to AgentChat (Manual - Phase 1)
+
+Currently, the sync service is created but **not yet connected to AgentChat websocket events**.
+
+To connect it, add this to `backend_server/src/routes/server_agent_routes.py`:
+
+```python
+# At the top, after other imports
+try:
+    from integrations.agent_slack_hook import on_agent_message_websocket, on_user_message_websocket
+    SLACK_HOOK_AVAILABLE = True
+except ImportError:
+    SLACK_HOOK_AVAILABLE = False
+
+# In handle_message function, after logging user message (around line 331):
+if SLACK_HOOK_AVAILABLE:
+    on_user_message_websocket(session_id, 'User', message)
+
+# In the event streaming loop, when emitting agent_event (around line 428):
+if SLACK_HOOK_AVAILABLE and event.type in ['message', 'result']:
+    on_agent_message_websocket(session_id, event.agent, event.content, event.type)
+```
+
+This will be automated in Phase 2.
+
 ## Support
 
 For issues or questions:
 1. Check backend logs: `journalctl -u backend_server | grep slack`
 2. Review Slack app settings at [https://api.slack.com/apps](https://api.slack.com/apps)
 3. Test connection in VirtualPyTest UI
+4. Use curl commands above to test API endpoints
 

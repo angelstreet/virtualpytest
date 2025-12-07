@@ -930,9 +930,56 @@ const AgentChat: React.FC = () => {
           </Paper>
           
           <Box sx={{ display: 'flex', gap: 0.25 }}>
-            <Tooltip title="Copy conversation">
+            <Tooltip title="Copy messages">
               <span>
-                <IconButton size="small" disabled={messages.length === 0} sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}>
+                <IconButton 
+                  size="small" 
+                  disabled={messages.length === 0} 
+                  onClick={() => {
+                    const text = messages.map(msg => {
+                      const role = msg.role === 'user' ? 'You' : (msg.agent || 'Assistant');
+                      
+                      if (msg.role === 'user') {
+                        return `${role}: ${msg.content || ''}`;
+                      }
+                      
+                      // For assistant messages, include tools and response
+                      const parts: string[] = [`${role}:`];
+                      
+                      // Add tool calls with results
+                      if (msg.events) {
+                        const toolCalls = msg.events.filter(e => e.type === 'tool_call');
+                        const toolResults = msg.events.filter(e => e.type === 'tool_result');
+                        
+                        toolCalls.forEach(tool => {
+                          const result = toolResults.find(r => r.tool_name === tool.tool_name);
+                          parts.push(`\n  [Tool: ${tool.tool_name}]`);
+                          if (tool.tool_params) {
+                            parts.push(`  Input: ${JSON.stringify(tool.tool_params, null, 2).split('\n').join('\n  ')}`);
+                          }
+                          if (result?.tool_result) {
+                            const resultStr = typeof result.tool_result === 'string' 
+                              ? result.tool_result 
+                              : JSON.stringify(result.tool_result, null, 2);
+                            parts.push(`  Result: ${resultStr.split('\n').join('\n  ')}`);
+                          }
+                        });
+                        
+                        // Add message content
+                        const content = msg.events
+                          .filter(e => e.type === 'message' || e.type === 'result')
+                          .map(e => e.content)
+                          .join('\n')
+                          .trim();
+                        if (content) parts.push(`\n${content}`);
+                      }
+                      
+                      return parts.join('\n');
+                    }).join('\n\n');
+                    navigator.clipboard.writeText(text);
+                  }}
+                  sx={{ opacity: messages.length > 0 ? 0.5 : 0.2, '&:hover': { opacity: 1 } }}
+                >
                   <CopyIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </span>

@@ -354,9 +354,6 @@ const App: React.FC = () => {
                   {/* Integrations Routes - Protected by permission */}
                   <Route element={<ProtectedRoute requiredPermission="jira_integration" />}>
                     <Route path="/integrations/jira" element={<JiraIntegration />} />
-                  </Route>
-                  
-                  <Route element={<ProtectedRoute requiredPermission="slack_integration" />}>
                     <Route path="/integrations/slack" element={<SlackIntegration />} />
                   </Route>
 
