@@ -27,6 +27,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  Switch,
 } from '@mui/material';
 import {
   ArrowUpward as SendIcon,
@@ -51,10 +52,12 @@ import {
   ViewSidebar as SidebarIcon,
   Chat as ChatPanelIcon,
   PhoneAndroid as DevicePanelIcon,
+  OpenInNew as RedirectIcon,
 } from '@mui/icons-material';
 import { useSearchParams } from 'react-router-dom';
 import { useAgentChat, type AgentEvent, type Conversation } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
+import { useAIContext } from '../contexts/AIContext';
 
 // --- Constants & Configuration ---
 
@@ -156,6 +159,7 @@ const AgentChat: React.FC = () => {
   const isDarkMode = theme.palette.mode === 'dark';
   const { profile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { allowAutoNavigation, setAllowAutoNavigation } = useAIContext();
   
   // Layout state - each section can be shown/hidden
   const [showHistory, setShowHistory] = useState(true);
@@ -1085,33 +1089,81 @@ const AgentChat: React.FC = () => {
           </FormControl>
         </Box>
         
-        {/* Right: Section Toggles */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 0.5,
-          p: 0.5,
-          borderRadius: 2,
-          bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
-        }}>
-          <SectionToggle
-            active={showHistory}
-            onClick={() => setShowHistory(!showHistory)}
-            icon={SidebarIcon}
-            tooltip={showHistory ? "Hide history" : "Show history"}
-          />
-          <SectionToggle
-            active={showChat}
-            onClick={() => setShowChat(!showChat)}
-            icon={ChatPanelIcon}
-            tooltip={showChat ? "Hide chat" : "Show chat"}
-          />
-          <SectionToggle
-            active={showDevice}
-            onClick={() => setShowDevice(!showDevice)}
-            icon={DevicePanelIcon}
-            tooltip={showDevice ? "Hide device" : "Show device"}
-          />
+        {/* Right: Auto-redirect toggle + Section Toggles */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Auto-redirect toggle */}
+          <Tooltip title={allowAutoNavigation ? "Auto-redirect enabled" : "Auto-redirect disabled"}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 0.5,
+              opacity: 0.8,
+            }}>
+              <RedirectIcon sx={{ fontSize: 14, color: allowAutoNavigation ? PALETTE.accent : 'text.disabled' }} />
+              <Switch
+                size="small"
+                checked={allowAutoNavigation}
+                onChange={(e) => setAllowAutoNavigation(e.target.checked)}
+                sx={{
+                  width: 32,
+                  height: 18,
+                  padding: 0,
+                  '& .MuiSwitch-switchBase': {
+                    padding: 0,
+                    margin: '2px',
+                    transitionDuration: '200ms',
+                    '&.Mui-checked': {
+                      transform: 'translateX(14px)',
+                      color: '#fff',
+                      '& + .MuiSwitch-track': {
+                        backgroundColor: PALETTE.accent,
+                        opacity: 1,
+                        border: 0,
+                      },
+                    },
+                  },
+                  '& .MuiSwitch-thumb': {
+                    width: 14,
+                    height: 14,
+                  },
+                  '& .MuiSwitch-track': {
+                    borderRadius: 9,
+                    backgroundColor: isDarkMode ? PALETTE.borderColor : 'grey.400',
+                    opacity: 1,
+                  },
+                }}
+              />
+            </Box>
+          </Tooltip>
+          
+          {/* Section Toggles */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            p: 0.5,
+            borderRadius: 2,
+            bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
+          }}>
+            <SectionToggle
+              active={showHistory}
+              onClick={() => setShowHistory(!showHistory)}
+              icon={SidebarIcon}
+              tooltip={showHistory ? "Hide history" : "Show history"}
+            />
+            <SectionToggle
+              active={showChat}
+              onClick={() => setShowChat(!showChat)}
+              icon={ChatPanelIcon}
+              tooltip={showChat ? "Hide chat" : "Show chat"}
+            />
+            <SectionToggle
+              active={showDevice}
+              onClick={() => setShowDevice(!showDevice)}
+              icon={DevicePanelIcon}
+              tooltip={showDevice ? "Hide device" : "Show device"}
+            />
+          </Box>
         </Box>
       </Box>
 

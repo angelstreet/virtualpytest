@@ -6,6 +6,7 @@ import { APP_CONFIG } from '../config/constants';
 
 // Same storage key as useAgentChat to share API key
 const STORAGE_KEY_API = 'virtualpytest_anthropic_key';
+const STORAGE_KEY_AUTO_NAV = 'virtualpytest_allow_auto_navigation';
 
 interface AIState {
   // Panel Visibility
@@ -20,6 +21,10 @@ interface AIState {
   
   // Status
   status: 'checking' | 'ready' | 'needs_key' | 'error';
+  
+  // Skills Control
+  allowAutoNavigation: boolean;
+  setAllowAutoNavigation: (value: boolean) => void;
   
   // Actions
   toggleCommand: () => void;
@@ -59,6 +64,18 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<'checking' | 'ready' | 'needs_key' | 'error'>('checking');
   const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
+  
+  // Skills control - default OFF (disabled)
+  const [allowAutoNavigation, setAllowAutoNavigationState] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_AUTO_NAV);
+    return saved === 'true'; // Default false if not set
+  });
+  
+  // Persist auto-navigation preference
+  const setAllowAutoNavigation = useCallback((value: boolean) => {
+    setAllowAutoNavigationState(value);
+    localStorage.setItem(STORAGE_KEY_AUTO_NAV, String(value));
+  }, []);
   
   const socketRef = useRef<Socket | null>(null);
   const location = useLocation();
@@ -194,10 +211,14 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     socket.on('ui_action', (event: any) => {
       console.log('🤖 UI Action:', event);
       
-      // Navigation
+      // Navigation - only if enabled
       if (event.action === 'navigate' && event.payload?.path) {
-        console.log(`🤖 Navigating to: ${event.payload.path}`);
-        navigate(event.payload.path);
+        if (allowAutoNavigation) {
+          console.log(`🤖 Navigating to: ${event.payload.path}`);
+          navigate(event.payload.path);
+        } else {
+          console.log(`🤖 Navigation blocked (disabled): ${event.payload.path}`);
+        }
       }
       
       // Element Interaction
@@ -234,7 +255,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [sessionId, status, navigate]);
+  }, [sessionId, status, navigate, allowAutoNavigation]);
 
   // Send message to backend
   const sendMessage = useCallback((message: string, agentId?: string) => {
@@ -314,6 +335,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       isCommandOpen, isPilotOpen, isLogsOpen, 
       activeTask, isProcessing, executionSteps,
       status,
+      allowAutoNavigation, setAllowAutoNavigation,
       toggleCommand, togglePilot, toggleLogs, 
       openCommand, closeCommand, setTask, setProcessing,
       sendMessage, isConnected,
