@@ -58,54 +58,6 @@ def get_anthropic_api_key(identifier: str | None = None) -> str:
         raise ValueError("ANTHROPIC_API_KEY not set in environment")
     return key
 
-# Manager Safe Tools (Read-only metadata)
-MANAGER_TOOLS = [
-    # Requirements & Coverage
-    "list_requirements",
-    "get_requirement",
-    "get_testcase_requirements",
-    "get_requirement_coverage",
-    "get_coverage_summary",
-    "get_uncovered_requirements",
-    
-    # Test Cases
-    "list_testcases",
-    "load_testcase",
-    
-    # User Interfaces & Navigation
-    "list_userinterfaces",
-    "get_userinterface_complete",
-    "list_nodes",
-    "list_edges",
-    "list_navigation_nodes",
-    "preview_userinterface",
-    
-    # Device Navigation
-    "take_control",
-    "navigate_to_node",
-    
-    # Device & Host
-    "get_device_info",
-    "get_compatible_hosts",
-    "get_execution_status",
-    
-    # Scripts
-    "list_scripts",
-    
-    # System
-    "list_services",
-    "view_logs",
-    
-    # Verifications
-    "list_verifications",
-    
-    # UI Control / Page Interaction (Step 1 - navigation only)
-    "navigate_to_page",
-    
-    # Data Tools (Step 2 - fetch actual data)
-    "get_alerts",
-]
-
 # Agent configuration
 AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
     "qa_manager": {

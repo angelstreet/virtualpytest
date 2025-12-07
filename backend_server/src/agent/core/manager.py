@@ -13,7 +13,7 @@ from typing import Dict, Any, AsyncGenerator, Optional
 
 import anthropic
 
-from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, Mode, MODE_AGENTS, MANAGER_TOOLS, LANGFUSE_ENABLED
+from ..config import get_anthropic_api_key, DEFAULT_MODEL, MAX_TOKENS, Mode, MODE_AGENTS, LANGFUSE_ENABLED
 from ..observability import track_generation, track_tool_call, flush
 from .session import Session
 from .tool_bridge import ToolBridge
@@ -309,8 +309,8 @@ Be efficient. Provide DATA, not explanations."""
     
     @property
     def tool_names(self) -> list[str]:
-        """Tools available to the QA Manager"""
-        return MANAGER_TOOLS
+        """Tools available to this agent based on YAML config"""
+        return self.agent_config.get('skills', [])
 
     async def process_message(
         self, 
