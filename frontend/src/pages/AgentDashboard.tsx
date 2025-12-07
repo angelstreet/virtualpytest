@@ -71,6 +71,23 @@ interface LeaderboardEntry {
 const GOLD = '#D4AF37';
 const GOLD_DARK = '#B8860B';
 
+// Agent metadata for nickname display
+const AGENT_METADATA: Record<string, { name: string; nickname: string }> = {
+  'ai-assistant': { name: 'AI Assistant', nickname: 'Atlas' },
+  'qa-manager': { name: 'QA Manager', nickname: 'Captain' },
+  'qa-web-manager': { name: 'QA Web Manager', nickname: 'Sherlock' },
+  'qa-mobile-manager': { name: 'QA Mobile Manager', nickname: 'Scout' },
+  'qa-stb-manager': { name: 'QA STB Manager', nickname: 'Watcher' },
+  'monitoring-manager': { name: 'Monitoring Manager', nickname: 'Guardian' },
+  'explorer': { name: 'Explorer', nickname: 'Pathfinder' },
+  'executor': { name: 'Executor', nickname: 'Runner' },
+};
+
+const getAgentDisplay = (agentId: string) => {
+  const meta = AGENT_METADATA[agentId];
+  return meta ? { nickname: meta.nickname, name: meta.name } : { nickname: agentId, name: agentId };
+};
+
 export const AgentDashboard: React.FC = () => {
   // Tab state
   const [activeTab, setActiveTab] = useState(0);
@@ -579,8 +596,8 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                   <TableRow key={`${entry.agent_id}-${entry.agent_version}`}>
                     <TableCell sx={{ borderBottom: '1px solid #2a2a2a' }}>{getRankIcon(idx + 1)}</TableCell>
                     <TableCell sx={{ borderBottom: '1px solid #2a2a2a' }}>
-                      <Typography sx={{ color: '#fff', fontWeight: 500 }}>{entry.agent_id}</Typography>
-                      <Typography sx={{ fontSize: '0.75rem', color: '#666' }}>v{entry.agent_version}</Typography>
+                      <Typography sx={{ color: '#fff', fontWeight: 600 }}>{getAgentDisplay(entry.agent_id).nickname}</Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: '#888' }}>{getAgentDisplay(entry.agent_id).name} • v{entry.agent_version}</Typography>
                     </TableCell>
                     <TableCell sx={{ borderBottom: '1px solid #2a2a2a' }}>
                       <Typography sx={{ color: GOLD, fontWeight: 'bold', fontSize: '1.1rem' }}>{entry.overall_score?.toFixed(1) || 0}</Typography>

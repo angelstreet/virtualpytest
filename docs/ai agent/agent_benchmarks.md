@@ -2,114 +2,113 @@
 
 ## Overview
 
-The Agent Benchmarking System evaluates AI agents through standardized tests, user feedback, and execution metrics to produce comparable scores across agents.
-
-**Test definitions are file-based (YAML)** for easy editing and version control.
+The Agent Benchmarking System evaluates AI agents through a **3-tier pyramid strategy** to quickly identify broken agents and validate production readiness.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    BENCHMARK EVALUATION FLOW                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │
-│   │  YAML Tests  │───▶│   Execute    │───▶│   Record     │          │
-│   │  (files)     │    │   Agent      │    │   Results    │          │
-│   └──────────────┘    └──────────────┘    └──────────────┘          │
-│          │                                       │                   │
-│          ▼                                       ▼                   │
-│   ┌──────────────┐                       ┌──────────────┐           │
-│   │    User      │                       │   Calculate  │           │
-│   │   Feedback   │──────────────────────▶│    Score     │           │
-│   └──────────────┘                       └──────────────┘           │
-│                                                 │                    │
-│                                                 ▼                    │
-│                                          ┌──────────────┐           │
-│                                          │  Leaderboard │           │
-│                                          └──────────────┘           │
-└─────────────────────────────────────────────────────────────────────┘
+                    ┌─────────────┐
+                    │   TIER 3    │  ← "Is agent PRODUCTION READY?"
+                    │   E2E (3)   │     Full scenario: ~5 mins
+                    └──────┬──────┘
+                           │
+                ┌──────────┴──────────┐
+                │      TIER 2         │  ← "Can agent DO tasks?"
+                │  SKILLS (5 tests)   │     Per-skill: ~3 mins
+                └──────────┬──────────┘
+                           │
+        ┌──────────────────┴──────────────────┐
+        │              TIER 1                  │  ← "Is agent BROKEN?"
+        │      TOOL SELECTION (10 tests)       │     Quick check: ~1 min
+        └──────────────────────────────────────┘
 ```
 
 ---
 
-## Architecture
+## Quick Status Check
 
-### File-Based Test Definitions
+| Status | Tier 1 | Tier 2 | Tier 3 | Meaning |
+|--------|--------|--------|--------|---------|
+| 🟢 **HEALTHY** | ✅ 100% | ✅ 80%+ | ✅ Pass | Production ready |
+| 🟡 **DEGRADED** | ✅ 100% | ⚠️ 50-80% | ❌ Fail | Some skills broken |
+| 🔴 **BROKEN** | ❌ <100% | - | - | Agent can't select tools |
+
+---
+
+## Benchmark Files
 
 ```
 backend_server/src/agent/benchmarks/
-├── __init__.py              # YAML loader
-├── tests/                   # Built-in tests
-│   ├── navigation.yaml
-│   ├── detection.yaml
-│   ├── execution.yaml
-│   ├── analysis.yaml
-│   └── recovery.yaml
-└── custom/                  # Your custom tests
-    └── my_tests.yaml
-```
-
-### Database (Runtime Data Only)
-
-```
-agent_benchmark_runs      # Execution tracking
-       │
-       ▼
-agent_benchmark_results   # Individual test results
-       │
-       ▼
-agent_scores              # Aggregated scores (leaderboard)
-       │
-       ▼
-agent_feedback            # User ratings (1-5 stars)
+├── __init__.py
+├── tests/
+│   ├── tier1_tool_selection.yaml   # 10 tests - Quick health check
+│   ├── tier2_skill_workflows.yaml  # 5 tests - Capability validation
+│   ├── tier3_e2e_integration.yaml  # 3 tests - Full sauce-demo flow
+│   ├── navigation.yaml             # Legacy: Basic navigation
+│   ├── detection.yaml              # Legacy: Device detection
+│   ├── execution.yaml              # Legacy: Test execution
+│   ├── analysis.yaml               # Legacy: Coverage analysis
+│   └── recovery.yaml               # Legacy: Error handling
+└── custom/                         # Your custom tests
 ```
 
 ---
 
-## Benchmark Categories
+## Tier 1: Tool Selection (Quick Health Check)
 
-| Category | Description | Test Examples |
-|----------|-------------|---------------|
-| `navigation` | UI navigation capabilities | List interfaces, navigate to node |
-| `detection` | System monitoring & detection | Device status, health checks |
-| `execution` | Test case execution | List/load/run test cases |
-| `analysis` | Coverage and requirement analysis | Coverage summary, requirements |
-| `recovery` | Error handling & recovery | Invalid input, timeout handling |
+**Purpose**: Verify agent selects the RIGHT tool for each task  
+**Time**: ~1 minute (10 tests × 5s)  
+**Pass Criteria**: 100% = Agent is NOT broken
+
+| Test ID | Tool | Prompt |
+|---------|------|--------|
+| `ts_001` | `list_userinterfaces` | "List all userinterfaces" |
+| `ts_002` | `get_device_info` | "Get device info for my device" |
+| `ts_003` | `get_compatible_hosts` | "What hosts are compatible?" |
+| `ts_004` | `list_navigation_nodes` | "List all navigation nodes" |
+| `ts_005` | `dump_ui_elements` | "Dump all UI elements" |
+| `ts_006` | `list_requirements` | "List all requirements" |
+| `ts_007` | `list_testcases` | "List all test cases" |
+| `ts_008` | `get_coverage_summary` | "What is the test coverage?" |
+| `ts_009` | `take_control` | "Take control of the device" |
+| `ts_010` | `execute_testcase` | "Run test case TC_001" |
 
 ---
 
-## Default Benchmark Tests
+## Tier 2: Skill Workflows (Capability Check)
 
-Built-in tests are defined in `backend_server/src/agent/benchmarks/tests/`:
+**Purpose**: Verify agent completes multi-step skill workflows  
+**Time**: ~3 minutes (5 tests × 30s)  
+**Pass Criteria**: 80%+ = Agent skills are FUNCTIONAL
 
-| File | Category | Tests |
-|------|----------|-------|
-| `navigation.yaml` | Navigation | List interfaces, Navigate to node, Get tree |
-| `detection.yaml` | Detection | Device status, Health check, Host discovery |
-| `execution.yaml` | Execution | List/Load/Execute test cases, Get results |
-| `analysis.yaml` | Analysis | Coverage summary, Requirements, Gap analysis |
-| `recovery.yaml` | Recovery | Invalid input, Timeout, Missing resource |
+| Test ID | Skill | Description |
+|---------|-------|-------------|
+| `sw_001` | **EXPLORE** | Analyze screen, identify interactive elements |
+| `sw_002` | **BUILD** (Req) | Create requirement with acceptance criteria |
+| `sw_003` | **BUILD** (TC) | Create test case with steps |
+| `sw_004` | **EXECUTE** | Execute test and report results |
+| `sw_005` | **NAVIGATE** | Create node and edge in navigation tree |
 
-### Example: navigation.yaml
+---
 
-```yaml
-category: navigation
-description: UI navigation capabilities
+## Tier 3: E2E Integration (Full Validation)
 
-tests:
-  - id: bench_nav_001
-    name: List User Interfaces
-    prompt: "List all available user interfaces in the system"
-    expected:
-      contains: ["userinterface", "list"]
-    validation: contains
-    timeout: 30
-    points: 1.0
-    agents:
-      - qa-web-manager
-      - qa-mobile-manager
-      - qa-stb-manager
-      - ai-assistant
-```
+**Purpose**: Verify agent completes the sauce-demo gold standard  
+**Time**: ~5 minutes  
+**Pass Criteria**: Pass = Agent is PRODUCTION READY
+
+| Test ID | Name | Description |
+|---------|------|-------------|
+| `e2e_001` | **Sauce Demo Full Automation** | Complete workflow: hosts → exploration → approve → validate → requirement → testcase → coverage |
+| `e2e_002` | **Navigation Tree Validation** | Verify tree has: home, login, signup, cart nodes |
+| `e2e_003` | **Coverage Validation** | Verify 100% coverage for created requirements |
+
+### Sauce Demo Expected Deliverables
+
+Based on `docs/examples/sauce-demo-optimal-prompt.md`:
+
+- **7 nodes**: home, signup, login, logout, product_detail, cart, search_results
+- **6 requirements**: signup, login, logout, search, add to cart, verify cart
+- **6 test cases**: linked to requirements
+- **100% coverage**: all requirements covered
 
 ---
 
@@ -118,175 +117,70 @@ tests:
 ### Overall Score Calculation
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│           OVERALL_SCORE = Weighted Average                  │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│   ┌─────────────────┐                                       │
-│   │ Benchmark Score │ × 40%                                 │
-│   │  (0-100%)       │                                       │
-│   └─────────────────┘                                       │
-│          +                                                  │
-│   ┌─────────────────┐                                       │
-│   │ User Rating     │ × 30%   (1-5 stars → 0-100%)         │
-│   │  Score          │                                       │
-│   └─────────────────┘                                       │
-│          +                                                  │
-│   ┌─────────────────┐                                       │
-│   │ Success Rate    │ × 20%   (from execution history)     │
-│   │  Score          │                                       │
-│   └─────────────────┘                                       │
-│          +                                                  │
-│   ┌─────────────────┐                                       │
-│   │ Cost Efficiency │ × 10%   (TBD)                        │
-│   │  Score          │                                       │
-│   └─────────────────┘                                       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│   OVERALL_SCORE = Weighted Average                       │
+├─────────────────────────────────────────────────────────┤
+│   Benchmark Score  × 40%   (from tier tests)            │
+│   User Rating      × 30%   (1-5 stars → 0-100%)         │
+│   Success Rate     × 20%   (from execution history)     │
+│   Cost Efficiency  × 10%   (TBD)                        │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Component Scores
+### Version Comparison
 
-| Component | Weight | Source | Calculation |
-|-----------|--------|--------|-------------|
-| Benchmark | 40% | `agent_benchmark_runs` | (passed / total) × 100 |
-| User Rating | 30% | `agent_feedback` | (avg_rating - 1) × 25 |
-| Success Rate | 20% | `agent_execution_history` | (successful / total) × 100 |
-| Cost Efficiency | 10% | TBD | tokens/complexity ratio |
+```
+┌─────────────────────────────────────────────────────────┐
+│ Agent: Sherlock (qa-web-manager)                        │
+├─────────────────────────────────────────────────────────┤
+│ Version │ Tier 1 │ Tier 2 │ Tier 3 │ Overall │ Status  │
+├─────────┼────────┼────────┼────────┼─────────┼─────────┤
+│ v1.0.0  │ 100%   │ 60%    │ ❌      │ 72%     │ 🟡      │
+│ v1.1.0  │ 100%   │ 80%    │ ✅      │ 88%     │ 🟢      │
+│ v1.2.0  │ 90%    │ 40%    │ ❌      │ 58%     │ 🔴 REGR │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## API Reference
 
-### Base URL
-```
-/server/benchmarks
-```
+### Run Benchmarks
 
-### Endpoints
+```bash
+# Quick health check (Tier 1 only)
+curl -X POST "http://localhost:5109/server/benchmarks/run?team_id=<team_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "qa-web-manager", "version": "1.0.0", "category": "tool_selection"}'
 
-#### List Benchmark Tests
-```http
-GET /server/benchmarks/tests?category=navigation
-```
+# Full benchmark (all tiers)
+curl -X POST "http://localhost:5109/server/benchmarks/run?team_id=<team_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "qa-web-manager", "version": "1.0.0"}'
 
-**Response:**
-```json
-{
-  "tests": [
-    {
-      "test_id": "bench_nav_001",
-      "name": "List User Interfaces",
-      "category": "navigation",
-      "input_prompt": "List all available user interfaces in the system",
-      "expected_output": {"contains": ["userinterface", "list"]},
-      "validation_type": "contains",
-      "timeout_seconds": 30,
-      "points": 1.0,
-      "applicable_agent_types": ["qa-web-manager", "qa-mobile-manager"]
-    }
-  ],
-  "count": 17
-}
+# Execute the run
+curl -X POST "http://localhost:5109/server/benchmarks/run/<run_id>/execute?team_id=<team_id>"
 ```
 
----
+### Get Results
 
-#### Create Benchmark Run
-```http
-POST /server/benchmarks/run?team_id=<team_id>
-Content-Type: application/json
+```bash
+# List runs
+GET /server/benchmarks/runs?team_id=<team_id>&agent_id=qa-web-manager
 
-{
-  "agent_id": "qa-web-manager",
-  "version": "1.0.0"
-}
+# Get run details
+GET /server/benchmarks/runs/<run_id>
+
+# Get leaderboard
+GET /server/benchmarks/leaderboard?team_id=<team_id>
+
+# Compare agents
+GET /server/benchmarks/compare?agents=qa-web-manager:1.0.0,qa-mobile-manager:1.0.0
 ```
 
-**Response:**
-```json
-{
-  "run_id": "5e06f7d4-f474-4fa8-a834-b447442a7da2",
-  "agent_id": "qa-web-manager",
-  "version": "1.0.0",
-  "total_tests": 10,
-  "status": "pending",
-  "message": "Benchmark run created. Execute /server/benchmarks/run/{run_id}/execute to start."
-}
-```
+### Submit Feedback
 
----
-
-#### Execute Benchmark Run
-```http
-POST /server/benchmarks/run/{run_id}/execute?team_id=<team_id>
-```
-
-**Response:**
-```json
-{
-  "run_id": "5e06f7d4-f474-4fa8-a834-b447442a7da2",
-  "status": "completed",
-  "passed": 10,
-  "failed": 0,
-  "score_percent": 100.0
-}
-```
-
----
-
-#### List Benchmark Runs
-```http
-GET /server/benchmarks/runs?team_id=<team_id>&agent_id=qa-web-manager&limit=20
-```
-
-**Response:**
-```json
-{
-  "runs": [
-    {
-      "id": "uuid",
-      "agent_id": "qa-web-manager",
-      "agent_version": "1.0.0",
-      "status": "completed",
-      "total_tests": 10,
-      "passed_tests": 10,
-      "failed_tests": 0,
-      "score_percent": 100.0,
-      "started_at": "2025-12-06T23:58:10Z",
-      "completed_at": "2025-12-06T23:58:12Z"
-    }
-  ],
-  "count": 1
-}
-```
-
----
-
-#### Get Run Details
-```http
-GET /server/benchmarks/runs/{run_id}
-```
-
-**Response:**
-```json
-{
-  "run": { ... },
-  "results": [
-    {
-      "test_id": "bench_nav_001",
-      "passed": true,
-      "points_earned": 1.0,
-      "duration_seconds": 1.5
-    }
-  ]
-}
-```
-
----
-
-#### Submit User Feedback
-```http
+```bash
 POST /server/benchmarks/feedback?team_id=<team_id>
 Content-Type: application/json
 
@@ -294,169 +188,47 @@ Content-Type: application/json
   "agent_id": "qa-web-manager",
   "version": "1.0.0",
   "rating": 5,
-  "comment": "Excellent navigation capabilities",
-  "task_description": "Navigate to settings"
-}
-```
-
-**Response:**
-```json
-{
-  "feedback_id": "uuid",
-  "message": "Feedback submitted successfully"
+  "comment": "Excellent exploration capabilities"
 }
 ```
 
 ---
 
-#### Get Leaderboard
-```http
-GET /server/benchmarks/leaderboard?team_id=<team_id>&limit=20
+## YAML Test Schema
+
+```yaml
+category: tool_selection
+description: Agent tool selection accuracy
+
+tests:
+  - id: ts_001                    # Unique test ID
+    name: List User Interfaces    # Human-readable name
+    description: Agent should call list_userinterfaces tool
+    prompt: "List all userinterfaces"
+    expected:
+      contains: ["userinterface"]  # Keywords to check
+    validation: contains           # contains | contains_any | exact | regex
+    timeout: 15                    # Max seconds
+    points: 1.0                    # Points if passed
+    agents:                        # Applicable agents (null = all)
+      - qa-web-manager
+      - qa-mobile-manager
 ```
 
-**Response:**
-```json
-{
-  "leaderboard": [
-    {
-      "rank": 1,
-      "agent_id": "qa-web-manager",
-      "agent_version": "1.0.0",
-      "overall_score": 85.5,
-      "benchmark_score": 100.0,
-      "user_rating_score": 75.0,
-      "success_rate_score": 80.0,
-      "avg_user_rating": 4.0
-    }
-  ],
-  "count": 1
-}
-```
+### Validation Types
+
+| Type | Description | Expected Format |
+|------|-------------|-----------------|
+| `contains` | Output must contain ALL keywords | `{contains: ["keyword1", "keyword2"]}` |
+| `contains_any` | Output must contain ANY keyword | `{contains: ["error", "not found"]}` |
+| `exact` | Exact match required | `{value: "exact string"}` |
+| `regex` | Regex pattern match | `{pattern: "regex.*pattern"}` |
 
 ---
 
-#### Compare Agents
-```http
-GET /server/benchmarks/compare?agents=qa-web-manager:1.0.0,qa-mobile-manager:1.0.0&team_id=<team_id>
-```
+## Adding Custom Benchmarks
 
-**Response:**
-```json
-{
-  "comparison": [
-    {"agent_id": "qa-web-manager", "overall_score": 85.5},
-    {"agent_id": "qa-mobile-manager", "overall_score": 78.2}
-  ],
-  "winner": "qa-web-manager"
-}
-```
-
----
-
-## Usage Examples
-
-### Run a Benchmark (CLI)
-
-```bash
-# Step 1: Create benchmark run
-RUN_ID=$(curl -s -X POST "http://localhost:5109/server/benchmarks/run?team_id=YOUR_TEAM_ID" \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id": "qa-web-manager", "version": "1.0.0"}' \
-  | jq -r '.run_id')
-
-echo "Created run: $RUN_ID"
-
-# Step 2: Execute benchmark
-curl -X POST "http://localhost:5109/server/benchmarks/run/$RUN_ID/execute?team_id=YOUR_TEAM_ID"
-
-# Step 3: Check results
-curl "http://localhost:5109/server/benchmarks/runs/$RUN_ID"
-```
-
-### Run a Benchmark (Frontend)
-
-1. Navigate to **Agent Dashboard** (`/agent-dashboard`)
-2. Select **Agents** tab
-3. Click the ⚡ **Benchmark** icon on any agent card
-4. View results in the **Benchmarks** tab
-
-### Submit Feedback (Frontend)
-
-1. Navigate to **Agent Dashboard**
-2. Click the ⭐ **Rate** icon on any agent card
-3. Select 1-5 star rating
-4. Add optional comment
-5. Submit
-
----
-
-## Database Schema Details
-
-> **Note**: Test definitions are now in YAML files, not in the database.
-> Only runtime/execution data is stored in the database.
-
-### agent_benchmark_runs (Execution Tracking)
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `agent_id` | VARCHAR(100) | Agent being tested |
-| `agent_version` | VARCHAR(20) | Version tested |
-| `status` | VARCHAR(20) | pending/running/completed/failed |
-| `total_tests` | INTEGER | Total tests to run |
-| `completed_tests` | INTEGER | Tests completed |
-| `passed_tests` | INTEGER | Tests passed |
-| `failed_tests` | INTEGER | Tests failed |
-| `score_percent` | DECIMAL | Final score 0-100 |
-| `team_id` | VARCHAR(100) | Team identifier |
-
-### agent_benchmark_results (Individual Results)
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `run_id` | UUID | Parent benchmark run |
-| `benchmark_id` | UUID | Optional (null for file-based tests) |
-| `test_id` | VARCHAR(50) | Test identifier from YAML |
-| `passed` | BOOLEAN | Pass/fail status |
-| `points_earned` | DECIMAL | Points scored |
-| `actual_output` | JSONB | Agent's response |
-| `failure_reason` | TEXT | Why test failed |
-| `duration_seconds` | DECIMAL | Execution time |
-
-### agent_scores (Aggregated Scores)
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `agent_id` | VARCHAR(100) | Agent identifier |
-| `agent_version` | VARCHAR(20) | Version |
-| `benchmark_score` | DECIMAL | 0-100 from tests |
-| `user_rating_score` | DECIMAL | 0-100 from feedback |
-| `success_rate_score` | DECIMAL | 0-100 from history |
-| `overall_score` | DECIMAL | Weighted composite |
-| `rank_overall` | INTEGER | Leaderboard position |
-| `team_id` | VARCHAR(100) | Team identifier |
-
-### agent_feedback (User Ratings)
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `agent_id` | VARCHAR(100) | Agent identifier |
-| `agent_version` | VARCHAR(20) | Version |
-| `rating` | INTEGER | 1-5 stars |
-| `comment` | TEXT | Optional feedback text |
-| `execution_id` | UUID | Task reference |
-| `team_id` | VARCHAR(100) | Team identifier |
-
----
-
-## Adding Custom Benchmark Tests
-
-### Step 1: Create a YAML File
-
-Create a new file in `backend_server/src/agent/benchmarks/custom/`:
+### Step 1: Create YAML File
 
 ```yaml
 # backend_server/src/agent/benchmarks/custom/my_tests.yaml
@@ -467,8 +239,7 @@ description: My custom benchmark tests
 tests:
   - id: bench_custom_001
     name: Custom Test Name
-    description: Description of what this test validates
-    prompt: "The prompt given to the agent"
+    prompt: "Your test prompt here"
     expected:
       contains: ["expected", "keywords"]
     validation: contains
@@ -476,97 +247,38 @@ tests:
     points: 1.0
     agents:
       - qa-web-manager
-      - qa-mobile-manager
-
-  - id: bench_custom_002
-    name: Another Custom Test
-    description: Tests another capability
-    prompt: "Another prompt for the agent"
-    expected:
-      contains: ["response", "keywords"]
-    validation: contains
-    timeout: 30
-    points: 1.5
-    agents:
-      - ai-assistant
 ```
 
 ### Step 2: Restart Server
 
-Tests are loaded at server startup. Restart to pick up new tests.
+Tests are loaded at server startup.
 
 ### Step 3: Verify
 
 ```bash
-curl http://localhost:5109/server/benchmarks/tests
-# Should show your new tests
+curl http://localhost:5109/server/benchmarks/tests?category=custom
 ```
 
 ---
 
-### YAML Test Schema
+## Database Schema
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | ✅ | Unique test ID (e.g., `bench_custom_001`) |
-| `name` | string | ✅ | Human-readable name |
-| `description` | string | | What the test validates |
-| `prompt` | string | ✅ | Prompt given to the agent |
-| `expected` | object | ✅ | Expected output pattern |
-| `validation` | string | | Validation type (default: `contains`) |
-| `timeout` | int | | Max seconds (default: 30) |
-| `points` | float | | Points if passed (default: 1.0) |
-| `agents` | list | | Applicable agent IDs (null = all) |
-| `active` | bool | | Is test active (default: true) |
-
-### Validation Types
-
-| Type | Description | Expected Format |
-|------|-------------|-----------------|
-| `exact` | Exact match required | `{value: "exact string"}` |
-| `contains` | Output must contain ALL keywords | `{contains: ["keyword1", "keyword2"]}` |
-| `contains_any` | Output must contain ANY keyword | `{contains: ["error", "not found"]}` |
-| `regex` | Regex pattern match | `{pattern: "regex.*pattern"}` |
-
----
-
-## Triggering Score Recalculation
-
-The `recalculate_agent_score` database function updates aggregate scores:
-
-```sql
-SELECT recalculate_agent_score(
-    'qa-web-manager',  -- agent_id
-    '1.0.0',           -- version
-    'your-team-id'     -- team_id
-);
-```
-
-This recalculates:
-- Latest benchmark score
-- Average user rating
-- Success rate from execution history
-- Overall weighted score
+| Table | Purpose |
+|-------|---------|
+| `agent_benchmark_runs` | Execution tracking (status, scores) |
+| `agent_benchmark_results` | Individual test results |
+| `agent_scores` | Aggregated scores for leaderboard |
+| `agent_feedback` | User ratings (1-5 stars) |
 
 ---
 
 ## Frontend Integration
 
-### AgentDashboard Component
-
-The dashboard provides three tabs:
+### AgentDashboard Tabs
 
 1. **Agents Tab** - Agent cards with benchmark/rate actions
-2. **Benchmarks Tab** - Benchmark run history table
+2. **Benchmarks Tab** - Benchmark run history
 3. **Leaderboard Tab** - Ranked agent comparison
-
-### Key State Variables
-
-```typescript
-const [benchmarkRuns, setBenchmarkRuns] = useState<BenchmarkRun[]>([]);
-const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-const [runningBenchmark, setRunningBenchmark] = useState(false);
-```
 
 ### Triggering Benchmarks
 
@@ -575,39 +287,51 @@ const handleRunBenchmark = async (agentId: string, version: string) => {
   // 1. Create run
   const createResponse = await fetch(buildServerUrl('/server/benchmarks/run'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ agent_id: agentId, version })
   });
   const { run_id } = await createResponse.json();
   
   // 2. Execute
-  const executeResponse = await fetch(
-    buildServerUrl(`/server/benchmarks/run/${run_id}/execute`),
-    { method: 'POST' }
-  );
+  await fetch(buildServerUrl(`/server/benchmarks/run/${run_id}/execute`), {
+    method: 'POST'
+  });
   
-  // 3. Refresh list
+  // 3. Refresh
   await loadBenchmarkRuns();
 };
 ```
 
 ---
 
-## Important Notes
+## Best Practices
 
-### Team ID Requirement
+### When to Run Each Tier
 
-All benchmark operations are **team-scoped**. The frontend automatically appends `team_id` via `buildServerUrl()`:
+| Scenario | Run |
+|----------|-----|
+| Quick sanity check | Tier 1 only |
+| After code changes | Tier 1 + Tier 2 |
+| Before release | All tiers |
+| CI/CD pipeline | Tier 1 (fast), Tier 3 (nightly) |
 
-```typescript
-// Frontend sends team_id from APP_CONFIG.DEFAULT_TEAM_ID
-const response = await fetch(buildServerUrl('/server/benchmarks/runs'));
-// URL becomes: /server/benchmarks/runs?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce
-```
+### Regression Detection
 
-### Current Limitations
+1. Run same tests across versions
+2. Compare scores: drop = regression
+3. Investigate failing tests
+4. Fix and re-run
 
-1. **Test Execution**: Uses placeholder simulation; real agent execution requires `QAManagerAgent` integration
-2. **Cost Efficiency**: The 10% cost efficiency component is not yet implemented
+### Adding Tests for New Skills
+
+When adding a new MCP tool:
+1. Add Tier 1 test (tool selection)
+2. Add Tier 2 test if it's part of a workflow
+3. Update Tier 3 if it's critical to E2E flow
+
+---
+
+## Limitations
+
+1. **Test Execution**: Currently uses simulation; real execution requires live agent
+2. **Cost Efficiency**: 10% score component not yet implemented
 3. **Hot Reload**: Server restart required after adding/editing YAML tests
-

@@ -53,11 +53,15 @@ import {
   Chat as ChatPanelIcon,
   PhoneAndroid as DevicePanelIcon,
   OpenInNew as RedirectIcon,
+  ThumbUp,
+  ThumbDown,
 } from '@mui/icons-material';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { useAgentChat, type AgentEvent, type Conversation } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 import { useAIContext } from '../contexts/AIContext';
+import { buildServerUrl } from '../utils/buildUrlUtils';
+import { APP_CONFIG } from '../config/constants';
 
 // --- Constants & Configuration ---
 
@@ -207,6 +211,44 @@ const AgentChat: React.FC = () => {
   
   // Selected agent - default to AI Assistant (generic)
   const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
+  
+  // Feedback state - tracks ratings per message ID (shared concept with badge)
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, number>>({});
+  
+  // Submit feedback for a message
+  const submitMessageFeedback = async (messageId: string, rating: number, agentId: string, prompt?: string) => {
+    // If clicking same rating, remove it (toggle off)
+    if (messageFeedback[messageId] === rating) {
+      setMessageFeedback(prev => {
+        const newState = { ...prev };
+        delete newState[messageId];
+        return newState;
+      });
+      return;
+    }
+    
+    // Update local state immediately
+    setMessageFeedback(prev => ({ ...prev, [messageId]: rating }));
+    
+    // Send to backend
+    try {
+      const response = await fetch(buildServerUrl(`/server/benchmarks/feedback?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: agentId || selectedAgentId,
+          rating: rating,
+          task_description: prompt,
+        }),
+      });
+      
+      if (response.ok) {
+        console.log('✅ Chat feedback submitted');
+      }
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+    }
+  };
   
   const {
     status,
@@ -828,17 +870,17 @@ const AgentChat: React.FC = () => {
                     </Typography>
                   )}
 
-                  {!isUser && msg.events && (() => {
-                    const metrics = msg.events.reduce((acc, e) => {
+                  {!isUser && (() => {
+                    const metrics = msg.events?.reduce((acc, e) => {
                       if (e.metrics) {
                         acc.duration += e.metrics.duration_ms;
                         acc.input += e.metrics.input_tokens;
                         acc.output += e.metrics.output_tokens;
                       }
                       return acc;
-                    }, { duration: 0, input: 0, output: 0 });
+                    }, { duration: 0, input: 0, output: 0 }) || { duration: 0, input: 0, output: 0 };
                     
-                    if (metrics.duration === 0 && metrics.input === 0) return null;
+                    const hasMetrics = metrics.duration > 0 || metrics.input > 0;
                     
                     const copyMessage = () => {
                       const parts: string[] = [`${msg.agent || 'Assistant'}:`];
@@ -869,33 +911,89 @@ const AgentChat: React.FC = () => {
                       navigator.clipboard.writeText(parts.join('\n'));
                     };
                     
+                    const currentFeedback = messageFeedback[msg.id];
+                    const isPositive = currentFeedback === 5;
+                    const isNegative = currentFeedback === 1;
+                    
+                    // Get first user message for context
+                    const userMsgIndex = messages.findIndex(m => m.id === msg.id) - 1;
+                    const userPrompt = userMsgIndex >= 0 ? messages[userMsgIndex]?.content : undefined;
+                    
                     return (
-                      <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: 2, opacity: 0.5 }}>
-                        <Tooltip title="Processing time">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <TimeIcon sx={{ fontSize: 10 }} />
-                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                              {(metrics.duration / 1000).toFixed(1)}s
-                            </Typography>
-                          </Box>
-                        </Tooltip>
-                        <Tooltip title={`Input: ${metrics.input.toLocaleString()} tokens (read) / Output: ${metrics.output.toLocaleString()} tokens (generated)`}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <TokenIcon sx={{ fontSize: 10 }} />
-                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
-                              ↓{metrics.input.toLocaleString()} ↑{metrics.output.toLocaleString()}
-                            </Typography>
-                          </Box>
-                        </Tooltip>
-                        <Tooltip title="Copy message">
-                          <IconButton 
-                            size="small" 
-                            onClick={copyMessage}
-                            sx={{ p: 0, '&:hover': { opacity: 1, color: PALETTE.accent } }}
-                          >
-                            <CopyIcon sx={{ fontSize: 12 }} />
-                          </IconButton>
-                        </Tooltip>
+                      <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        {/* Feedback buttons */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Tooltip title={isPositive ? "Remove helpful rating" : "Mark as helpful"}>
+                            <IconButton
+                              size="small"
+                              onClick={() => submitMessageFeedback(msg.id, 5, msg.agent || selectedAgentId, userPrompt)}
+                              sx={{
+                                p: 0.25,
+                                color: isPositive ? '#22c55e' : 'text.disabled',
+                                bgcolor: isPositive ? 'rgba(34, 197, 94, 0.15)' : 'transparent',
+                                borderRadius: 1,
+                                transition: 'all 0.2s',
+                                '&:hover': { 
+                                  color: '#22c55e',
+                                  bgcolor: 'rgba(34, 197, 94, 0.1)',
+                                },
+                              }}
+                            >
+                              <ThumbUp sx={{ fontSize: 13 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={isNegative ? "Remove not helpful rating" : "Mark as not helpful"}>
+                            <IconButton
+                              size="small"
+                              onClick={() => submitMessageFeedback(msg.id, 1, msg.agent || selectedAgentId, userPrompt)}
+                              sx={{
+                                p: 0.25,
+                                color: isNegative ? '#ef4444' : 'text.disabled',
+                                bgcolor: isNegative ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                                borderRadius: 1,
+                                transition: 'all 0.2s',
+                                '&:hover': { 
+                                  color: '#ef4444',
+                                  bgcolor: 'rgba(239, 68, 68, 0.1)',
+                                },
+                              }}
+                            >
+                              <ThumbDown sx={{ fontSize: 13 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                        
+                        {hasMetrics && (
+                          <>
+                            <Box sx={{ width: '1px', height: 12, bgcolor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
+                            
+                            <Tooltip title="Processing time">
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.5 }}>
+                                <TimeIcon sx={{ fontSize: 10 }} />
+                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                  {(metrics.duration / 1000).toFixed(1)}s
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                            <Tooltip title={`Input: ${metrics.input.toLocaleString()} tokens (read) / Output: ${metrics.output.toLocaleString()} tokens (generated)`}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.5 }}>
+                                <TokenIcon sx={{ fontSize: 10 }} />
+                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                  ↓{metrics.input.toLocaleString()} ↑{metrics.output.toLocaleString()}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                            <Tooltip title="Copy message">
+                              <IconButton 
+                                size="small" 
+                                onClick={copyMessage}
+                                sx={{ p: 0, opacity: 0.5, '&:hover': { opacity: 1, color: PALETTE.accent } }}
+                              >
+                                <CopyIcon sx={{ fontSize: 12 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                       </Box>
                     );
                   })()}
