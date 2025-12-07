@@ -98,19 +98,4 @@ AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Operating modes
-class Mode:
-    CREATE = "CREATE"      # Build new navigation tree + tests
-    VALIDATE = "VALIDATE"  # Run existing tests + analyze results
-    MAINTAIN = "MAINTAIN"  # Fix broken tests/selectors
-    ANALYZE = "ANALYZE"    # Analyze results only (no execution)
-
-# Mode to agent mapping
-# Note: VALIDATE runs Executor THEN Analyst (sequential)
-MODE_AGENTS = {
-    Mode.CREATE: ["explorer", "builder"],
-    Mode.VALIDATE: ["executor", "analyst"],  # Execute then analyze
-    Mode.MAINTAIN: ["maintainer"],
-    Mode.ANALYZE: ["analyst"],  # Analysis only (for reviewing past results)
-}
 
