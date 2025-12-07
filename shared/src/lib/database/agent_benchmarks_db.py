@@ -57,6 +57,47 @@ def get_benchmark_test(test_id: str) -> Optional[Dict[str, Any]]:
 
 
 # =====================================================
+# Score Calculation
+# =====================================================
+
+def recalculate_agent_score(
+    agent_id: str,
+    agent_version: str,
+    team_id: str = DEFAULT_TEAM_ID
+) -> bool:
+    """
+    Call the PostgreSQL function to recalculate agent scores.
+    
+    This should be called after:
+    - Benchmark run completes
+    - User feedback is submitted
+    
+    Args:
+        agent_id: Agent identifier
+        agent_version: Agent version  
+        team_id: Team ID
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return False
+    
+    try:
+        # Call the PostgreSQL stored function
+        supabase.rpc('recalculate_agent_score', {
+            'p_agent_id': agent_id,
+            'p_agent_version': agent_version,
+            'p_team_id': team_id
+        }).execute()
+        return True
+    except Exception as e:
+        print(f"[@db:agent_benchmarks:recalculate_agent_score] Error: {e}")
+        return False
+
+
+# =====================================================
 # Benchmark Runs
 # =====================================================
 
@@ -228,6 +269,7 @@ def execute_benchmark_run(run_id: str) -> Dict[str, Any]:
     score = (earned_points / total_points * 100) if total_points > 0 else 0
     
     # Complete run
+    # Note: Database trigger automatically recalculates agent_scores on status = 'completed'
     update_benchmark_run(run_id, {
         'status': 'completed',
         'completed_at': datetime.now().isoformat(),
@@ -297,6 +339,7 @@ def submit_feedback(
         'team_id': team_id
     }
     
+    # Note: Database trigger automatically recalculates agent_scores on INSERT
     result = supabase.table('agent_feedback').insert(feedback_data).execute()
     return result.data[0]['id'] if result.data else None
 
