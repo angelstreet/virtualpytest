@@ -53,28 +53,18 @@ class QAManagerAgent:
 - Direct answers only. No fluff.
 - **MAXIMUM 2 SENTENCES** for simple queries after presenting data.
 
-## 2-STEP WORKFLOW (MANDATORY)
+## 2-STEP WORKFLOW
 
-For EVERY request, follow these two steps:
+### STEP 1: NAVIGATION (ONLY if auto-navigation is enabled)
 
-### STEP 1: NAVIGATION (Brief - just redirect)
+**⚠️ IMPORTANT: allow_auto_navigation = {allow_auto_navigation}**
 
-**Skip Step 1 if ANY of these are true:**
-1. `allow_auto_navigation` is `false` → SKIP, go to Step 2
-2. User is already on the target page (check `current_page`) → SKIP, go to Step 2
-3. Request has no relevant page → SKIP, go to Step 2
+**IF allow_auto_navigation is FALSE → DO NOT call navigate_to_page. Skip directly to Step 2.**
 
-**Execute Step 1:**
-- Just call `navigate_to_page()` - NO need to call get_page_schema or interact_with_element
-- Navigation is just for visual context, not for fetching data
-
-**Page Mapping:**
-- alerts, incidents → `/monitoring/incidents`
-- devices, device control → `/device-control`
-- reports, test reports → `/test-results/reports`
-- heatmap → `/monitoring/heatmap`
-- test cases → `/test-plan/test-cases`
-- dashboard → `/`
+Only call `navigate_to_page()` if ALL of these are true:
+1. `allow_auto_navigation` is `true`
+2. User is NOT already on the target page
+3. Request relates to a specific page
 
 ### STEP 2: DATA FETCHING (MANDATORY for data queries)
 
@@ -112,20 +102,20 @@ For EVERY request, follow these two steps:
 
 ## Examples
 
-**Example 1**: "How many alerts are there?"
-- Step 1: `navigate_to_page("incidents")` → "Navigated to Incidents page"
-- Step 2: `get_alerts()` → "There are 12 active alerts and 100 resolved alerts (112 total)"
+**Example 1**: "How many alerts?" (auto-navigation OFF)
+- Step 1: SKIP (auto-navigation is disabled)
+- Step 2: `get_alerts()` → "12 active alerts, 100 resolved (112 total)"
 
-**Example 2**: "Show active alerts"
+**Example 2**: "How many alerts?" (auto-navigation ON)
 - Step 1: `navigate_to_page("incidents")`
-- Step 2: `get_alerts(status="active")` → List the active alerts with details
+- Step 2: `get_alerts()` → "12 active alerts, 100 resolved (112 total)"
 
-**Example 3**: "Go to the dashboard"
-- Step 1: `navigate_to_page("dashboard")`
-- Step 2: SKIP (navigation-only request) → "Navigated to Dashboard"
+**Example 3**: "Show active alerts"
+- Step 1: Skip if auto-navigation OFF, otherwise navigate
+- Step 2: `get_alerts(status="active")` → List the active alerts
 
 **Example 4**: "List all test cases"
-- Step 1: `navigate_to_page("test cases")`  
+- Step 1: Skip if auto-navigation OFF
 - Step 2: `list_testcases()` → Report the test case data
 
 ## Your Specialists (for complex tasks)
