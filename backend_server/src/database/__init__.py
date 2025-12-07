@@ -1,10 +1,9 @@
 """
-Database utilities for async operations
+Database utilities
 
-This module provides async database access for the event-driven multi-agent platform.
+This module is kept for backward compatibility.
+All database operations should use shared.src.lib.database modules directly.
 """
 
-from .async_client import get_async_db, AsyncDatabase
-
-__all__ = ['get_async_db', 'AsyncDatabase']
-
+# No exports needed - use shared.src.lib.database modules
+__all__ = []

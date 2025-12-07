@@ -14,7 +14,7 @@ from datetime import datetime
 from dataclasses import dataclass, asdict
 import redis.asyncio as redis
 
-from database import get_async_db
+from shared.src.lib.database import events_db
 
 
 class EventPriority(Enum):
@@ -85,7 +85,6 @@ class EventBus:
         self.pubsub: Optional[redis.client.PubSub] = None
         self.subscribers: Dict[str, List[Callable]] = {}
         self.running = False
-        self.db = get_async_db()
         self._listen_task: Optional[asyncio.Task] = None
     
     async def connect(self):
@@ -136,8 +135,8 @@ class EventBus:
         if self.redis_client is None:
             await self.connect()
         
-        # Log event to database
-        await self._log_event(event)
+        # Log event to database (sync call)
+        self._log_event(event)
         
         # Publish to Redis
         event_json = json.dumps(event.to_dict())
@@ -224,25 +223,16 @@ class EventBus:
         except Exception as e:
             print(f"[@event_bus] ❌ Failed to handle message: {e}")
     
-    async def _log_event(self, event: Event):
-        """Log event to database"""
+    def _log_event(self, event: Event):
+        """Log event to database (sync)"""
         try:
-            query = """
-                INSERT INTO event_log (
-                    event_id, event_type, payload, priority, 
-                    timestamp, team_id
-                )
-                VALUES ($1, $2, $3, $4, $5, $6)
-            """
-            
-            await self.db.execute(
-                query,
-                event.id,
-                event.type,
-                json.dumps(event.payload),
-                event.priority.value,
-                event.timestamp,
-                event.team_id
+            events_db.log_event(
+                event_id=event.id,
+                event_type=event.type,
+                payload=event.payload,
+                priority=event.priority.value,
+                timestamp=event.timestamp,
+                team_id=event.team_id
             )
         except Exception as e:
             print(f"[@event_bus] ⚠️ Failed to log event to database: {e}")
@@ -258,4 +248,3 @@ def get_event_bus() -> EventBus:
     if _event_bus is None:
         _event_bus = EventBus()
     return _event_bus
-

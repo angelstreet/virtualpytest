@@ -367,11 +367,11 @@ const UserInterface: React.FC = () => {
                 size="small"
                 sx={{
                   '& .MuiTableCell-root': { py: 0.5, px: 1 },
-                  '& .MuiTableRow-root:hover': {
-                    backgroundColor: (theme) =>
-                      theme.palette.mode === 'dark'
-                        ? 'rgba(255, 255, 255, 0.08) !important'
-                        : 'rgba(0, 0, 0, 0.04) !important',
+                  '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                    backgroundColor: 'transparent !important',
+                  },
+                  '& .MuiTableHead-root .MuiTableRow-root:hover': {
+                    backgroundColor: 'transparent !important',
                   },
                 }}
               >

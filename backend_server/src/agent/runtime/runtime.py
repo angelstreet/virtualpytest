@@ -6,15 +6,14 @@ Integrates with Event Bus, Resource Lock Manager, and Agent Registry.
 """
 
 import asyncio
-import json
 from typing import Dict, Optional, List
 from datetime import datetime
 
-from database import get_async_db
 from events import EventBus, Event, EventPriority, get_event_bus
 from resources import ResourceLockManager, get_lock_manager
 from agent.registry import AgentRegistry, get_agent_registry, AgentDefinition
 from agent.runtime.state import AgentState, AgentInstanceState
+from shared.src.lib.database import agent_runtime_db
 
 
 class AgentRuntime:
@@ -41,7 +40,6 @@ class AgentRuntime:
         self.event_bus = event_bus or get_event_bus()
         self.lock_manager = lock_manager or get_lock_manager()
         self.registry = registry or get_agent_registry()
-        self.db = get_async_db()
         
         # In-memory instance tracking
         self.instances: Dict[str, AgentInstanceState] = {}
@@ -101,8 +99,8 @@ class AgentRuntime:
         Returns:
             Instance ID
         """
-        # Get agent definition
-        agent_def = await self.registry.get(agent_id, version, team_id)
+        # Get agent definition (sync call)
+        agent_def = self.registry.get(agent_id, version, team_id)
         
         if not agent_def:
             raise ValueError(f"Agent {agent_id} not found")
@@ -122,8 +120,14 @@ class AgentRuntime:
         
         self.instances[instance_id] = instance_state
         
-        # Record in database
-        await self._record_instance_start(instance_state)
+        # Record in database (sync call)
+        agent_runtime_db.record_instance_start(
+            instance_id=instance_id,
+            agent_id=agent_id,
+            version=agent_def.metadata.version,
+            state=instance_state.state.value,
+            team_id=team_id
+        )
         
         # Subscribe to events
         await self._subscribe_to_events(instance_id, agent_def)
@@ -170,11 +174,21 @@ class AgentRuntime:
         # Update state
         instance.update_state(AgentState.STOPPED)
         
-        # Record in database
-        await self._record_instance_stop(instance_id)
+        # Record in database (sync call)
+        agent_runtime_db.record_instance_stop(instance_id)
         
         # Remove from tracking
         del self.instances[instance_id]
+        
+        # Publish event
+        await self.event_bus.publish(Event(
+            type="agent.stopped",
+            payload={"instance_id": instance_id},
+            priority=EventPriority.NORMAL,
+            team_id=instance.team_id
+        ))
+        
+        print(f"[@runtime] 🛑 Stopped: {instance_id}")
         
         return True
     
@@ -200,17 +214,8 @@ class AgentRuntime:
         # Update state to paused
         instance.update_state(AgentState.PAUSED)
         
-        # Update database
-        async with self.db.acquire() as conn:
-            await conn.execute(
-                """
-                UPDATE agent_instances
-                SET state = $1, last_activity = NOW()
-                WHERE instance_id = $2
-                """,
-                'paused',
-                instance_id
-            )
+        # Update database (sync call)
+        agent_runtime_db.update_instance_state(instance_id, 'paused')
         
         print(f"[@runtime] Agent instance {instance_id} paused")
         return True
@@ -237,31 +242,10 @@ class AgentRuntime:
         # Update state to running
         instance.update_state(AgentState.RUNNING)
         
-        # Update database
-        async with self.db.acquire() as conn:
-            await conn.execute(
-                """
-                UPDATE agent_instances
-                SET state = $1, last_activity = NOW()
-                WHERE instance_id = $2
-                """,
-                'running',
-                instance_id
-            )
+        # Update database (sync call)
+        agent_runtime_db.update_instance_state(instance_id, 'running')
         
         print(f"[@runtime] Agent instance {instance_id} resumed")
-        return True
-        
-        # Publish event
-        await self.event_bus.publish(Event(
-            type="agent.stopped",
-            payload={"instance_id": instance_id},
-            priority=EventPriority.NORMAL,
-            team_id=instance.team_id
-        ))
-        
-        print(f"[@runtime] 🛑 Stopped: {instance_id}")
-        
         return True
     
     async def handle_event(self, instance_id: str, event: Event):
@@ -282,7 +266,6 @@ class AgentRuntime:
         if instance.state == AgentState.RUNNING:
             # Agent busy - could queue or skip
             print(f"[@runtime] ⏳ Instance {instance_id} busy, queuing event {event.id}")
-            # TODO: Implement event queuing per instance
             return
         
         # Update state to running
@@ -298,8 +281,13 @@ class AgentRuntime:
         )
         self.tasks[event.id] = task
         
-        # Update database
-        await self._update_instance_state(instance)
+        # Update database (sync call)
+        agent_runtime_db.update_instance_state(
+            instance_id,
+            instance.state.value,
+            instance.current_task,
+            instance.task_id
+        )
     
     async def _execute_agent_task(self, instance_id: str, event: Event):
         """
@@ -334,13 +322,18 @@ class AgentRuntime:
             # Update state to idle
             instance.update_state(AgentState.IDLE)
             
-            # Record execution history
-            await self._record_execution_history(
-                instance,
-                event,
-                started_at,
-                datetime.utcnow(),
-                "success"
+            # Record execution history (sync call)
+            agent_runtime_db.record_execution_history(
+                instance_id=instance.instance_id,
+                agent_id=instance.agent_id,
+                version=instance.version,
+                task_id=event.id,
+                event_type=event.type,
+                event_id=event.id,
+                started_at=started_at,
+                completed_at=datetime.utcnow(),
+                status="success",
+                team_id=instance.team_id
             )
             
             # Publish completion event
@@ -364,13 +357,18 @@ class AgentRuntime:
             print(f"[@runtime] ❌ Task failed: {instance_id} - {str(e)}")
             instance.set_error(str(e))
             
-            # Record failure
-            await self._record_execution_history(
-                instance,
-                event,
-                started_at,
-                datetime.utcnow(),
-                "failed",
+            # Record failure (sync call)
+            agent_runtime_db.record_execution_history(
+                instance_id=instance.instance_id,
+                agent_id=instance.agent_id,
+                version=instance.version,
+                task_id=event.id,
+                event_type=event.type,
+                event_id=event.id,
+                started_at=started_at,
+                completed_at=datetime.utcnow(),
+                status="failed",
+                team_id=instance.team_id,
                 error_message=str(e)
             )
             
@@ -391,8 +389,13 @@ class AgentRuntime:
             if event.id in self.tasks:
                 del self.tasks[event.id]
             
-            # Update database
-            await self._update_instance_state(instance)
+            # Update database (sync call)
+            agent_runtime_db.update_instance_state(
+                instance_id,
+                instance.state.value,
+                instance.current_task,
+                instance.task_id
+            )
     
     async def _subscribe_to_events(self, instance_id: str, agent_def: AgentDefinition):
         """Subscribe instance to its configured events"""
@@ -438,89 +441,6 @@ class AgentRuntime:
             instances = [i for i in instances if i.team_id == team_id]
         
         return [i.to_dict() for i in instances]
-    
-    async def _record_instance_start(self, instance: AgentInstanceState):
-        """Record instance start in database"""
-        query = """
-            INSERT INTO agent_instances (
-                instance_id, agent_id, version, state,
-                started_at, team_id
-            )
-            VALUES ($1, $2, $3, $4, $5, $6)
-        """
-        
-        await self.db.execute(
-            query,
-            instance.instance_id,
-            instance.agent_id,
-            instance.version,
-            instance.state.value,
-            instance.started_at,
-            instance.team_id
-        )
-    
-    async def _record_instance_stop(self, instance_id: str):
-        """Record instance stop in database"""
-        query = """
-            UPDATE agent_instances
-            SET stopped_at = NOW(), state = 'stopped'
-            WHERE instance_id = $1
-        """
-        
-        await self.db.execute(query, instance_id)
-    
-    async def _update_instance_state(self, instance: AgentInstanceState):
-        """Update instance state in database"""
-        query = """
-            UPDATE agent_instances
-            SET state = $1, current_task = $2, task_id = $3
-            WHERE instance_id = $4
-        """
-        
-        await self.db.execute(
-            query,
-            instance.state.value,
-            instance.current_task,
-            instance.task_id,
-            instance.instance_id
-        )
-    
-    async def _record_execution_history(
-        self,
-        instance: AgentInstanceState,
-        event: Event,
-        started_at: datetime,
-        completed_at: datetime,
-        status: str,
-        error_message: Optional[str] = None
-    ):
-        """Record task execution in history"""
-        duration = (completed_at - started_at).total_seconds()
-        
-        query = """
-            INSERT INTO agent_execution_history (
-                instance_id, agent_id, version, task_id,
-                event_type, event_id, started_at, completed_at,
-                duration_seconds, status, error_message, team_id
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        """
-        
-        await self.db.execute(
-            query,
-            instance.instance_id,
-            instance.agent_id,
-            instance.version,
-            event.id,
-            event.type,
-            event.id,
-            started_at,
-            completed_at,
-            duration,
-            status,
-            error_message,
-            instance.team_id
-        )
 
 
 # Global instance
@@ -532,4 +452,3 @@ def get_agent_runtime() -> AgentRuntime:
     if _agent_runtime is None:
         _agent_runtime = AgentRuntime()
     return _agent_runtime
-

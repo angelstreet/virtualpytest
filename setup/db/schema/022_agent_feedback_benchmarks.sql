@@ -41,7 +41,7 @@ CREATE TABLE agent_feedback (
     feedback_type VARCHAR(50) DEFAULT 'task_completion',  -- task_completion, bug_report, suggestion
     
     -- Metadata
-    team_id UUID NOT NULL,
+    team_id VARCHAR(100) NOT NULL DEFAULT 'default',
     user_id UUID,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -124,7 +124,7 @@ CREATE TABLE agent_benchmark_runs (
     error_message TEXT,
     
     -- Metadata
-    team_id UUID NOT NULL,
+    team_id VARCHAR(100) NOT NULL DEFAULT 'default',
     triggered_by UUID,  -- User who started the benchmark
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -139,6 +139,7 @@ CREATE INDEX idx_benchmark_runs_created ON agent_benchmark_runs(created_at DESC)
 -- 4. Benchmark Results Table
 -- =====================================================
 -- Individual test results within a run
+-- NOTE: benchmark_id is nullable for file-based tests (YAML)
 
 CREATE TABLE agent_benchmark_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -146,8 +147,8 @@ CREATE TABLE agent_benchmark_results (
     -- Parent run
     run_id UUID NOT NULL REFERENCES agent_benchmark_runs(id) ON DELETE CASCADE,
     
-    -- Test reference
-    benchmark_id UUID NOT NULL REFERENCES agent_benchmarks(id),
+    -- Test reference (benchmark_id nullable for file-based tests)
+    benchmark_id UUID REFERENCES agent_benchmarks(id),
     test_id VARCHAR(50) NOT NULL,
     
     -- Result
@@ -214,7 +215,7 @@ CREATE TABLE agent_scores (
     score_change DECIMAL(5,2) DEFAULT 0,
     
     -- Metadata
-    team_id UUID NOT NULL,
+    team_id VARCHAR(100) NOT NULL DEFAULT 'default',
     calculated_at TIMESTAMPTZ DEFAULT NOW(),
     
     -- Unique constraint
@@ -228,65 +229,18 @@ CREATE INDEX idx_agent_scores_overall ON agent_scores(overall_score DESC);
 CREATE INDEX idx_agent_scores_rank ON agent_scores(rank_overall);
 
 -- =====================================================
--- 6. Insert Default Benchmark Tests
+-- 6. Default Benchmark Tests (MOVED TO YAML FILES)
 -- =====================================================
-
-INSERT INTO agent_benchmarks (test_id, name, description, category, input_prompt, expected_output, validation_type, timeout_seconds, applicable_agent_types) VALUES
-
--- Navigation tests
-('bench_nav_001', 'List User Interfaces', 'Can agent list available user interfaces?', 'navigation',
- 'List all available user interfaces in the system',
- '{"contains": ["userinterfaces", "list"]}',
- 'contains', 30, ARRAY['qa-web-manager', 'qa-mobile-manager', 'qa-stb-manager', 'qa-manager']),
-
-('bench_nav_002', 'Navigate to Node', 'Can agent navigate to a specific UI node?', 'navigation',
- 'Navigate to the Settings menu',
- '{"contains": ["navigate", "settings"]}',
- 'contains', 60, ARRAY['qa-web-manager', 'qa-mobile-manager', 'qa-stb-manager']),
-
--- Detection tests
-('bench_det_001', 'Device Status Check', 'Can agent check device status?', 'detection',
- 'Check the status of all connected devices',
- '{"contains": ["device", "status"]}',
- 'contains', 30, ARRAY['monitoring-manager', 'qa-manager']),
-
-('bench_det_002', 'Health Check', 'Can agent perform health check?', 'detection',
- 'Perform a health check on the system',
- '{"contains": ["health", "check"]}',
- 'contains', 45, ARRAY['monitoring-manager']),
-
--- Execution tests
-('bench_exec_001', 'List Test Cases', 'Can agent list available test cases?', 'execution',
- 'List all available test cases',
- '{"contains": ["testcases", "list"]}',
- 'contains', 30, ARRAY['qa-web-manager', 'qa-mobile-manager', 'qa-stb-manager', 'qa-manager', 'executor']),
-
-('bench_exec_002', 'Load Test Case', 'Can agent load test case details?', 'execution',
- 'Load the details of test case TC_001',
- '{"contains": ["testcase", "TC_001"]}',
- 'contains', 30, ARRAY['qa-web-manager', 'qa-mobile-manager', 'qa-stb-manager', 'executor']),
-
--- Analysis tests
-('bench_ana_001', 'Coverage Summary', 'Can agent get coverage summary?', 'analysis',
- 'Get the test coverage summary for requirements',
- '{"contains": ["coverage", "summary"]}',
- 'contains', 30, ARRAY['qa-web-manager', 'qa-mobile-manager', 'qa-stb-manager', 'qa-manager']),
-
-('bench_ana_002', 'List Requirements', 'Can agent list requirements?', 'analysis',
- 'List all requirements in the system',
- '{"contains": ["requirements", "list"]}',
- 'contains', 30, ARRAY['qa-manager']),
-
--- Recovery tests
-('bench_rec_001', 'Handle Invalid Input', 'Can agent handle invalid input gracefully?', 'recovery',
- 'Navigate to non-existent-node-xyz-12345',
- '{"contains": ["error", "not found"]}',
- 'contains', 30, ARRAY['qa-web-manager', 'qa-mobile-manager', 'qa-stb-manager']),
-
-('bench_rec_002', 'Timeout Recovery', 'Can agent handle timeouts?', 'recovery',
- 'Execute a task that will timeout',
- '{"contains": ["timeout", "retry"]}',
- 'contains', 120, ARRAY['qa-manager', 'executor']);
+-- Test definitions are now file-based for:
+-- - Version control (Git)
+-- - Easy editing without SQL
+-- - Code review in PRs
+--
+-- Location: backend_server/src/agent/benchmarks/tests/*.yaml
+--
+-- The agent_benchmarks table remains for future dynamic tests
+-- but defaults are loaded from YAML files at startup.
+-- =====================================================
 
 -- =====================================================
 -- 7. View for Leaderboard
@@ -319,7 +273,7 @@ ORDER BY overall_score DESC;
 CREATE OR REPLACE FUNCTION recalculate_agent_score(
     p_agent_id VARCHAR(100),
     p_agent_version VARCHAR(20),
-    p_team_id UUID
+    p_team_id VARCHAR(100)
 ) RETURNS VOID AS $$
 DECLARE
     v_benchmark_score DECIMAL(5,2);

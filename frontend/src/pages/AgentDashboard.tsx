@@ -464,7 +464,7 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                 <Paper key={agent.id} sx={{
                   p: 2.5, bgcolor: '#1a1a1a', border: selectedAgent?.id === agent.id ? `1px solid ${GOLD}` : '1px solid #2a2a2a',
                   borderRadius: 2, cursor: 'pointer', transition: 'all 0.2s ease',
-                  '&:hover': { borderColor: GOLD_DARK, bgcolor: '#1f1f1f' },
+                  '&:hover': { borderColor: GOLD_DARK },
                   opacity: agent.status === 'disabled' ? 0.6 : 1
                 }} onClick={() => setSelectedAgent(agent)}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -506,7 +506,7 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
 
             {/* Activity Log */}
             <Paper sx={{ bgcolor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 2 }}>
-              <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', '&:hover': { bgcolor: '#1f1f1f' } }} onClick={() => setExpandedLogs(!expandedLogs)}>
+              <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setExpandedLogs(!expandedLogs)}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                   <Description sx={{ color: GOLD, fontSize: 20 }} />
                   <Typography sx={{ fontWeight: 600, color: '#fff' }}>Activity Log</Typography>
@@ -519,7 +519,7 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                   {logs.length === 0 ? (
                     <Box sx={{ p: 4, textAlign: 'center' }}><Typography sx={{ color: '#666' }}>No activity yet</Typography></Box>
                   ) : logs.map((log, index) => (
-                    <Box key={index} sx={{ p: 1.5, borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', gap: 1.5, '&:hover': { bgcolor: '#1f1f1f' } }}>
+                    <Box key={index} sx={{ p: 1.5, borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', gap: 1.5 }}>
                       {getLogIcon(log.level)}
                       <Typography sx={{ color: '#666', fontSize: '0.75rem', minWidth: 80 }}>{new Date(log.timestamp).toLocaleTimeString()}</Typography>
                       <Chip label={log.agentId} size="small" sx={{ bgcolor: '#2a2a2a', color: '#888', fontSize: '0.65rem', height: 18 }} />
@@ -559,7 +559,10 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
             {runningBenchmark && <LinearProgress sx={{ mb: 2, bgcolor: '#2a2a2a', '& .MuiLinearProgress-bar': { bgcolor: GOLD } }} />}
 
             <Paper sx={{ bgcolor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 2, overflow: 'hidden' }}>
-              <Table>
+              <Table sx={{ 
+                '& .MuiTableBody-root .MuiTableRow-root:hover': { backgroundColor: 'transparent !important' },
+                '& .MuiTableHead-root .MuiTableRow-root:hover': { backgroundColor: '#0d0d0d !important' }
+              }}>
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#0d0d0d' }}>
                     <TableCell sx={{ color: GOLD, borderBottom: '1px solid #2a2a2a' }}>Agent</TableCell>
@@ -573,7 +576,7 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                   {benchmarkRuns.length === 0 ? (
                     <TableRow><TableCell colSpan={5} sx={{ textAlign: 'center', color: '#666', py: 4 }}>No benchmark runs yet</TableCell></TableRow>
                   ) : benchmarkRuns.map(run => (
-                    <TableRow key={run.id} sx={{ '&:hover': { bgcolor: '#1f1f1f' } }}>
+                    <TableRow key={run.id}>
                       <TableCell sx={{ color: '#fff', borderBottom: '1px solid #2a2a2a' }}>
                         <Typography>{run.agent_id}</Typography>
                         <Typography sx={{ fontSize: '0.75rem', color: '#666' }}>v{run.agent_version}</Typography>
@@ -601,11 +604,10 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
         {/* ================= LEADERBOARD TAB ================= */}
         {activeTab === 2 && (
           <Paper sx={{ bgcolor: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid #2a2a2a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography sx={{ fontWeight: 600, color: '#fff' }}>Agent Leaderboard</Typography>
-              <Typography sx={{ color: '#666', fontSize: '0.8rem' }}>Score = 40% Benchmark + 30% User Rating + 20% Success Rate + 10% Cost</Typography>
-            </Box>
-            <Table>
+            <Table sx={{ 
+              '& .MuiTableBody-root .MuiTableRow-root:hover': { backgroundColor: 'transparent !important' },
+              '& .MuiTableHead-root .MuiTableRow-root:hover': { backgroundColor: '#0d0d0d !important' }
+            }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#0d0d0d' }}>
                   <TableCell sx={{ color: GOLD, borderBottom: '1px solid #2a2a2a', width: 60 }}>Rank</TableCell>
@@ -621,7 +623,7 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                 {leaderboard.length === 0 ? (
                   <TableRow><TableCell colSpan={7} sx={{ textAlign: 'center', color: '#666', py: 4 }}>No scores yet. Run benchmarks and submit feedback to populate the leaderboard.</TableCell></TableRow>
                 ) : leaderboard.map((entry, idx) => (
-                  <TableRow key={`${entry.agent_id}-${entry.agent_version}`} sx={{ '&:hover': { bgcolor: '#1f1f1f' } }}>
+                  <TableRow key={`${entry.agent_id}-${entry.agent_version}`}>
                     <TableCell sx={{ borderBottom: '1px solid #2a2a2a' }}>{getRankIcon(idx + 1)}</TableCell>
                     <TableCell sx={{ borderBottom: '1px solid #2a2a2a' }}>
                       <Typography sx={{ color: '#fff', fontWeight: 500 }}>{entry.agent_id}</Typography>

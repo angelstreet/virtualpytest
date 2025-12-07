@@ -16,21 +16,18 @@ from agent.registry import (
     export_agent_yaml,
     AgentValidationError
 )
-from agent.async_utils import run_async
 
 # Create blueprint
 server_agent_registry_bp = Blueprint('server_agent_registry', __name__, url_prefix='/api/agents')
 
 
 def get_team_id() -> str:
-    """Get team ID from request (placeholder - implement with auth)"""
-    # TODO: Implement proper team/user authentication
-    return request.headers.get('X-Team-ID', 'default')
+    """Get team ID from request"""
+    return request.args.get('team_id', request.headers.get('X-Team-ID', 'default'))
 
 
 def get_user_id() -> Optional[str]:
-    """Get user ID from request (placeholder - implement with auth)"""
-    # TODO: Implement proper authentication
+    """Get user ID from request"""
     return request.headers.get('X-User-ID')
 
 
@@ -42,14 +39,12 @@ def list_agents():
     Query params:
         - status: Filter by status (draft, published, deprecated)
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         status = request.args.get('status')
         
         registry = get_agent_registry()
-        agents = run_async(registry.list_agents(team_id, status))
+        agents = registry.list_agents(team_id, status)
         
         return jsonify({
             'agents': [agent.to_dict() for agent in agents],
@@ -68,14 +63,12 @@ def get_agent(agent_id: str):
     Query params:
         - version: Specific version (default: latest published)
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         version = request.args.get('version')
         
         registry = get_agent_registry()
-        agent = run_async(registry.get(agent_id, version, team_id))
+        agent = registry.get(agent_id, version, team_id)
         
         if not agent:
             return jsonify({'error': 'Agent not found'}), 404
@@ -89,13 +82,11 @@ def get_agent(agent_id: str):
 @server_agent_registry_bp.route('/<agent_id>/versions', methods=['GET'])
 def list_agent_versions(agent_id: str):
     """List all versions of an agent"""
-    import asyncio
-    
     try:
         team_id = get_team_id()
         
         registry = get_agent_registry()
-        versions = run_async(registry.list_versions(agent_id, team_id))
+        versions = registry.list_versions(agent_id, team_id)
         
         return jsonify({
             'agent_id': agent_id,
@@ -114,8 +105,6 @@ def register_agent():
     
     Body: AgentDefinition JSON
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         user_id = get_user_id()
@@ -131,7 +120,7 @@ def register_agent():
             return jsonify({'error': f'Invalid agent definition: {str(e)}'}), 400
         
         registry = get_agent_registry()
-        agent_id = run_async(registry.register(agent, team_id, user_id))
+        agent_id = registry.register(agent, team_id, user_id)
         
         return jsonify({
             'id': agent_id,
@@ -151,8 +140,6 @@ def import_agent_yaml():
     
     Body: YAML string or file upload
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         user_id = get_user_id()
@@ -174,7 +161,7 @@ def import_agent_yaml():
         
         # Register agent
         registry = get_agent_registry()
-        agent_id = run_async(registry.register(agent, team_id, user_id))
+        agent_id = registry.register(agent, team_id, user_id)
         
         return jsonify({
             'id': agent_id,
@@ -195,14 +182,12 @@ def export_agent(agent_id: str):
     Query params:
         - version: Specific version (default: latest published)
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         version = request.args.get('version')
         
         registry = get_agent_registry()
-        agent = run_async(registry.get(agent_id, version, team_id))
+        agent = registry.get(agent_id, version, team_id)
         
         if not agent:
             return jsonify({'error': 'Agent not found'}), 404
@@ -230,8 +215,6 @@ def publish_agent(agent_id: str):
     
     Body: { "version": "1.0.0" }
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         data = request.get_json()
@@ -241,7 +224,7 @@ def publish_agent(agent_id: str):
             return jsonify({'error': 'Version required'}), 400
         
         registry = get_agent_registry()
-        success = run_async(registry.publish(agent_id, version, team_id))
+        success = registry.publish(agent_id, version, team_id)
         
         if success:
             return jsonify({'message': 'Agent published successfully'}), 200
@@ -259,8 +242,6 @@ def deprecate_agent(agent_id: str):
     
     Body: { "version": "1.0.0" }
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         data = request.get_json()
@@ -270,7 +251,7 @@ def deprecate_agent(agent_id: str):
             return jsonify({'error': 'Version required'}), 400
         
         registry = get_agent_registry()
-        success = run_async(registry.deprecate(agent_id, version, team_id))
+        success = registry.deprecate(agent_id, version, team_id)
         
         if success:
             return jsonify({'message': 'Agent deprecated successfully'}), 200
@@ -289,8 +270,6 @@ def delete_agent(agent_id: str):
     Query params:
         - version: Version to delete (required)
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         version = request.args.get('version')
@@ -299,7 +278,7 @@ def delete_agent(agent_id: str):
             return jsonify({'error': 'Version required'}), 400
         
         registry = get_agent_registry()
-        success = run_async(registry.delete(agent_id, version, team_id))
+        success = registry.delete(agent_id, version, team_id)
         
         if success:
             return jsonify({'message': 'Agent deleted successfully'}), 200
@@ -318,8 +297,6 @@ def search_agents():
     Query params:
         - q: Search query
     """
-    import asyncio
-    
     try:
         team_id = get_team_id()
         query = request.args.get('q', '')
@@ -328,7 +305,7 @@ def search_agents():
             return jsonify({'error': 'Search query required'}), 400
         
         registry = get_agent_registry()
-        agents = run_async(registry.search(query, team_id))
+        agents = registry.search(query, team_id)
         
         return jsonify({
             'query': query,
@@ -343,13 +320,11 @@ def search_agents():
 @server_agent_registry_bp.route('/events/<event_type>', methods=['GET'])
 def get_agents_for_event(event_type: str):
     """Get all agents that handle a specific event type"""
-    import asyncio
-    
     try:
         team_id = get_team_id()
         
         registry = get_agent_registry()
-        agents = run_async(registry.get_agents_for_event(event_type, team_id))
+        agents = registry.get_agents_for_event(event_type, team_id)
         
         return jsonify({
             'event_type': event_type,
@@ -359,4 +334,3 @@ def get_agents_for_event(event_type: str):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-

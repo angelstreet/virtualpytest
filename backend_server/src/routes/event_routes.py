@@ -5,7 +5,6 @@ Provides HTTP endpoints for manual event triggering and event statistics.
 """
 
 from flask import Blueprint, request, jsonify
-import asyncio
 
 from events import Event, EventPriority, get_event_bus
 from events.event_router import EventRouter, get_event_router
@@ -17,7 +16,7 @@ server_event_bp = Blueprint('server_events', __name__, url_prefix='/api/events')
 
 def get_team_id() -> str:
     """Get team ID from request"""
-    return request.headers.get('X-Team-ID', 'default')
+    return request.args.get('team_id', request.headers.get('X-Team-ID', 'default'))
 
 
 @server_event_bp.route('/publish', methods=['POST'])
@@ -53,7 +52,7 @@ def publish_event():
             team_id=team_id
         )
         
-        # Publish via router
+        # Publish via router (async - needs run_async for Redis pub/sub)
         router = get_event_router()
         success = run_async(router.route_event(event))
         
@@ -74,7 +73,7 @@ def list_event_types():
         team_id = get_team_id()
         
         router = get_event_router()
-        event_types = run_async(router.get_event_types(team_id))
+        event_types = router.get_event_types(team_id)  # Now sync
         
         return jsonify({
             'event_types': event_types,
@@ -92,7 +91,7 @@ def get_event_stats():
         team_id = get_team_id()
         
         router = get_event_router()
-        stats = run_async(router.get_routing_stats(team_id))
+        stats = router.get_routing_stats(team_id)  # Now sync
         
         return jsonify(stats), 200
         
@@ -222,4 +221,3 @@ def emit_build_deployed():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-

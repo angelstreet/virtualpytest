@@ -2,15 +2,27 @@
 Agent Benchmarks & Feedback Database Operations
 
 Manages:
-- Benchmark test definitions
-- Benchmark runs and results
-- User feedback collection
-- Agent scores and leaderboard
+- Benchmark test definitions (from YAML files)
+- Benchmark runs and results (in database)
+- User feedback collection (in database)
+- Agent scores and leaderboard (in database)
+
+Test definitions are file-based for easy editing and version control.
+Execution data stays in database for runtime tracking.
 """
 
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from shared.src.lib.utils.supabase_utils import get_supabase_client
+
+# Import file-based benchmark loader
+from backend_server.src.agent.benchmarks import (
+    load_all_benchmarks,
+    get_benchmarks_by_category,
+    get_benchmark_by_id,
+    get_benchmarks_for_agent,
+    count_benchmarks
+)
 
 DEFAULT_TEAM_ID = 'default'
 
@@ -21,12 +33,12 @@ def get_supabase():
 
 
 # =====================================================
-# Benchmark Tests
+# Benchmark Tests (FILE-BASED)
 # =====================================================
 
 def list_benchmark_tests(category: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    List all available benchmark tests.
+    List all available benchmark tests from YAML files.
     
     Args:
         category: Optional category filter (navigation, detection, execution, analysis, recovery)
@@ -34,27 +46,14 @@ def list_benchmark_tests(category: Optional[str] = None) -> List[Dict[str, Any]]
     Returns:
         List of benchmark test definitions
     """
-    supabase = get_supabase()
-    if not supabase:
-        return []
-    
-    query = supabase.table('agent_benchmarks').select('*').eq('is_active', True)
-    
     if category:
-        query = query.eq('category', category)
-    
-    result = query.order('test_id').execute()
-    return result.data if result.data else []
+        return get_benchmarks_by_category(category)
+    return load_all_benchmarks()
 
 
 def get_benchmark_test(test_id: str) -> Optional[Dict[str, Any]]:
-    """Get a specific benchmark test by test_id."""
-    supabase = get_supabase()
-    if not supabase:
-        return None
-    
-    result = supabase.table('agent_benchmarks').select('*').eq('test_id', test_id).execute()
-    return result.data[0] if result.data else None
+    """Get a specific benchmark test by test_id from YAML files."""
+    return get_benchmark_by_id(test_id)
 
 
 # =====================================================
@@ -81,8 +80,8 @@ def create_benchmark_run(
     if not supabase:
         return None
     
-    # Count applicable tests
-    tests = list_benchmark_tests()
+    # Count applicable tests from YAML files
+    tests = get_benchmarks_for_agent(agent_id)
     test_count = len(tests)
     
     run_data = {
@@ -186,30 +185,35 @@ def execute_benchmark_run(run_id: str) -> Dict[str, Any]:
         'started_at': datetime.now().isoformat()
     })
     
-    # Get tests
-    tests = list_benchmark_tests()
+    # Get tests from YAML files (filtered by agent)
+    agent_id = run['agent_id']
+    tests = get_benchmarks_for_agent(agent_id)
     
     passed = 0
     failed = 0
+    total_points = 0.0
+    earned_points = 0.0
     
     for test in tests:
         # Simulate test execution (placeholder - real implementation would call agent)
         test_passed = True
+        points = test.get('points', 1.0)
+        total_points += points
         
-        # Record result
+        # Record result (benchmark_id is nullable for file-based tests)
         result_data = {
             'run_id': run_id,
-            'benchmark_id': test['id'],
             'test_id': test['test_id'],
             'passed': test_passed,
-            'points_earned': 1.0 if test_passed else 0.0,
-            'points_possible': 1.0,
+            'points_earned': points if test_passed else 0.0,
+            'points_possible': points,
             'duration_seconds': 1.5
         }
         supabase.table('agent_benchmark_results').insert(result_data).execute()
         
         if test_passed:
             passed += 1
+            earned_points += points
         else:
             failed += 1
         
@@ -220,22 +224,21 @@ def execute_benchmark_run(run_id: str) -> Dict[str, Any]:
             'failed_tests': failed
         })
     
-    # Calculate score
-    total = passed + failed
-    score = (passed / total * 100) if total > 0 else 0
+    # Calculate score based on points
+    score = (earned_points / total_points * 100) if total_points > 0 else 0
     
     # Complete run
     update_benchmark_run(run_id, {
         'status': 'completed',
         'completed_at': datetime.now().isoformat(),
-        'score_percent': score
+        'score_percent': round(score, 2)
     })
     
     return {
         'success': True,
         'passed': passed,
         'failed': failed,
-        'score_percent': score
+        'score_percent': round(score, 2)
     }
 
 

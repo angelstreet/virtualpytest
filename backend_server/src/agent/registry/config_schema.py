@@ -6,7 +6,7 @@ Agents can be exported/imported as YAML files.
 """
 
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 from enum import Enum
 from datetime import datetime
 
@@ -205,7 +205,11 @@ class AgentDefinition(BaseModel):
         return self.model_dump(exclude_none=True)
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'AgentDefinition':
-        """Create from dictionary (for JSON/YAML import)"""
+    def from_dict(cls, data: Union[Dict[str, Any], str]) -> 'AgentDefinition':
+        """Create from dictionary or JSON string (for JSON/YAML import)"""
+        import json
+        # Handle JSON string from database (asyncpg may not auto-decode JSONB)
+        if isinstance(data, str):
+            data = json.loads(data)
         return cls(**data)
 
