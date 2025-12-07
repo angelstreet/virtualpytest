@@ -587,10 +587,18 @@ Be efficient. Provide DATA, not explanations."""
             
             session.active_agent = agent_name
             
+            # 1. QA Manager says it's delegating (completes QA Manager's message)
             yield AgentEvent(
                 type=EventType.AGENT_DELEGATED,
                 agent="QA Manager",
-                content=f"Delegating to {agent.name} agent...",
+                content=f"Delegating to {agent.name}...",
+            )
+            
+            # 2. New agent starts (frontend creates new message bubble)
+            yield AgentEvent(
+                type=EventType.AGENT_STARTED,
+                agent=agent.name,
+                content=f"{agent.name} starting...",
             )
             
             # Build task for agent (pass agent_name for context-aware task building)
@@ -663,10 +671,11 @@ Be efficient. Provide DATA, not explanations."""
                     content="Execution complete. Passing results to Analyst for analysis...",
                 )
             
+            # 3. Sub-agent completes (frontend closes sub-agent's message bubble)
             yield AgentEvent(
                 type=EventType.AGENT_COMPLETED,
-                agent="QA Manager",
-                content=f"{agent.name} agent completed",
+                agent=agent.name,
+                content=f"Completed",
             )
         
         # Final summary

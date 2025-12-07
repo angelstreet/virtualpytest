@@ -22,8 +22,9 @@ class EventType(str, Enum):
     
     # Flow control
     MODE_DETECTED = "mode_detected"         # Operating mode identified
-    AGENT_DELEGATED = "agent_delegated"     # Task delegated to agent
-    AGENT_COMPLETED = "agent_completed"     # Agent finished task
+    AGENT_STARTED = "agent_started"         # New agent starting (creates new message bubble)
+    AGENT_DELEGATED = "agent_delegated"     # Task delegated to agent (QA Manager says "delegating...")
+    AGENT_COMPLETED = "agent_completed"     # Agent finished task (closes current message bubble)
     
     # Human interaction
     APPROVAL_REQUIRED = "approval_required"  # Need human approval

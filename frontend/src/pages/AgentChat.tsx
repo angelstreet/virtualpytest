@@ -252,6 +252,7 @@ const AgentChat: React.FC = () => {
   
   const {
     status,
+    session,
     messages,
     input,
     isProcessing,
@@ -812,11 +813,40 @@ const AgentChat: React.FC = () => {
                     minWidth: 0,
                   }}
                 >
-                  {!isUser && (
-                    <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ mb: 0.5, fontSize: '0.8rem' }}>
-                      {msg.agent || 'QA Manager'}
-                    </Typography>
-                  )}
+                  {!isUser && (() => {
+                    // Extract all unique agents from events
+                    const agentChain = msg.events 
+                      ? [...new Set(msg.events.map(e => e.agent).filter(Boolean))]
+                      : [];
+                    const delegatedAgents = agentChain.filter(a => a !== 'QA Manager' && a !== 'System');
+                    
+                    return (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                        <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ fontSize: '0.8rem' }}>
+                          {msg.agent || 'QA Manager'}
+                        </Typography>
+                        {delegatedAgents.length > 0 && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="caption" sx={{ color: 'text.disabled' }}>→</Typography>
+                            {delegatedAgents.map((agent) => (
+                              <Chip 
+                                key={agent}
+                                label={agent}
+                                size="small"
+                                sx={{ 
+                                  height: 18, 
+                                  fontSize: '0.65rem',
+                                  bgcolor: AGENT_CONFIG[agent]?.color || PALETTE.accent,
+                                  color: '#fff',
+                                  '& .MuiChip-label': { px: 0.75 }
+                                }}
+                              />
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })()}
 
                   {!isUser && msg.events && msg.events.filter(e => e.type === 'tool_call').length > 0 && (
                     <Box sx={{ mb: 1, p: 1, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 1.5 }}>
@@ -1015,14 +1045,37 @@ const AgentChat: React.FC = () => {
                 maxWidth: '85%',
               }}
             >
+              {/* Active Agent Badge */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: currentEvents.length > 0 ? 1.5 : 0 }}>
-                <ThinkingIcon sx={{ animation: 'pulse 1.5s infinite', color: PALETTE.accent, fontSize: 18 }} />
-                <Typography variant="body2" fontWeight={500}>Processing...</Typography>
+                <Avatar 
+                  sx={{ 
+                    width: 28, 
+                    height: 28, 
+                    fontSize: 11, 
+                    fontWeight: 600,
+                    bgcolor: session?.active_agent 
+                      ? (AGENT_CONFIG[session.active_agent]?.color || PALETTE.accent)
+                      : '#607d8b',
+                    animation: 'pulse 1.5s infinite',
+                  }}
+                >
+                  {getInitials(session?.active_agent || 'QA Manager')}
+                </Avatar>
+                <Box>
+                  <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
+                    {session?.active_agent || 'QA Manager'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                    {session?.mode ? `${session.mode} mode` : 'Processing...'}
+                  </Typography>
+                </Box>
               </Box>
                 
               {currentEvents.length > 0 && (
-                <Box sx={{ pl: 2, borderLeft: `2px solid ${PALETTE.accent}40` }}>
+                <Box sx={{ pl: 2, borderLeft: `2px solid ${session?.active_agent ? (AGENT_CONFIG[session.active_agent]?.color || PALETTE.accent) : PALETTE.accent}40` }}>
+                  {/* Tool calls */}
                   {mergeToolEvents(currentEvents).map(renderToolActivity)}
+                  {/* Thinking */}
                   {currentEvents.filter(e => e.type === 'thinking').map((event, idx) => (
                     <Typography key={`thinking-${idx}`} variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
                       {event.content}

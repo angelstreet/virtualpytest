@@ -295,21 +295,86 @@ export const useAgentChat = () => {
     });
 
     socket.on('agent_event', (event: AgentEvent) => {
-      // Accumulate all events except terminal ones
-      if (event.type !== 'session_ended' && event.type !== 'complete') {
-        setCurrentEvents(prev => [...prev, event]);
-      }
+      // Helper to save current events as a message
+      const saveCurrentEventsAsMessage = (agentName: string, eventsToSave: AgentEvent[]) => {
+        const messageResultEvents = eventsToSave.filter(e => 
+          e.type === 'message' || e.type === 'result' || e.type === 'agent_delegated'
+        );
+        if (messageResultEvents.length === 0 && eventsToSave.filter(e => e.type === 'tool_call').length === 0) {
+          return; // Nothing meaningful to save
+        }
+        
+        const accumulatedContent = messageResultEvents
+          .map(e => e.content)
+          .filter(Boolean)
+          .join('\n\n');
+        
+        const newMessage: Message = {
+          id: `${Date.now()}-${Math.random()}`,
+          role: 'agent',
+          content: accumulatedContent || `${agentName} completed`,
+          agent: agentName,
+          timestamp: new Date().toISOString(),
+          events: eventsToSave,
+        };
+        
+        const targetConvoId = pendingConversationIdRef.current;
+        if (targetConvoId) {
+          setConversations(prev => prev.map(c => {
+            if (c.id !== targetConvoId) return c;
+            const updatedMessages = [...c.messages, newMessage];
+            return {
+              ...c,
+              messages: updatedMessages,
+              title: extractTitle(updatedMessages),
+              updatedAt: new Date().toISOString(),
+            };
+          }));
+        }
+      };
       
+      // Track mode
       if (event.type === 'mode_detected') {
         setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
       }
 
+      // When QA Manager delegates: save QA Manager's message, update active agent
       if (event.type === 'agent_delegated') {
-        const agentName = event.content.replace('Delegating to ', '').replace(' agent...', '');
+        const agentName = event.content.replace('Delegating to ', '').replace('...', '').trim();
+        
+        // Include this event in QA Manager's message, then save
+        setCurrentEvents(prev => {
+          const eventsWithDelegation = [...prev, event];
+          saveCurrentEventsAsMessage('QA Manager', eventsWithDelegation);
+          return []; // Clear for next agent
+        });
+        
         setSession(prev => prev ? { ...prev, active_agent: agentName } : null);
+        return;
+      }
+      
+      // When sub-agent starts: update badge
+      if (event.type === 'agent_started') {
+        setSession(prev => prev ? { ...prev, active_agent: event.agent } : null);
+        setCurrentEvents([]); // Fresh start for this agent
+        return;
+      }
+      
+      // When sub-agent completes: save its message
+      if (event.type === 'agent_completed') {
+        setCurrentEvents(prev => {
+          saveCurrentEventsAsMessage(event.agent, prev);
+          return []; // Clear for next agent (or QA Manager summary)
+        });
+        return;
       }
 
-      // Finalize message only when session ends or completes
+      // Accumulate events for current agent
+      if (event.type !== 'session_ended' && event.type !== 'complete') {
+        setCurrentEvents(prev => [...prev, event]);
+      }
+
+      // Session ends: save any remaining events as final message
       if (event.type === 'session_ended' || event.type === 'complete') {
         setIsProcessing(false);
         
@@ -319,51 +384,14 @@ export const useAgentChat = () => {
         }
         
         setCurrentEvents(prevEvents => {
-          // Only create message if we have message/result events
-          const messageResultEvents = prevEvents.filter(e => e.type === 'message' || e.type === 'result');
-          if (messageResultEvents.length === 0) {
-            return [];
-          }
-          
-          // Accumulate content from message/result events only (thinking shown separately in UI)
-          const accumulatedContent = messageResultEvents
-            .map(e => e.content)
-            .filter(Boolean)
-            .join('\n\n');
-
-          // Find the last agent to attribute the message to
-          const lastAgentEvent = [...prevEvents].reverse().find(e => e.agent);
-          const agentName = lastAgentEvent?.agent || 'QA Manager';
-          
-          const newMessage: Message = {
-            id: `${Date.now()}-${Math.random()}`,
-            role: 'agent',
-            content: accumulatedContent,
-            agent: agentName,
-            timestamp: new Date().toISOString(),
-            events: prevEvents,
-          };
-          
-          // Update conversation with new message - use pendingConversationIdRef (the one that initiated the request)
-          const targetConvoId = pendingConversationIdRef.current;
-          if (targetConvoId) {
-            setConversations(prev => {
-              return prev.map(c => {
-                if (c.id !== targetConvoId) return c;
-                const updatedMessages = [...c.messages, newMessage];
-                return {
-                  ...c,
-                  messages: updatedMessages,
-                  title: extractTitle(updatedMessages),
-                  updatedAt: new Date().toISOString(),
-                };
-              });
-            });
+          if (prevEvents.length > 0) {
+            saveCurrentEventsAsMessage('QA Manager', prevEvents);
           }
           
           // Clear pending conversation
           pendingConversationIdRef.current = null;
           setPendingConversationId(null);
+          setSession(prev => prev ? { ...prev, active_agent: undefined } : null);
           
           return [];
         });
