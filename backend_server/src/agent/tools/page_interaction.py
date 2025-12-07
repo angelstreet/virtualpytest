@@ -382,17 +382,32 @@ def get_alerts(
         if not data.get('success', False):
             return f"❌ Error fetching alerts: {data.get('error', 'Unknown error')}"
         
-        # Format the response
+        # Format the response - handle different endpoint response formats
         alerts = data.get('alerts', [])
-        active_count = data.get('active_count', 0)
-        resolved_count = data.get('resolved_count', 0)
         total_count = data.get('count', len(alerts))
         
-        # Build summary
+        # For filtered queries (active/resolved), the count IS the filtered count
+        if status == 'active':
+            active_count = total_count
+            resolved_count = 0
+        elif status == 'resolved':
+            active_count = 0
+            resolved_count = total_count
+        else:
+            # getAllAlerts returns both counts
+            active_count = data.get('active_count', 0)
+            resolved_count = data.get('resolved_count', 0)
+        
+        # Build summary based on what was requested
         lines = [f"📊 **Alert Summary**"]
-        lines.append(f"- **Active alerts**: {active_count}")
-        lines.append(f"- **Resolved alerts**: {resolved_count}")
-        lines.append(f"- **Total**: {total_count}")
+        if status == 'active':
+            lines.append(f"- **Active alerts**: {active_count}")
+        elif status == 'resolved':
+            lines.append(f"- **Resolved alerts**: {resolved_count}")
+        else:
+            lines.append(f"- **Active alerts**: {active_count}")
+            lines.append(f"- **Resolved alerts**: {resolved_count}")
+            lines.append(f"- **Total**: {total_count}")
         
         if alerts:
             lines.append("")

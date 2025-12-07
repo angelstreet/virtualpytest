@@ -92,13 +92,48 @@ const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
   'Maintainer': { color: '#4fc3f7', label: 'Maintainer' },
 };
 
-// Available agents for selection (nickname-only in UI)
+// Available agents for selection (nickname-only in UI) with agent-specific tips
 const AVAILABLE_AGENTS = [
-  { id: 'ai-assistant', name: 'AI Assistant', nickname: 'Atlas', description: 'AI Assistant', color: PALETTE.accent },
-  { id: 'qa-web-manager', name: 'QA Web Manager', nickname: 'Sherlock', description: 'Web testing', color: '#4fc3f7' },
-  { id: 'qa-mobile-manager', name: 'QA Mobile Manager', nickname: 'Scout', description: 'Mobile testing', color: '#81c784' },
-  { id: 'qa-stb-manager', name: 'QA STB Manager', nickname: 'Watcher', description: 'STB testing', color: '#ba68c8' },
-  { id: 'monitoring-manager', name: 'Monitoring Manager', nickname: 'Guardian', description: 'Monitoring', color: '#ffb74d' },
+  { 
+    id: 'ai-assistant', 
+    name: 'AI Assistant', 
+    nickname: 'Atlas', 
+    description: 'AI Assistant', 
+    color: PALETTE.accent,
+    tips: ['Go to dashboard', 'Show me test reports', 'What can you do?', 'How many devices?']
+  },
+  { 
+    id: 'qa-web-manager', 
+    name: 'QA Web Manager', 
+    nickname: 'Sherlock', 
+    description: 'Web testing', 
+    color: '#4fc3f7',
+    tips: ['Run web regression tests', 'Automate login flow', 'Check broken links', 'Test form validation']
+  },
+  { 
+    id: 'qa-mobile-manager', 
+    name: 'QA Mobile Manager', 
+    nickname: 'Scout', 
+    description: 'Mobile testing', 
+    color: '#81c784',
+    tips: ['Run smoke test on Pixel 5', 'Test app on iOS', 'Check device status', 'Screenshot all screens']
+  },
+  { 
+    id: 'qa-stb-manager', 
+    name: 'QA STB Manager', 
+    nickname: 'Watcher', 
+    description: 'STB testing', 
+    color: '#ba68c8',
+    tips: ['Run STB zapping test', 'Check EPG loading', 'Test channel switch', 'Verify audio sync']
+  },
+  { 
+    id: 'monitoring-manager', 
+    name: 'Monitoring Manager', 
+    nickname: 'Guardian', 
+    description: 'Monitoring', 
+    color: '#ffb74d',
+    tips: ['Show active alerts', 'Check system health', 'Run incident analysis', 'View performance metrics']
+  },
 ];
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
@@ -617,9 +652,9 @@ const AgentChat: React.FC = () => {
             </IconButton>
           </Paper>
           
-          {/* Suggestion Chips */}
+          {/* Suggestion Chips - Dynamic based on selected agent */}
           <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {['Automate web app', 'Run goto test', 'How many test cases?', 'What devices are available?'].map((suggestion) => (
+            {(AVAILABLE_AGENTS.find(a => a.id === selectedAgentId)?.tips || AVAILABLE_AGENTS[0].tips).map((suggestion) => (
               <Chip 
                 key={suggestion} 
                 label={suggestion} 
