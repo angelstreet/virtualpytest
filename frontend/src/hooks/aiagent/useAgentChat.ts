@@ -352,7 +352,7 @@ export const useAgentChat = () => {
         setSession(prev => prev ? { ...prev, active_agent: agentName } : null);
         return;
       }
-      
+
       // When sub-agent starts: update badge
       if (event.type === 'agent_started') {
         setSession(prev => prev ? { ...prev, active_agent: event.agent } : null);

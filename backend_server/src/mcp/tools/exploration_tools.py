@@ -83,17 +83,17 @@ class ExplorationTools:
         
         # Get compatible host/device
         host_info = self._get_compatible_host(userinterface_name, team_id)
-        
+            
         if 'error' in host_info:
             return self.formatter.format_error(host_info['error'], ErrorCategory.NOT_FOUND)
-        
+            
         host_name = host_info['host_name']
         device_id = host_info['device_id']
-        
-        if not tree_id:
+            
+            if not tree_id:
             tree_id = host_info.get('tree_id')
-        
-        if not tree_id:
+            
+            if not tree_id:
             return self.formatter.format_error(
                 f"Could not find tree_id for userinterface '{userinterface_name}'",
                 ErrorCategory.NOT_FOUND
@@ -316,12 +316,12 @@ class ExplorationTools:
             node_name = response.get('node_name', item)
             has_more = response.get('has_more_items', False)
             click_result = response.get('click_result', 'unknown')
-            back_result = response.get('back_result', 'unknown')
+                back_result = response.get('back_result', 'unknown')
             
-            result_text = f"📊 Validated: {item}\n\n"
-            result_text += f"**Node:** {node_name}\n"
-            result_text += f"**Forward:** {click_result}\n"
-            result_text += f"**Reverse:** {back_result}\n"
+                result_text = f"📊 Validated: {item}\n\n"
+                result_text += f"**Node:** {node_name}\n"
+                result_text += f"**Forward:** {click_result}\n"
+                result_text += f"**Reverse:** {back_result}\n"
             
             progress = response.get('progress', {})
             if progress:

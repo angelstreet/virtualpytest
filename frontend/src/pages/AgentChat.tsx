@@ -823,8 +823,8 @@ const AgentChat: React.FC = () => {
                     return (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                         <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ fontSize: '0.8rem' }}>
-                          {msg.agent || 'QA Manager'}
-                        </Typography>
+                      {msg.agent || 'QA Manager'}
+                    </Typography>
                         {delegatedAgents.length > 0 && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Typography variant="caption" sx={{ color: 'text.disabled' }}>→</Typography>

@@ -547,9 +547,9 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                     <TableRow><TableCell colSpan={5} sx={{ textAlign: 'center', color: '#666', py: 4 }}>No benchmark runs yet</TableCell></TableRow>
                   ) : benchmarkRuns.map(run => (
                     <TableRow key={run.id}>
-                      <TableCell sx={{ color: '#fff', borderBottom: '1px solid #2a2a2a' }}>
-                        <Typography>{run.agent_id}</Typography>
-                        <Typography sx={{ fontSize: '0.75rem', color: '#666' }}>v{run.agent_version}</Typography>
+                      <TableCell sx={{ borderBottom: '1px solid #2a2a2a' }}>
+                        <Typography sx={{ color: '#fff', fontWeight: 600 }}>{getAgentDisplay(run.agent_id).nickname}</Typography>
+                        <Typography sx={{ fontSize: '0.75rem', color: '#888' }}>{getAgentDisplay(run.agent_id).name} • v{run.agent_version}</Typography>
                       </TableCell>
                       <TableCell sx={{ borderBottom: '1px solid #2a2a2a' }}>
                         <Chip label={run.status} size="small" sx={{ bgcolor: run.status === 'completed' ? '#22c55e22' : '#2a2a2a', color: run.status === 'completed' ? '#22c55e' : '#888' }} />
