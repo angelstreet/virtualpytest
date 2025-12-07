@@ -99,14 +99,10 @@ MANAGER_TOOLS = [
     # Verifications
     "list_verifications",
     
-    # UI Control / Page Interaction
-    "get_available_pages",
-    "get_page_schema",
+    # UI Control / Page Interaction (Step 1 - navigation only)
     "navigate_to_page",
-    "highlight_element",
-    "show_toast",
     
-    # Data Tools (for Step 2 - fetch actual data)
+    # Data Tools (Step 2 - fetch actual data)
     "get_alerts",
 ]
 

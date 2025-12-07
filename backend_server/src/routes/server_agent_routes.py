@@ -9,11 +9,65 @@ import os
 import logging
 import asyncio
 import json
+import uuid
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Execution History Logging
+# =============================================================================
+def log_execution_history(
+    agent_id: str,
+    version: str,
+    team_id: str,
+    task_id: str,
+    started_at: datetime,
+    completed_at: datetime,
+    status: str,
+    tool_calls: int = 0,
+    error_message: str = None,
+    metadata: dict = None
+):
+    """
+    Log agent execution to agent_execution_history table for score tracking.
+    This enables success_rate calculations in the leaderboard.
+    """
+    try:
+        from shared.src.lib.supabase_client import get_supabase
+        supabase = get_supabase()
+        if not supabase:
+            logger.warning("Supabase not available for execution logging")
+            return None
+        
+        duration_seconds = (completed_at - started_at).total_seconds()
+        
+        data = {
+            'instance_id': f'chat-{task_id[:8]}',
+            'agent_id': agent_id,
+            'version': version,
+            'task_id': task_id,
+            'event_type': 'chat_task',
+            'started_at': started_at.isoformat(),
+            'completed_at': completed_at.isoformat(),
+            'duration_seconds': duration_seconds,
+            'status': status,
+            'tool_calls': tool_calls,
+            'error_message': error_message,
+            'team_id': team_id or 'default',
+            'metadata': metadata or {}
+        }
+        
+        result = supabase.table('agent_execution_history').insert(data).execute()
+        if result.data:
+            logger.info(f"✅ Logged execution: {agent_id} - {status} ({duration_seconds:.2f}s)")
+            return result.data[0]['id']
+        return None
+    except Exception as e:
+        logger.error(f"Failed to log execution history: {e}")
+        return None
 
 # Slack integration hook
 try:
@@ -394,9 +448,20 @@ def register_agent_socketio_handlers(socketio):
             return
         
         async def process_and_stream():
+            # Track execution for leaderboard
+            task_id = str(uuid.uuid4())
+            started_at = datetime.now()
+            tool_call_count = 0
+            execution_status = 'completed'
+            error_msg = None
+            
             try:
                 async for event in manager.process_message(message, session):
                     event_dict = event.to_dict()
+                    
+                    # Count tool calls for metrics
+                    if event.type == 'tool_call':
+                        tool_call_count += 1
                     
                     # Log every agent event for debugging
                     log_agent_event('AGENT_EVENT', session_id, event_dict)
@@ -427,7 +492,23 @@ def register_agent_socketio_handlers(socketio):
                     'error': str(e),
                     'type': type(e).__name__
                 }, room=session_id, namespace='/agent')
+                execution_status = 'failed'
+                error_msg = str(e)
             finally:
+                # Log execution to database for leaderboard tracking
+                log_execution_history(
+                    agent_id=agent_id,
+                    version='1.0.0',
+                    team_id=team_id,
+                    task_id=task_id,
+                    started_at=started_at,
+                    completed_at=datetime.now(),
+                    status=execution_status,
+                    tool_calls=tool_call_count,
+                    error_message=error_msg,
+                    metadata={'prompt': message[:200], 'session_id': session_id}
+                )
+                
                 # Ensure Langfuse data is flushed even on errors
                 try:
                     from agent.observability import flush
