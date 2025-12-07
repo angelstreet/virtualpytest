@@ -368,15 +368,15 @@ def list_feedback(
 # =====================================================
 
 def get_agent_scores(
-    team_id: str = DEFAULT_TEAM_ID,
+    team_id: str = None,  # Deprecated - kept for API compatibility
     agent_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
-    """Get aggregated scores for agents."""
+    """Get aggregated scores for agents (global, not per-team)."""
     supabase = get_supabase()
     if not supabase:
         return []
     
-    query = supabase.table('agent_scores').select('*').eq('team_id', team_id)
+    query = supabase.table('agent_scores').select('*')
     
     if agent_id:
         query = query.eq('agent_id', agent_id)
@@ -385,13 +385,13 @@ def get_agent_scores(
     return result.data if result.data else []
 
 
-def get_leaderboard(team_id: str = DEFAULT_TEAM_ID, limit: int = 20) -> List[Dict[str, Any]]:
-    """Get agent leaderboard with rankings."""
+def get_leaderboard(team_id: str = None, limit: int = 20) -> List[Dict[str, Any]]:
+    """Get agent leaderboard with rankings (global, not per-team)."""
     supabase = get_supabase()
     if not supabase:
         return []
     
-    result = supabase.table('agent_scores').select('*').eq('team_id', team_id).order('overall_score', desc=True).limit(limit).execute()
+    result = supabase.table('agent_scores').select('*').order('overall_score', desc=True).limit(limit).execute()
     
     leaderboard = []
     for idx, entry in enumerate(result.data or []):
@@ -404,14 +404,14 @@ def get_leaderboard(team_id: str = DEFAULT_TEAM_ID, limit: int = 20) -> List[Dic
 def get_agent_score(
     agent_id: str,
     agent_version: str,
-    team_id: str = DEFAULT_TEAM_ID
+    team_id: str = None  # Deprecated - kept for API compatibility
 ) -> Optional[Dict[str, Any]]:
-    """Get score for a specific agent version."""
+    """Get score for a specific agent version (global, not per-team)."""
     supabase = get_supabase()
     if not supabase:
         return None
     
-    result = supabase.table('agent_scores').select('*').eq('team_id', team_id).eq('agent_id', agent_id).eq('agent_version', agent_version).execute()
+    result = supabase.table('agent_scores').select('*').eq('agent_id', agent_id).eq('agent_version', agent_version).execute()
     return result.data[0] if result.data else None
 
 

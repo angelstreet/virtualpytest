@@ -183,6 +183,15 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       // Accumulate events for saving to conversation history
       pendingEventsRef.current = [...pendingEventsRef.current, event];
       
+      // 🔄 Broadcast to useAgentChat for real-time sync
+      window.dispatchEvent(new CustomEvent('aicontext-agent-event', {
+        detail: {
+          event,
+          conversationId: currentConversationIdRef.current,
+          userMessage: pendingUserMessageRef.current,
+        }
+      }));
+      
       // Update execution steps based on event type
       if (event.type === 'thinking') {
         setExecutionSteps(prev => [
@@ -224,6 +233,11 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
         setProcessing(false);
         setExecutionSteps(prev => prev.map(s => ({ ...s, status: 'done' as const })));
         
+        // 🔄 Broadcast completion to useAgentChat
+        window.dispatchEvent(new CustomEvent('aicontext-complete', {
+          detail: { conversationId: currentConversationIdRef.current }
+        }));
+        
         // Save to conversation history
         if (pendingUserMessageRef.current) {
           const events = pendingEventsRef.current;
@@ -247,6 +261,11 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
           ...prev,
           { id: `error-${Date.now()}`, label: 'Error', status: 'error', detail: event.content }
         ]);
+        
+        // 🔄 Broadcast error to useAgentChat
+        window.dispatchEvent(new CustomEvent('aicontext-complete', {
+          detail: { conversationId: currentConversationIdRef.current, error: true }
+        }));
         
         // Save error to conversation history
         if (pendingUserMessageRef.current) {
@@ -453,6 +472,15 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
     pendingUserMessageRef.current = message;
     pendingEventsRef.current = [];
     currentConversationIdRef.current = generateId(); // Create new conversation ID
+    
+    // 🔄 Broadcast to useAgentChat that a message was sent (for real-time sync)
+    window.dispatchEvent(new CustomEvent('aicontext-message-sent', {
+      detail: {
+        conversationId: currentConversationIdRef.current,
+        userMessage: message,
+        agentId: effectiveAgentId,
+      }
+    }));
 
     socketRef.current.emit('send_message', {
       session_id: sessionId,

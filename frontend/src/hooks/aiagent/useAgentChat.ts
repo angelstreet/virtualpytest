@@ -139,6 +139,87 @@ export const useAgentChat = () => {
     return () => window.removeEventListener('agent-conversation-updated', handleConversationUpdate);
   }, [loadConversations]);
 
+  // 🔄 REAL-TIME SYNC: Listen for AIContext events (from Cmd+K command bar)
+  useEffect(() => {
+    // When a message is sent from AIContext
+    const handleMessageSent = (e: CustomEvent) => {
+      const { conversationId, userMessage, agentId } = e.detail;
+      console.log('🔄 useAgentChat: AIContext sent message', { conversationId, userMessage: userMessage?.slice(0, 30) });
+      
+      // Create new conversation if needed
+      const newConvo: Conversation = {
+        id: conversationId,
+        title: userMessage?.slice(0, 50) || 'New Chat',
+        messages: [{
+          id: `${Date.now()}-user`,
+          role: 'user',
+          content: userMessage,
+          timestamp: new Date().toISOString(),
+        }],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      setConversations(prev => {
+        // Check if conversation already exists
+        const exists = prev.find(c => c.id === conversationId);
+        if (exists) return prev;
+        return [newConvo, ...prev];
+      });
+      
+      // Switch to the new conversation and set processing state
+      setActiveConversationId(conversationId);
+      activeConversationIdRef.current = conversationId;
+      pendingConversationIdRef.current = conversationId;
+      setPendingConversationId(conversationId);
+      setIsProcessing(true);
+      setCurrentEvents([]);
+    };
+    
+    // Real-time agent events from AIContext
+    const handleAgentEvent = (e: CustomEvent) => {
+      const { event, conversationId } = e.detail;
+      
+      // Only process if this is for our pending conversation
+      if (conversationId !== pendingConversationIdRef.current) return;
+      
+      // Accumulate events (same as socket handler)
+      if (event.type !== 'session_ended' && event.type !== 'complete') {
+        setCurrentEvents(prev => [...prev, event]);
+      }
+    };
+    
+    // When AIContext completes
+    const handleComplete = (e: CustomEvent) => {
+      const { conversationId } = e.detail;
+      
+      // Only process if this is for our pending conversation
+      if (conversationId !== pendingConversationIdRef.current) return;
+      
+      console.log('🔄 useAgentChat: AIContext completed, reloading conversations');
+      
+      // AIContext saves to localStorage, so just reload
+      // Small delay to ensure localStorage is updated
+      setTimeout(() => {
+        loadConversations();
+        setIsProcessing(false);
+        setCurrentEvents([]);
+        pendingConversationIdRef.current = null;
+        setPendingConversationId(null);
+      }, 100);
+    };
+
+    window.addEventListener('aicontext-message-sent', handleMessageSent as EventListener);
+    window.addEventListener('aicontext-agent-event', handleAgentEvent as EventListener);
+    window.addEventListener('aicontext-complete', handleComplete as EventListener);
+    
+    return () => {
+      window.removeEventListener('aicontext-message-sent', handleMessageSent as EventListener);
+      window.removeEventListener('aicontext-agent-event', handleAgentEvent as EventListener);
+      window.removeEventListener('aicontext-complete', handleComplete as EventListener);
+    };
+  }, [loadConversations]);
+
   // Save conversations on change
   useEffect(() => {
     if (conversations.length > 0) {
