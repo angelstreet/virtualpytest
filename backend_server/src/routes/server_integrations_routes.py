@@ -705,66 +705,138 @@ def slack_events():
     """
     try:
         data = request.json
+        print(f"[@integrations_routes:slack_events] 📥 Received: type={data.get('type')}")
         
         # Handle Slack URL verification challenge
         if data.get('type') == 'url_verification':
+            print(f"[@integrations_routes:slack_events] ✅ URL verification challenge")
             return jsonify({'challenge': data.get('challenge')})
         
         # Handle event callbacks
         if data.get('type') == 'event_callback':
             event = data.get('event', {})
             event_type = event.get('type')
+            event_subtype = event.get('subtype')
+            has_thread_ts = bool(event.get('thread_ts'))
+            has_bot_id = bool(event.get('bot_id'))
             
-            # Only process message events in threads (replies)
-            if event_type == 'message' and event.get('thread_ts'):
+            print(f"[@integrations_routes:slack_events] 📨 Event: type={event_type}, subtype={event_subtype}, thread_ts={has_thread_ts}, bot={has_bot_id}")
+            print(f"[@integrations_routes:slack_events] 📝 Text: {event.get('text', '')[:100]}")
+            
+            # Only process message events
+            if event_type == 'message':
                 # Ignore bot messages to prevent loops
                 if event.get('bot_id') or event.get('subtype') == 'bot_message':
+                    print(f"[@integrations_routes:slack_events] ⏭️ Skipping bot message")
                     return jsonify({'ok': True})
                 
-                thread_ts = event.get('thread_ts')
+                # Get thread_ts - for threaded replies, or ts for regular messages being replied to
+                thread_ts = event.get('thread_ts')  # Thread parent timestamp
+                message_ts = event.get('ts')  # This message's timestamp
                 user_message = event.get('text', '')
                 slack_user_id = event.get('user', '')
-                
-                print(f"[@integrations_routes:slack_events] Received Slack reply in thread {thread_ts}")
                 
                 # Load threads mapping to find session_id
                 if THREADS_PATH.exists():
                     with open(THREADS_PATH, 'r') as f:
                         threads = json.load(f)
                     
+                    print(f"[@integrations_routes:slack_events] 🔍 Searching for thread_ts={thread_ts} in {len(threads)} threads")
+                    
                     # Find session_id by thread_ts (reverse lookup)
                     session_id = None
+                    lookup_ts = thread_ts if thread_ts else message_ts
+                    
                     for sid, ts in threads.items():
-                        if ts == thread_ts and not sid.startswith('_'):
+                        if ts == lookup_ts and not sid.startswith('_'):
                             session_id = sid
                             break
                     
                     if session_id:
-                        print(f"[@integrations_routes:slack_events] Found session {session_id[:8]} for thread")
+                        print(f"[@integrations_routes:slack_events] ✅ Found session {session_id[:8]} for thread")
                         
-                        # Emit message to Agent Chat via Socket.IO
-                        try:
-                            from agent.socket_manager import socket_manager
-                            
-                            # Emit as a Slack user message
-                            socket_manager.emit_to_room(
-                                room=session_id,
-                                event='slack_message',
-                                data={
-                                    'type': 'slack_message',
-                                    'content': user_message,
-                                    'slack_user_id': slack_user_id,
-                                    'thread_ts': thread_ts,
-                                    'source': 'slack'
-                                }
-                            )
-                            print(f"[@integrations_routes:slack_events] ✅ Forwarded to Agent Chat session {session_id[:8]}")
-                        except Exception as emit_error:
-                            print(f"[@integrations_routes:slack_events] ❌ Failed to emit: {emit_error}")
+                        # Process directly on backend (no frontend involved)
+                        # This avoids any UI navigation/redirection
+                        import threading
+                        
+                        def process_slack_message_async():
+                            try:
+                                import asyncio
+                                from agent.session_manager import get_session_manager
+                                from agent.manager import get_manager
+                                
+                                # Get or create event loop for this thread
+                                try:
+                                    loop = asyncio.get_event_loop()
+                                except RuntimeError:
+                                    loop = asyncio.new_event_loop()
+                                    asyncio.set_event_loop(loop)
+                                
+                                session_mgr = get_session_manager()
+                                session = session_mgr.get_session(session_id)
+                                
+                                if not session:
+                                    print(f"[@integrations_routes:slack_events] ❌ Session {session_id[:8]} not found")
+                                    return
+                                
+                                # Get team_id from session context
+                                team_id = session.get_context('team_id')
+                                agent_id = session.get_context('agent_id') or 'ai-assistant'
+                                
+                                # Post user message to Slack first
+                                try:
+                                    from integrations.slack_sync import get_slack_sync
+                                    slack = get_slack_sync()
+                                    if slack.enabled:
+                                        slack.post_user_message(
+                                            conversation_id=session_id,
+                                            user_name=f'Slack User ({slack_user_id})',
+                                            content=user_message,
+                                            conversation_title=f"Chat Session {session_id[:8]}"
+                                        )
+                                except Exception as slack_err:
+                                    print(f"[@integrations_routes:slack_events] ⚠️ Failed to post user message: {slack_err}")
+                                
+                                # Process with AI manager
+                                manager = get_manager(team_id=team_id, agent_id=agent_id)
+                                
+                                async def run_processing():
+                                    try:
+                                        async for event in manager.process_message(user_message, session):
+                                            # Post AI responses to Slack (messages/results only)
+                                            if event.type in ['message', 'result'] and event.content:
+                                                try:
+                                                    from integrations.slack_sync import get_slack_sync
+                                                    slack = get_slack_sync()
+                                                    if slack.enabled:
+                                                        slack.post_message(
+                                                            conversation_id=session_id,
+                                                            agent=event.agent or 'AI Agent',
+                                                            content=event.content,
+                                                            conversation_title=f"Chat Session {session_id[:8]}"
+                                                        )
+                                                except Exception as slack_err:
+                                                    print(f"[@integrations_routes:slack_events] ⚠️ Failed to post response: {slack_err}")
+                                    except Exception as proc_err:
+                                        print(f"[@integrations_routes:slack_events] ❌ Processing error: {proc_err}")
+                                
+                                loop.run_until_complete(run_processing())
+                                print(f"[@integrations_routes:slack_events] ✅ Processed Slack message for session {session_id[:8]}")
+                                
+                            except Exception as e:
+                                print(f"[@integrations_routes:slack_events] ❌ Async processing error: {e}")
+                        
+                        # Run in background thread to not block Slack's 3-second timeout
+                        thread = threading.Thread(target=process_slack_message_async)
+                        thread.daemon = True
+                        thread.start()
+                        
+                        print(f"[@integrations_routes:slack_events] 🚀 Started background processing for session {session_id[:8]}")
                     else:
-                        print(f"[@integrations_routes:slack_events] ⚠️ No session found for thread {thread_ts}")
+                        print(f"[@integrations_routes:slack_events] ⚠️ No session found for ts={lookup_ts}")
+                        print(f"[@integrations_routes:slack_events] 📋 Available threads: {list(threads.keys())[:5]}...")
                 else:
-                    print(f"[@integrations_routes:slack_events] ⚠️ No threads mapping file found")
+                    print(f"[@integrations_routes:slack_events] ⚠️ No threads mapping file found at {THREADS_PATH}")
         
         return jsonify({'ok': True})
         

@@ -15,6 +15,7 @@ from ..tools.page_interaction import (
     interact_with_element,
     highlight_element,
     show_toast,
+    get_alerts,
     PAGE_INTERACTION_TOOLS,
 )
 
@@ -168,6 +169,40 @@ class ToolBridge:
                     }
                 })
                 continue
+            
+            if name == "get_alerts":
+                result.append({
+                    "name": "get_alerts",
+                    "description": "Fetch alerts from the monitoring system. Returns count and details of active and resolved alerts. Use this to answer questions about alerts/incidents.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "status": {
+                                "type": "string",
+                                "enum": ["active", "resolved"],
+                                "description": "Filter by alert status. Omit to get both active and resolved."
+                            },
+                            "host_name": {
+                                "type": "string",
+                                "description": "Filter by host name"
+                            },
+                            "device_id": {
+                                "type": "string",
+                                "description": "Filter by device ID"
+                            },
+                            "incident_type": {
+                                "type": "string",
+                                "description": "Filter by incident type (e.g., 'freeze', 'blackscreen')"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max alerts to return (default 20)"
+                            }
+                        },
+                        "required": []
+                    }
+                })
+                continue
 
             # MCP tools
             if name in tools_by_name:
@@ -236,6 +271,16 @@ class ToolBridge:
             result = show_toast(
                 message=params.get("message", ""),
                 severity=params.get("severity", "info")
+            )
+            return {"result": result}
+        
+        if tool_name == "get_alerts":
+            result = get_alerts(
+                status=params.get("status"),
+                host_name=params.get("host_name"),
+                device_id=params.get("device_id"),
+                incident_type=params.get("incident_type"),
+                limit=params.get("limit", 20)
             )
             return {"result": result}
 

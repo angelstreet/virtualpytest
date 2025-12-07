@@ -103,9 +103,11 @@ MANAGER_TOOLS = [
     "get_available_pages",
     "get_page_schema",
     "navigate_to_page",
-    "interact_with_element",
     "highlight_element",
     "show_toast",
+    
+    # Data Tools (for Step 2 - fetch actual data)
+    "get_alerts",
 ]
 
 # Agent configuration

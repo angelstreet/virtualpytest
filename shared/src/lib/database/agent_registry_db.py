@@ -308,3 +308,92 @@ def search_agents(
     
     return definitions
 
+
+def get_enabled_agents(
+    team_id: str = DEFAULT_TEAM_ID
+) -> List[Dict[str, Any]]:
+    """
+    Get all enabled published agents for auto-start on backend boot.
+    
+    Returns:
+        List of agent definitions that should auto-start
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return []
+    
+    result = supabase.table('agent_registry').select(
+        'agent_id, version, definition, created_at'
+    ).eq('team_id', team_id).eq('status', 'published').eq('enabled', True).order('created_at', desc=True).execute()
+    
+    if not result.data:
+        return []
+    
+    # Dedupe by agent_id (keep latest version)
+    seen = set()
+    definitions = []
+    for row in result.data:
+        if row['agent_id'] not in seen:
+            seen.add(row['agent_id'])
+            definition = row['definition']
+            if isinstance(definition, str):
+                definition = json.loads(definition)
+            definitions.append(definition)
+    
+    print(f"[@agent_registry_db] 🚀 Found {len(definitions)} enabled agents for auto-start")
+    return definitions
+
+
+def set_agent_enabled(
+    agent_id: str,
+    enabled: bool,
+    team_id: str = DEFAULT_TEAM_ID
+) -> bool:
+    """
+    Enable or disable an agent's auto-start.
+    
+    Args:
+        agent_id: Agent identifier
+        enabled: True to enable, False to disable
+        team_id: Team namespace
+        
+    Returns:
+        True if updated successfully
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return False
+    
+    result = supabase.table('agent_registry').update({
+        'enabled': enabled
+    }).eq('agent_id', agent_id).eq('team_id', team_id).execute()
+    
+    if result.data:
+        status = "enabled" if enabled else "disabled"
+        print(f"[@agent_registry_db] ⚡ Agent {agent_id} {status}")
+        return True
+    return False
+
+
+def get_agent_status(
+    agent_id: str,
+    team_id: str = DEFAULT_TEAM_ID
+) -> Optional[Dict[str, Any]]:
+    """
+    Get agent status including enabled state.
+    
+    Returns:
+        Dict with agent_id, version, status, enabled, or None
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return None
+    
+    result = supabase.table('agent_registry').select(
+        'agent_id, version, status, enabled, definition'
+    ).eq('agent_id', agent_id).eq('team_id', team_id).order('created_at', desc=True).limit(1).execute()
+    
+    if result.data:
+        return result.data[0]
+    return None
+

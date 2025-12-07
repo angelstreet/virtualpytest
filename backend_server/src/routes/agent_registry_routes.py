@@ -334,3 +334,76 @@ def get_agents_for_event(event_type: str):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@server_agent_registry_bp.route('/<agent_id>/enabled', methods=['PUT'])
+def set_agent_enabled(agent_id: str):
+    """
+    Enable or disable an agent's auto-start on backend boot.
+    
+    Body: { "enabled": true/false }
+    
+    When enabled=true, agent will auto-start when backend runtime starts.
+    When enabled=false, agent won't auto-start (can still be started manually).
+    """
+    try:
+        team_id = get_team_id()
+        data = request.get_json()
+        
+        if data is None or 'enabled' not in data:
+            return jsonify({'error': 'enabled field required'}), 400
+        
+        enabled = bool(data['enabled'])
+        
+        from shared.src.lib.database import agent_registry_db
+        success = agent_registry_db.set_agent_enabled(agent_id, enabled, team_id)
+        
+        if success:
+            status = "enabled" if enabled else "disabled"
+            return jsonify({
+                'agent_id': agent_id,
+                'enabled': enabled,
+                'message': f'Agent {status} successfully'
+            }), 200
+        else:
+            return jsonify({'error': 'Agent not found'}), 404
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@server_agent_registry_bp.route('/<agent_id>/status', methods=['GET'])
+def get_agent_status(agent_id: str):
+    """
+    Get agent status including enabled state and running instances.
+    """
+    try:
+        team_id = get_team_id()
+        
+        from shared.src.lib.database import agent_registry_db
+        from agent.runtime import get_agent_runtime
+        
+        # Get agent info from registry
+        agent_status = agent_registry_db.get_agent_status(agent_id, team_id)
+        
+        if not agent_status:
+            return jsonify({'error': 'Agent not found'}), 404
+        
+        # Get running instances
+        runtime = get_agent_runtime()
+        instances = [
+            inst for inst in runtime.list_instances(team_id)
+            if inst.get('agent_id') == agent_id
+        ]
+        
+        return jsonify({
+            'agent_id': agent_id,
+            'version': agent_status.get('version'),
+            'status': agent_status.get('status'),
+            'enabled': agent_status.get('enabled', True),
+            'running_instances': len(instances),
+            'instances': instances
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

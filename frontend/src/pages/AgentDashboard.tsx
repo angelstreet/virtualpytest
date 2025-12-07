@@ -13,7 +13,7 @@ import {
   LinearProgress, Rating, Table, TableBody, TableCell, TableHead, TableRow
 } from '@mui/material';
 import { 
-  PlayArrow, Stop, Description, CloudUpload, CloudDownload,
+  Description, CloudUpload, CloudDownload,
   PowerSettingsNew, ExpandMore, ExpandLess,
   CheckCircle, Error as ErrorIcon, Warning, Schedule,
   EmojiEvents, Speed, Star
@@ -83,7 +83,6 @@ export const AgentDashboard: React.FC = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importYaml, setImportYaml] = useState('');
   const [expandedLogs, setExpandedLogs] = useState(false);
-  const [hasAutoStarted, setHasAutoStarted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Benchmarks tab state
@@ -112,14 +111,6 @@ export const AgentDashboard: React.FC = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [activeTab]);
-
-  // Auto-start agents
-  useEffect(() => {
-    if (!hasAutoStarted && agents.length > 0) {
-      autoStartAgents(agents.filter(a => a.status === 'active'));
-      setHasAutoStarted(true);
-    }
-  }, [agents, hasAutoStarted]);
 
   const loadAgents = async () => {
     try {
@@ -204,58 +195,23 @@ export const AgentDashboard: React.FC = () => {
     }
   ];
 
-  const autoStartAgents = async (agentsToStart: AgentDefinition[]) => {
-    if (agentsToStart.length === 0) return;
-    addLog('info', `Auto-starting ${agentsToStart.length} agents...`, 'system');
-    for (const agent of agentsToStart) {
-      try {
-        await handleStartAgent(agent);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (err) {
-        console.error(`Failed to auto-start ${agent.name}:`, err);
-      }
-    }
-  };
-
-  const handleStartAgent = async (agent: AgentDefinition) => {
+  const handleToggleAgent = async (agent: AgentDefinition) => {
+    const newEnabled = agent.status === 'disabled';
     try {
-      const response = await fetch(buildServerUrl('/server/runtime/instances/start'), {
-        method: 'POST',
+      const response = await fetch(buildServerUrl(`/server/agents/${agent.id}/enabled`), {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent_id: agent.id, version: agent.version })
+        body: JSON.stringify({ enabled: newEnabled })
       });
-      if (!response.ok) throw new Error('Failed to start agent');
-      const data = await response.json();
+      if (!response.ok) throw new Error('Failed to update agent');
+      
       setAgents(prev => prev.map(a => 
-        a.id === agent.id ? { ...a, status: 'running', instanceId: data.instance_id } : a
+        a.id === agent.id ? { ...a, status: newEnabled ? 'active' : 'disabled' } : a
       ));
-      addLog('success', `Agent ${agent.name} started successfully`, agent.id);
+      addLog('info', `Agent ${agent.name} ${newEnabled ? 'enabled' : 'disabled'} (will auto-start on backend restart)`, agent.id);
     } catch (err) {
-      addLog('error', `Failed to start ${agent.name}: ${err}`, agent.id);
+      addLog('error', `Failed to update ${agent.name}: ${err}`, agent.id);
     }
-  };
-
-  const handleStopAgent = async (agent: AgentDefinition) => {
-    if (!agent.instanceId) return;
-    try {
-      const response = await fetch(buildServerUrl(`/server/runtime/instances/${agent.instanceId}/stop`), {
-        method: 'POST'
-      });
-      if (!response.ok) throw new Error('Failed to stop agent');
-      setAgents(prev => prev.map(a => 
-        a.id === agent.id ? { ...a, status: 'active', instanceId: undefined } : a
-      ));
-      addLog('info', `Agent ${agent.name} stopped`, agent.id);
-    } catch (err) {
-      addLog('error', `Failed to stop ${agent.name}: ${err}`, agent.id);
-    }
-  };
-
-  const handleToggleAgent = (agent: AgentDefinition) => {
-    setAgents(prev => prev.map(a => 
-      a.id === agent.id ? { ...a, status: a.status === 'disabled' ? 'active' : 'disabled' } : a
-    ));
-    addLog('info', `Agent ${agent.name} ${agent.status === 'disabled' ? 'enabled' : 'disabled'}`, agent.id);
   };
 
   const handleExportAgent = (agent: AgentDefinition) => {
@@ -485,19 +441,16 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 1, borderTop: '1px solid #2a2a2a' }}>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      {agent.status === 'running' ? (
-                        <Tooltip title="Stop"><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleStopAgent(agent); }} sx={{ color: '#ef4444' }}><Stop fontSize="small" /></IconButton></Tooltip>
-                      ) : agent.status !== 'disabled' && (
-                        <Tooltip title="Start"><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleStartAgent(agent); }} sx={{ color: '#22c55e' }}><PlayArrow fontSize="small" /></IconButton></Tooltip>
-                      )}
                       <Tooltip title="Export"><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleExportAgent(agent); }} sx={{ color: '#888' }}><CloudDownload fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Rate"><IconButton size="small" onClick={(e) => { e.stopPropagation(); setFeedbackAgentId(agent.id); setShowFeedbackDialog(true); }} sx={{ color: GOLD }}><Star fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Benchmark"><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleRunBenchmark(agent.id, agent.version); }} sx={{ color: '#3b82f6' }}><Speed fontSize="small" /></IconButton></Tooltip>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography sx={{ color: '#666', fontSize: '0.7rem' }}>{agent.status === 'disabled' ? 'Disabled' : 'Enabled'}</Typography>
-                      <Switch size="small" checked={agent.status !== 'disabled'} onChange={(e) => { e.stopPropagation(); handleToggleAgent(agent); }}
-                        sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: GOLD }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: GOLD_DARK } }} />
+                      <Tooltip title={agent.status === 'disabled' ? 'Enable auto-start' : 'Disable auto-start'}>
+                        <Switch size="small" checked={agent.status !== 'disabled'} onChange={(e) => { e.stopPropagation(); handleToggleAgent(agent); }}
+                          sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: GOLD }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: GOLD_DARK } }} />
+                      </Tooltip>
                     </Box>
                   </Box>
                 </Paper>

@@ -66,6 +66,10 @@ class AgentPermissions(BaseModel):
 
 class AgentConfig(BaseModel):
     """Agent runtime configuration"""
+    enabled: bool = Field(
+        default=True,
+        description="Whether agent auto-starts on backend runtime start"
+    )
     max_parallel_tasks: int = Field(
         default=3,
         ge=1,

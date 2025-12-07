@@ -6,10 +6,14 @@ based on the page schema, without hard-coding each action.
 """
 
 import logging
+import requests
 from typing import Dict, Any, Optional, List
 from ..socket_manager import socket_manager
 
 logger = logging.getLogger(__name__)
+
+# Backend API base URL (same server)
+BACKEND_API_BASE = "http://localhost:5109"
 
 # Mirror of frontend PAGE_SCHEMAS - key pages and their elements
 # This should stay in sync with frontend/src/lib/ai/pageSchema.ts
@@ -325,6 +329,99 @@ def show_toast(message: str, severity: str = "info") -> str:
     return f"✅ Showed toast: {message}"
 
 
+def get_alerts(
+    status: Optional[str] = None,
+    host_name: Optional[str] = None,
+    device_id: Optional[str] = None,
+    incident_type: Optional[str] = None,
+    limit: int = 20
+) -> str:
+    """
+    Fetch alerts from the monitoring system.
+    
+    Args:
+        status: Filter by status ('active' or 'resolved'). If not set, returns both.
+        host_name: Filter by specific host
+        device_id: Filter by specific device
+        incident_type: Filter by incident type (e.g., 'freeze', 'blackscreen')
+        limit: Maximum number of alerts to return (default 20)
+    
+    Returns:
+        Summary of alerts with counts and details
+    """
+    logger.info(f"🔍 get_alerts called: status={status}, host={host_name}, device={device_id}, type={incident_type}, limit={limit}")
+    
+    try:
+        # Determine which endpoint to call based on status filter
+        if status == 'active':
+            url = f"{BACKEND_API_BASE}/server/alerts/getActiveAlerts"
+            params = {}
+        elif status == 'resolved':
+            url = f"{BACKEND_API_BASE}/server/alerts/getClosedAlerts"
+            params = {}
+        else:
+            # Get all alerts (both active and resolved)
+            url = f"{BACKEND_API_BASE}/server/alerts/getAllAlerts"
+            params = {
+                'active_limit': limit,
+                'resolved_limit': limit
+            }
+        
+        # Add optional filters
+        if host_name:
+            params['host_name'] = host_name
+        if device_id:
+            params['device_id'] = device_id
+        if incident_type:
+            params['incident_type'] = incident_type
+            
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        if not data.get('success', False):
+            return f"❌ Error fetching alerts: {data.get('error', 'Unknown error')}"
+        
+        # Format the response
+        alerts = data.get('alerts', [])
+        active_count = data.get('active_count', 0)
+        resolved_count = data.get('resolved_count', 0)
+        total_count = data.get('count', len(alerts))
+        
+        # Build summary
+        lines = [f"📊 **Alert Summary**"]
+        lines.append(f"- **Active alerts**: {active_count}")
+        lines.append(f"- **Resolved alerts**: {resolved_count}")
+        lines.append(f"- **Total**: {total_count}")
+        
+        if alerts:
+            lines.append("")
+            lines.append("**Recent Alerts:**")
+            
+            # Show up to 10 alerts with details
+            for i, alert in enumerate(alerts[:10]):
+                alert_status = alert.get('status', 'unknown')
+                status_icon = "🔴" if alert_status == 'active' else "✅"
+                incident = alert.get('incident_type', 'unknown')
+                host = alert.get('host_name', 'unknown')
+                device = alert.get('device_id', 'unknown')
+                start = alert.get('start_time', 'unknown')[:19] if alert.get('start_time') else 'unknown'
+                
+                lines.append(f"{status_icon} **{incident}** on {host}/{device} - Started: {start}")
+            
+            if len(alerts) > 10:
+                lines.append(f"... and {len(alerts) - 10} more alerts")
+        
+        return "\n".join(lines)
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching alerts: {e}")
+        return f"❌ Error fetching alerts: {str(e)}"
+    except Exception as e:
+        logger.error(f"Unexpected error in get_alerts: {e}")
+        return f"❌ Error: {str(e)}"
+
+
 # Export all tools
 PAGE_INTERACTION_TOOLS = [
     "get_available_pages",
@@ -333,5 +430,6 @@ PAGE_INTERACTION_TOOLS = [
     "interact_with_element",
     "highlight_element",
     "show_toast",
+    "get_alerts",
 ]
 

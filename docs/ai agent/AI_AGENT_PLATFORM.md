@@ -137,6 +137,50 @@ Mobile2: [Task C] → ...
 TV1:     [Task D] → ...
 ```
 
+### Agent Lifecycle Architecture
+
+**Agents are backend-managed resources.** The frontend does NOT control agent lifecycle.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                           BACKEND                                      │
+│                                                                        │
+│  ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐  │
+│  │ Agent Registry  │───▶│  Agent Runtime   │◀───│  Event Bus      │  │
+│  │ (Config + DB)   │    │  (Auto-starts)   │    │ (Triggers)      │  │
+│  └─────────────────┘    └──────────────────┘    └─────────────────┘  │
+│         ▲                        │                                    │
+│         │ read/write settings    │ status                             │
+│         │                        ▼                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │                         REST API                                 │ │
+│  │  PUT /agents/<id>/enabled  → Update config (enable/disable)     │ │
+│  │  GET /agents/<id>/status   → Get running status (READ ONLY)     │ │
+│  │  GET /runtime/instances    → List running instances (READ ONLY) │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   │ HTTP (modify settings, read status)
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                           FRONTEND                                     │
+│                                                                        │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │                    Agent Dashboard                               │ │
+│  │  • DISPLAY agent status (running/stopped) - READ ONLY           │ │
+│  │  • TOGGLE enable/disable - MODIFIES SETTINGS ONLY               │ │
+│  │  • VIEW logs, benchmarks, leaderboard                           │ │
+│  │  • NEVER directly starts/stops agents                           │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Principle:** When a user toggles "Enable" in the dashboard:
+1. Frontend calls `PUT /agents/<id>/enabled { enabled: true }`
+2. Backend updates the config in database
+3. On next backend restart, Runtime reads enabled agents and auto-starts them
+4. Frontend polls `/runtime/instances` to see updated status
+
 ---
 
 ## 3. Agent Types & Configuration
@@ -201,6 +245,7 @@ permissions:
   external: [jira, slack]
 
 config:
+  enabled: true                # Auto-start on backend boot
   max_parallel_tasks: 5
   approval_required_for: [create_jira_ticket]
   auto_retry: true
@@ -478,6 +523,13 @@ GET /server/agents?team_id=<team_id>
 # Get agent
 GET /server/agents/<agent_id>?team_id=<team_id>
 
+# Get agent status (includes enabled state and running instances)
+GET /server/agents/<agent_id>/status?team_id=<team_id>
+
+# Enable/disable agent auto-start
+PUT /server/agents/<agent_id>/enabled
+Body: {"enabled": true}
+
 # Import from YAML
 POST /server/agents/import
 Content-Type: text/yaml
@@ -488,15 +540,20 @@ GET /server/agents/<agent_id>/export
 
 ### Agent Runtime
 
+**Note:** Agents auto-start on backend boot based on their `enabled` setting. Manual start/stop is rarely needed.
+
 ```bash
-# List instances
+# List running instances
 GET /server/runtime/instances
 
-# Start agent
+# Runtime status (includes auto-started agents)
+GET /server/runtime/status
+
+# Manual start (usually not needed - agents auto-start if enabled)
 POST /server/runtime/instances/start
 Body: {"agent_id": "qa-web-manager", "version": "1.0.0"}
 
-# Stop/Pause/Resume
+# Stop/Pause/Resume instance
 POST /server/runtime/instances/<instance_id>/stop
 POST /server/runtime/instances/<instance_id>/pause
 POST /server/runtime/instances/<instance_id>/resume
@@ -590,9 +647,10 @@ Global state provider wrapping the application:
 
 - **Three tabs**: Agents | Benchmarks | Leaderboard
 - **Dark theme** with gold accents
-- **Auto-start** enabled agents on load
-- **Per-agent controls**: Start, Stop, Export, Rate, Benchmark, Enable/Disable
+- **Per-agent controls**: Export, Rate, Benchmark, Enable/Disable toggle
+- **Enable/Disable toggle**: Controls auto-start on backend (does NOT directly start/stop)
 - **Activity Log**: Expandable panel with all actions
+- **Status display**: Shows which agents are running (managed by backend)
 
 ### Agent Chat Features
 
@@ -762,7 +820,9 @@ frontend/src/
 setup/db/schema/
 ├── 020_event_system.sql
 ├── 021_agent_registry.sql
-└── 022_agent_feedback_benchmarks.sql
+├── 022_agent_feedback_benchmarks.sql
+├── 023_agent_scores_triggers.sql
+└── 024_agent_enabled_field.sql   # Agent auto-start enabled field
 ```
 
 ---
@@ -783,7 +843,9 @@ setup/db/schema/
 | Agent Dashboard | ✅ |
 | Agent Chat with selector | ✅ |
 | Skill Registry & Validation | ✅ |
-| Auto-start Agents | ✅ |
+| **Backend-Managed Agent Lifecycle** | ✅ |
+| **Auto-start Enabled Agents on Boot** | ✅ |
+| **Enable/Disable Agent Settings API** | ✅ |
 | Interactive Navigation | ✅ |
 | **2-Step Workflow (Navigate → Execute)** | ✅ |
 | **Auto-Navigation Toggle** | ✅ |
@@ -843,7 +905,7 @@ AGENT_MAX_TOKENS=8192
 
 ---
 
-*Document Version: 2.1*  
+*Document Version: 2.2*  
 *Last Updated: December 2024*  
-*Changelog: Added 2-Step Workflow documentation*
+*Changelog: Backend-managed agent lifecycle - frontend no longer controls start/stop*
 

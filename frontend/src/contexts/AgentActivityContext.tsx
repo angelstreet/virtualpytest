@@ -7,7 +7,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { getServerBaseUrl } from '../utils/buildUrlUtils';
+import { getServerBaseUrl, buildServerUrl } from '../utils/buildUrlUtils';
+import { APP_CONFIG } from '../config/constants';
 
 // Agent metadata with nicknames
 export const AGENT_METADATA: Record<string, { name: string; nickname: string; icon: string }> = {
@@ -250,7 +251,8 @@ export const AgentActivityProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []);
 
-  const submitFeedback = useCallback((agentId: string, taskId: string, rating: number, comment?: string) => {
+  const submitFeedback = useCallback(async (agentId: string, taskId: string, rating: number, comment?: string) => {
+    // Update local state first for immediate UI feedback
     setActivities(prev => {
       const activity = prev[agentId];
       if (!activity) return prev;
@@ -267,9 +269,35 @@ export const AgentActivityProvider: React.FC<{ children: React.ReactNode }> = ({
       };
     });
 
-    // Dismiss after feedback
-    setTimeout(() => dismissTask(agentId, taskId), 1000);
-  }, []);
+    // Send feedback to backend API
+    try {
+      const activity = activities[agentId];
+      const task = activity?.tasks.find(t => t.id === taskId);
+      
+      const response = await fetch(buildServerUrl(`/server/benchmarks/feedback?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: agentId,
+          rating: rating,
+          comment: comment,
+          task_description: task?.prompt,
+          // execution_id: taskId,  // Skipping - taskId is not UUID format
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to submit feedback to backend:', await response.text());
+      } else {
+        console.log('✅ Feedback submitted successfully to database');
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+    }
+
+    // Dismiss after feedback (removed auto-dismiss as per user request)
+    // setTimeout(() => dismissTask(agentId, taskId), 1000);
+  }, [activities]);
 
   const dismissTask = useCallback((agentId: string, taskId: string) => {
     // Clear any pending timeout

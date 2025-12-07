@@ -49,8 +49,8 @@ class AgentRuntime:
         
         self._running = False
     
-    async def start(self):
-        """Start runtime (connect services)"""
+    async def start(self, team_id: str = 'default'):
+        """Start runtime (connect services) and auto-start enabled agents"""
         if self._running:
             return
         
@@ -63,6 +63,37 @@ class AgentRuntime:
         
         self._running = True
         print("[@runtime] ✅ Agent Runtime started")
+        
+        # Auto-start enabled agents from registry
+        await self._auto_start_enabled_agents(team_id)
+    
+    async def _auto_start_enabled_agents(self, team_id: str = 'default'):
+        """Auto-start all enabled agents from the registry"""
+        from shared.src.lib.database import agent_registry_db
+        
+        enabled_agents = agent_registry_db.get_enabled_agents(team_id)
+        
+        if not enabled_agents:
+            print("[@runtime] ℹ️ No enabled agents to auto-start")
+            return
+        
+        print(f"[@runtime] 🚀 Auto-starting {len(enabled_agents)} enabled agents...")
+        
+        for agent_def in enabled_agents:
+            try:
+                agent_id = agent_def.get('metadata', {}).get('id')
+                version = agent_def.get('metadata', {}).get('version')
+                
+                if not agent_id:
+                    continue
+                
+                # Start the agent
+                instance_id = await self.start_agent(agent_id, version, team_id)
+                print(f"[@runtime] ✅ Auto-started: {agent_id} (instance: {instance_id})")
+                
+            except Exception as e:
+                agent_id = agent_def.get('metadata', {}).get('id', 'unknown')
+                print(f"[@runtime] ❌ Failed to auto-start {agent_id}: {e}")
     
     async def stop(self):
         """Stop runtime and all running instances"""
