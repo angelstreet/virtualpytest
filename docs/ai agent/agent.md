@@ -202,7 +202,6 @@ backend_server/src/agent/registry/templates/
 ├── qa-mobile-manager.yaml   # Scout (selectable: true)
 ├── qa-stb-manager.yaml      # Watcher (selectable: true)
 ├── monitoring-manager.yaml  # Guardian (selectable: true)
-├── qa-manager.yaml          # Captain (selectable: false, internal)
 ├── explorer.yaml            # Pathfinder (selectable: false, internal)
 └── executor.yaml            # Runner (selectable: false, internal)
 ```

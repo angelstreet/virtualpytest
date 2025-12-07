@@ -77,7 +77,6 @@ Event Sources → Event Bus → Agent Runtime → Parallel Agents → Actions �
 
 | Agent | Nickname | Icon | Role |
 |-------|----------|------|------|
-| `qa-manager` | Captain | 🎖️ | Internal orchestrator |
 | `explorer` | Pathfinder | 🧭 | UI discovery specialist |
 | `executor` | Runner | ⚡ | Test execution specialist |
 
@@ -876,7 +875,6 @@ backend_server/src/
 │   │       ├── qa-mobile-manager.yaml     # Scout
 │   │       ├── qa-stb-manager.yaml        # Watcher
 │   │       ├── monitoring-manager.yaml    # Guardian
-│   │       ├── qa-manager.yaml            # Captain (internal)
 │   │       ├── explorer.yaml              # Pathfinder (internal)
 │   │       └── executor.yaml              # Runner (internal)
 │   ├── runtime/
