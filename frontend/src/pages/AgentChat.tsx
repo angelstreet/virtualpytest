@@ -604,7 +604,7 @@ const AgentChat: React.FC = () => {
                     onClick={() => switchConversation(conv.id)}
                     sx={{
                       display: 'flex',
-                      alignItems: 'center',
+                      alignItems: 'flex-start',
                       gap: 1,
                       px: 1.5,
                       py: 1,
@@ -619,20 +619,33 @@ const AgentChat: React.FC = () => {
                       transition: 'background-color 0.15s',
                     }}
                   >
-                    <ChatIcon sx={{ fontSize: 14, color: PALETTE.textMuted, flexShrink: 0 }} />
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        color: conv.id === activeConversationId ? 'text.primary' : 'text.secondary',
-                        fontSize: '0.85rem',
-                      }}
-                    >
-                      {conv.title}
-                    </Typography>
+                    <ChatIcon sx={{ fontSize: 14, color: PALETTE.textMuted, flexShrink: 0, mt: 0.3 }} />
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          color: conv.id === activeConversationId ? 'text.primary' : 'text.secondary',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        {conv.title}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          color: PALETTE.textMuted,
+                          fontSize: '0.65rem',
+                          opacity: 0.7,
+                          mt: -0.25,
+                        }}
+                      >
+                        {new Date(conv.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </Typography>
+                    </Box>
                     {conv.id === activeConversationId && (
                       <Tooltip title="Delete">
                         <IconButton

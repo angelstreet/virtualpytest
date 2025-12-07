@@ -291,7 +291,7 @@ class ADBUtils:
             
             # Get list of installed packages (3rd party apps only)
             # Use --user 0 to avoid SecurityException on devices with work profiles (user 150+)
-            command = f"adb -s {device_id} shell pm list packages -3 --user 0"
+            command = f"adb -s {device_id} shell pm list packages --user 0"
             success, stdout, stderr, exit_code = self.execute_command(command)
             
             if not success or exit_code != 0:
