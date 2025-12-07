@@ -309,22 +309,33 @@ BEGIN
     -- Convert 1-5 rating to 0-100 score
     v_user_rating_score := (v_user_rating_avg - 1) * 25;
     
-    -- Get success rate from execution history
-    SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'completed')
-    INTO v_total_executions, v_successful_executions
-    FROM agent_execution_history
-    WHERE agent_id = p_agent_id 
-      AND version = p_agent_version
-      AND team_id = p_team_id;
+    -- Get success rate from execution history (if table exists)
+    -- Handle gracefully if agent_execution_history doesn't exist yet
+    v_total_executions := 0;
+    v_successful_executions := 0;
+    v_success_rate := 0;
     
-    v_total_executions := COALESCE(v_total_executions, 0);
-    v_successful_executions := COALESCE(v_successful_executions, 0);
-    
-    IF v_total_executions > 0 THEN
-        v_success_rate := (v_successful_executions::DECIMAL / v_total_executions) * 100;
-    ELSE
-        v_success_rate := 0;
-    END IF;
+    BEGIN
+        EXECUTE '
+            SELECT COUNT(*), COUNT(*) FILTER (WHERE status = ''completed'')
+            FROM agent_execution_history
+            WHERE agent_id = $1 
+              AND version = $2
+              AND team_id = $3'
+        INTO v_total_executions, v_successful_executions
+        USING p_agent_id, p_agent_version, p_team_id;
+        
+        v_total_executions := COALESCE(v_total_executions, 0);
+        v_successful_executions := COALESCE(v_successful_executions, 0);
+        
+        IF v_total_executions > 0 THEN
+            v_success_rate := (v_successful_executions::DECIMAL / v_total_executions) * 100;
+        END IF;
+    EXCEPTION
+        WHEN undefined_table THEN
+            -- Table doesn't exist yet, use defaults
+            NULL;
+    END;
     
     -- Calculate overall score (weighted)
     -- 40% benchmark + 30% user rating + 20% success rate + 10% cost efficiency (TBD)

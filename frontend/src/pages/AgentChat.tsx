@@ -246,6 +246,26 @@ const AgentChat: React.FC = () => {
       }, 150);
     }
   }, [searchParams, status, urlParamsProcessed, setSearchParams, setAgentId, setInput, sendMessage]);
+
+  // Handle incoming Slack messages (bidirectional chat)
+  useEffect(() => {
+    const handleSlackMessage = (event: CustomEvent) => {
+      const { content } = event.detail;
+      if (content && status === 'ready') {
+        console.log('💬 Processing Slack message:', content);
+        // Set input and auto-send
+        setInput(content);
+        setTimeout(() => {
+          sendMessage();
+        }, 150);
+      }
+    };
+
+    window.addEventListener('slack-message-received', handleSlackMessage as EventListener);
+    return () => {
+      window.removeEventListener('slack-message-received', handleSlackMessage as EventListener);
+    };
+  }, [status, setInput, sendMessage]);
   
   // Group conversations
   const groupedConversations = groupConversationsByTime(conversations);

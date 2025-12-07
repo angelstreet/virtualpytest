@@ -428,6 +428,7 @@ def test_jira_connection(instance_id):
 # ============================================================================
 
 SLACK_CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'integrations' / 'slack_config.json'
+THREADS_PATH = BACKEND_SERVER_ROOT / 'config' / 'integrations' / 'slack_threads.json'
 
 def load_slack_config():
     """Load Slack configuration from JSON file"""
@@ -688,4 +689,86 @@ def send_test_message():
             'success': False,
             'error': error_msg
         }), 400
+
+
+# =========================================
+# SLACK EVENTS API - Bidirectional Chat
+# =========================================
+
+@server_integrations_bp.route('/slack/events', methods=['POST'])
+def slack_events():
+    """
+    Slack Events API webhook endpoint for bidirectional chat
+    
+    When users reply in a Slack thread, this forwards the message
+    to the corresponding Agent Chat session via Socket.IO
+    """
+    try:
+        data = request.json
+        
+        # Handle Slack URL verification challenge
+        if data.get('type') == 'url_verification':
+            return jsonify({'challenge': data.get('challenge')})
+        
+        # Handle event callbacks
+        if data.get('type') == 'event_callback':
+            event = data.get('event', {})
+            event_type = event.get('type')
+            
+            # Only process message events in threads (replies)
+            if event_type == 'message' and event.get('thread_ts'):
+                # Ignore bot messages to prevent loops
+                if event.get('bot_id') or event.get('subtype') == 'bot_message':
+                    return jsonify({'ok': True})
+                
+                thread_ts = event.get('thread_ts')
+                user_message = event.get('text', '')
+                slack_user_id = event.get('user', '')
+                
+                print(f"[@integrations_routes:slack_events] Received Slack reply in thread {thread_ts}")
+                
+                # Load threads mapping to find session_id
+                if THREADS_PATH.exists():
+                    with open(THREADS_PATH, 'r') as f:
+                        threads = json.load(f)
+                    
+                    # Find session_id by thread_ts (reverse lookup)
+                    session_id = None
+                    for sid, ts in threads.items():
+                        if ts == thread_ts and not sid.startswith('_'):
+                            session_id = sid
+                            break
+                    
+                    if session_id:
+                        print(f"[@integrations_routes:slack_events] Found session {session_id[:8]} for thread")
+                        
+                        # Emit message to Agent Chat via Socket.IO
+                        try:
+                            from agent.socket_manager import socket_manager
+                            
+                            # Emit as a Slack user message
+                            socket_manager.emit_to_room(
+                                room=session_id,
+                                event='slack_message',
+                                data={
+                                    'type': 'slack_message',
+                                    'content': user_message,
+                                    'slack_user_id': slack_user_id,
+                                    'thread_ts': thread_ts,
+                                    'source': 'slack'
+                                }
+                            )
+                            print(f"[@integrations_routes:slack_events] ✅ Forwarded to Agent Chat session {session_id[:8]}")
+                        except Exception as emit_error:
+                            print(f"[@integrations_routes:slack_events] ❌ Failed to emit: {emit_error}")
+                    else:
+                        print(f"[@integrations_routes:slack_events] ⚠️ No session found for thread {thread_ts}")
+                else:
+                    print(f"[@integrations_routes:slack_events] ⚠️ No threads mapping file found")
+        
+        return jsonify({'ok': True})
+        
+    except Exception as e:
+        print(f"[@integrations_routes:slack_events] Error: {e}")
+        return jsonify({'ok': True})  # Always return 200 to Slack
 

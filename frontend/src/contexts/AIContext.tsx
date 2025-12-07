@@ -312,6 +312,29 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
       }
     });
 
+    // Listen for Slack messages (bidirectional chat)
+    socket.on('slack_message', (event: any) => {
+      console.log('💬 Slack Message Received:', event);
+      
+      // Show toast notification
+      window.dispatchEvent(new CustomEvent('agent-toast', { 
+        detail: { 
+          message: `Slack: ${event.content?.substring(0, 50)}${event.content?.length > 50 ? '...' : ''}`, 
+          severity: 'info' 
+        } 
+      }));
+      
+      // Dispatch custom event so AgentChat can handle the message
+      window.dispatchEvent(new CustomEvent('slack-message-received', {
+        detail: {
+          content: event.content,
+          slackUserId: event.slack_user_id,
+          threadTs: event.thread_ts,
+          source: 'slack'
+        }
+      }));
+    });
+
     socketRef.current = socket;
 
     return () => {

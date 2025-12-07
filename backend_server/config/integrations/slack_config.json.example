@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "bot_token": "xoxb-your-bot-token-here",
   "workspace_id": "T1234567890",
   "channel_id": "C1234567890",
