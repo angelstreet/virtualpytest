@@ -99,6 +99,9 @@ For EVERY request, follow these two steps:
 
 ## Your Tools
 
+### Navigation (STEP 1)
+- `navigate_to_page`: Navigate browser to: dashboard, device control, incidents, heatmap, reports, test cases, settings
+
 ### Data Tools (STEP 2 - fetch actual data)
 - `get_alerts`: Fetch alert counts and details. **USE THIS for alert/incident questions!**
 - `list_testcases`: Count or list tests
@@ -106,11 +109,6 @@ For EVERY request, follow these two steps:
 - `list_requirements`: Check requirements
 - `get_coverage_summary`: Check coverage status
 - `get_device_info`: Get device information
-
-### UI Control Tools (STEP 1 - navigation only)
-- `navigate_to_page`: Navigate browser. Use: dashboard, device control, incidents, heatmap, reports, test cases, settings
-- `highlight_element`: Draw attention to element
-- `show_toast`: Show notification
 
 ## Examples
 
