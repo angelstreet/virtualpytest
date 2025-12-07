@@ -11,7 +11,6 @@ Optional (LLM Observability - auto-enabled when LANGFUSE_HOST is set):
 """
 
 import os
-from typing import Dict, Any
 
 # Model configuration
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
@@ -23,7 +22,7 @@ LANGFUSE_ENABLED = bool(LANGFUSE_HOST)  # Auto-enable if host is set
 
 # In-memory API key storage (per-user/session)
 # Format: { 'user_id' or 'session_id': 'api_key' }
-_user_api_keys: Dict[str, str] = {}
+_user_api_keys: dict[str, str] = {}
 
 def set_user_api_key(identifier: str, api_key: str) -> None:
     """Store API key for a user/session"""
@@ -57,45 +56,4 @@ def get_anthropic_api_key(identifier: str | None = None) -> str:
     if not key:
         raise ValueError("ANTHROPIC_API_KEY not set in environment")
     return key
-
-# Agent configuration
-AGENT_CONFIG: Dict[str, Dict[str, Any]] = {
-    "qa_manager": {
-        "name": "QA Manager",
-        "model": DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "has_tools": True,  # Hybrid: Orchestrator + Simple Tools
-    },
-    "explorer": {
-        "name": "Explorer",
-        "model": DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "has_tools": True,
-    },
-    "builder": {
-        "name": "Builder", 
-        "model": DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "has_tools": True,
-    },
-    "executor": {
-        "name": "Executor",
-        "model": DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "has_tools": True,
-    },
-    "analyst": {
-        "name": "Analyst",
-        "model": DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "has_tools": True,
-    },
-    "maintainer": {
-        "name": "Maintainer",
-        "model": DEFAULT_MODEL,
-        "max_tokens": MAX_TOKENS,
-        "has_tools": True,
-    },
-}
-
 

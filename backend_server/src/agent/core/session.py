@@ -11,7 +11,6 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 
 from .message_types import ApprovalRequest, ApprovalResponse
-from ..config import Mode
 
 
 @dataclass

@@ -1,24 +1,6 @@
 # AI Agent Platform
 
-VirtualPyTest AI Agent is a multi-agent platform for automated QA testing, powered by Claude.
-
-**Implementation Status: ~90% Complete**
-
----
-
-## Table of Contents
-
-1. [Overview](#1-overview)
-2. [Architecture](#2-architecture)
-3. [Agent Types & Configuration](#3-agent-types--configuration)
-4. [2-Step Workflow](#4-2-step-workflow)
-5. [Interactive Navigation](#5-interactive-navigation)
-6. [Global Badge System](#6-global-badge-system)
-7. [API Reference](#7-api-reference)
-8. [Frontend Integration](#8-frontend-integration)
-9. [Scoring & Feedback](#9-scoring--feedback)
-10. [Quick Start](#10-quick-start)
-11. [File Structure](#11-file-structure)
+VirtualPyTest AI Agent - YAML-driven multi-agent platform for automated QA testing.
 
 ---
 
@@ -26,17 +8,11 @@ VirtualPyTest AI Agent is a multi-agent platform for automated QA testing, power
 
 ### System Architecture
 
-The platform operates in two modes:
-
-**Chat Mode (Reactive)**
 ```
-User Message → QA Manager → Mode Detection → Agent Delegation → Response
+User Message → Manager loads YAML → Claude uses tools OR delegates → Response
 ```
 
-**Autonomous Mode (Event-Driven)**
-```
-Event Sources → Event Bus → Agent Runtime → Parallel Agents → Actions → Feedback
-```
+**Key Principle: No hardcoded logic in manager. Everything from YAML.**
 
 ### Agent Hierarchy
 
@@ -44,672 +20,210 @@ Event Sources → Event Bus → Agent Runtime → Parallel Agents → Actions �
 ┌─────────────────────────────────────────────────────────────────┐
 │                    AI ASSISTANT (Atlas)                          │
 │                     Default Generic Agent                        │
-│                 Routes to specialists when needed                │
+│            Claude decides when to delegate based on tools        │
 └──────────────────────────┬───────────────────────────────────────┘
-                           │ delegates to
+                           │ DELEGATE TO [agent_id]
           ┌────────────────┼────────────────┐
           ▼                ▼                ▼
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ 🧪 Sherlock     │ │ 🔍 Scout        │ │ 📺 Watcher      │
-│ QA Web Manager  │ │ QA Mobile Mgr   │ │ QA STB Manager  │
+│ 🧭 Pathfinder   │ │ ⚡ Runner       │ │ Other sub-agents│
+│    (explorer)   │ │   (executor)   │ │                 │
 └─────────────────┘ └─────────────────┘ └─────────────────┘
-          │                │                │
-          ▼                ▼                ▼
-   ┌────────────┐   ┌────────────┐   ┌────────────┐
-   │ 🧭 Pathfinder│  │ ⚡ Runner  │   │ 🛡️ Guardian │
-   │  Explorer   │   │  Executor  │   │ Monitoring  │
-   └────────────┘   └────────────┘   └────────────┘
 ```
 
 ### Pre-configured Agents
 
-**User-Selectable Agents** (shown in UI dropdown):
+**User-Selectable** (`selectable: true` in YAML):
 
-| Agent | Nickname | Icon | Platform | Purpose |
-|-------|----------|------|----------|---------|
-| `ai-assistant` | Atlas | 🤖 | All | Main entrance, general purpose |
-| `qa-web-manager` | Sherlock | 🧪 | Web | Browser testing specialist |
-| `qa-mobile-manager` | Scout | 🔍 | Mobile | Android/iOS testing |
-| `qa-stb-manager` | Watcher | 📺 | STB/TV | Set-top box validation |
-| `monitoring-manager` | Guardian | 🛡️ | All | System health monitoring |
+| Agent | Nickname | Icon | Platform |
+|-------|----------|------|----------|
+| `ai-assistant` | Atlas | 🤖 | All |
+| `qa-web-manager` | Sherlock | 🧪 | Web |
+| `qa-mobile-manager` | Scout | 🔍 | Mobile |
+| `qa-stb-manager` | Watcher | 📺 | STB/TV |
+| `monitoring-manager` | Guardian | 🛡️ | All |
 
-**Internal Sub-Agents** (not user-selectable):
+**Internal Sub-Agents** (`selectable: false`):
 
 | Agent | Nickname | Icon | Role |
 |-------|----------|------|------|
-| `explorer` | Pathfinder | 🧭 | UI discovery specialist |
-| `executor` | Runner | ⚡ | Test execution specialist |
+| `explorer` | Pathfinder | 🧭 | UI discovery |
+| `executor` | Runner | ⚡ | Test execution |
 
 ---
 
-## 2. Architecture
+## 2. YAML-Driven Architecture
 
-### Agent Selection Philosophy
+### No Hardcoded Mode Detection
 
-**Atlas is the main entrance.** All other selectable agents are specialists:
+**OLD (removed):**
+```python
+# ❌ REMOVED - No more hardcoded keywords
+def detect_mode(self, message):
+    if "automate" in message: return Mode.CREATE
+    if "run test" in message: return Mode.VALIDATE
+```
+
+**NEW (YAML-driven):**
+```python
+# ✅ Claude decides based on available tools
+prompt = "Use your tools. If you lack the tool, say: DELEGATE TO [agent_id]"
+```
+
+### How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              USER SELECTS IN DROPDOWN                            │
-├─────────────────────────────────────────────────────────────────┤
-│  Atlas       → General purpose, routes to specialists            │
-│  Sherlock    → Shortcut for web testing                         │
-│  Scout       → Shortcut for mobile testing                      │
-│  Watcher     → Shortcut for STB testing                         │
-│  Guardian    → Shortcut for monitoring                          │
-│  + Custom agents imported via YAML                              │
+│ 1. Load YAML Config                                              │
+│    skills: [list_testcases, navigate_to_page, ...]              │
+│    subagents: [explorer, executor]                               │
 └─────────────────────────────────────────────────────────────────┘
-                              │
-                    ALL delegate to
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              INTERNAL SUB-AGENTS (Hidden)                        │
-├─────────────────────────────────────────────────────────────────┤
-│  Pathfinder (explorer)   → UI discovery                         │
-│  Runner (executor)       → Test execution                       │
+│ 2. Build System Prompt                                           │
+│    "Your tools: list_testcases, navigate_to_page..."            │
+│    "Sub-agents: explorer (has navigate_to_node), executor..."   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. Claude Decides                                                │
+│    - Has the tool? → Use it                                      │
+│    - Lacks the tool? → "DELEGATE TO explorer"                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. Manager Validates & Delegates                                 │
+│    - Is "explorer" in YAML subagents? → Yes                     │
+│    - Lazy-load ExplorerAgent                                    │
+│    - Run with original message                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Points:**
-- No distinction between "selectable" and "internal" in architecture
-- All 8 agents defined in YAML templates (`selectable: true/false`)
-- Frontend filters by `selectable: true` for dropdown
-- Backend uses agent's nickname for all events
-- Users can add custom agents via YAML import
-
 ---
 
-## 2b. Core Components
+## 3. YAML Configuration
 
-### Core Components
-
-```
-backend_server/src/
-├── agent/
-│   ├── agents/              # Specialist agents (Explorer, Builder, etc.)
-│   ├── core/
-│   │   ├── manager.py       # QA Manager orchestrator
-│   │   ├── session.py       # Chat session management
-│   │   └── tool_bridge.py   # MCP ↔ Agent bridge
-│   ├── registry/
-│   │   ├── config_schema.py # Pydantic models
-│   │   ├── registry.py      # Agent CRUD & versioning
-│   │   └── templates/       # Pre-defined YAML agents
-│   ├── runtime/
-│   │   ├── runtime.py       # Instance lifecycle
-│   │   └── state.py         # State management
-│   └── skills/
-│       └── skill_registry.py # MCP tool validation
-├── events/
-│   ├── event_bus.py         # Redis pub/sub + DB logging
-│   └── event_router.py      # Event → Agent routing
-├── resources/
-│   └── lock_manager.py      # Device locking
-└── routes/
-    ├── server_agent_routes.py     # Chat & sessions
-    ├── agent_registry_routes.py   # Agent CRUD
-    ├── agent_runtime_routes.py    # Instance management
-    ├── agent_benchmark_routes.py  # Benchmarks & feedback
-    └── event_routes.py            # Event publishing
-```
-
-### Event-Driven System
-
-**Event Sources:**
-- Chat/Slack messages
-- Alert system (blackscreen, device offline)
-- CI/CD webhooks
-- Scheduler (cron)
-- Database watchers
-- Device monitors
-
-**Event Priority Levels:**
-| Priority | Examples | Behavior |
-|----------|----------|----------|
-| Critical | Blackscreen, crash | Immediate action |
-| High | Build deployed, test failure | Next in queue |
-| Normal | Scheduled regression | Standard processing |
-| Low | Metrics collection | Background |
-
-### Resource Lock Manager
-
-Prevents device conflicts during parallel execution:
-```
-Mobile1: [Task A] → [Task B] → ...
-Mobile2: [Task C] → ...
-TV1:     [Task D] → ...
-```
-
-### Agent Lifecycle Architecture
-
-**Agents are backend-managed resources.** The frontend does NOT control agent lifecycle.
-
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                           BACKEND                                      │
-│                                                                        │
-│  ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐  │
-│  │ Agent Registry  │───▶│  Agent Runtime   │◀───│  Event Bus      │  │
-│  │ (Config + DB)   │    │  (Auto-starts)   │    │ (Triggers)      │  │
-│  └─────────────────┘    └──────────────────┘    └─────────────────┘  │
-│         ▲                        │                                    │
-│         │ read/write settings    │ status                             │
-│         │                        ▼                                    │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │                         REST API                                 │ │
-│  │  PUT /agents/<id>/enabled  → Update config (enable/disable)     │ │
-│  │  GET /agents/<id>/status   → Get running status (READ ONLY)     │ │
-│  │  GET /runtime/instances    → List running instances (READ ONLY) │ │
-│  └─────────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   │ HTTP (modify settings, read status)
-                                   ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                           FRONTEND                                     │
-│                                                                        │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │                    Agent Dashboard                               │ │
-│  │  • DISPLAY agent status (running/stopped) - READ ONLY           │ │
-│  │  • TOGGLE enable/disable - MODIFIES SETTINGS ONLY               │ │
-│  │  • VIEW logs, benchmarks, leaderboard                           │ │
-│  │  • NEVER directly starts/stops agents                           │ │
-│  └─────────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-**Key Principle:** When a user toggles "Enable" in the dashboard:
-1. Frontend calls `PUT /agents/<id>/enabled { enabled: true }`
-2. Backend updates the config in database
-3. On next backend restart, Runtime reads enabled agents and auto-starts them
-4. Frontend polls `/runtime/instances` to see updated status
-
----
-
-## 3. Agent Types & Configuration
-
-### Operating Modes
-
-| Mode | Keywords | Agents Used |
-|------|----------|-------------|
-| **CREATE** | "automate", "create", "build" | Explorer → Builder |
-| **VALIDATE** | "run", "test", "regression" | Executor → Analyst |
-| **ANALYZE** | "analyze", "investigate" | Analyst |
-| **MAINTAIN** | "fix", "repair", "broken" | Maintainer |
-| **DIRECT** | "list", "count", "show" | QA Manager (no delegation) |
-
-### YAML Configuration
+### Agent YAML Structure
 
 ```yaml
 metadata:
-  id: qa-web-manager
-  name: QA Web Manager
-  nickname: Sherlock        # Display name (shown in UI)
-  icon: "🧪"                # Emoji icon
-  selectable: true          # true = shown in dropdown, false = internal sub-agent
-  version: 1.0.0
-  author: system
-  description: Web testing specialist
+  id: ai-assistant
+  name: AI Assistant
+  nickname: Atlas
+  icon: "🤖"
+  selectable: true          # Shown in UI dropdown
+  description: General AI assistant
 
-goal:
-  type: continuous          # or "on-demand"
-  description: Monitor web-based userinterfaces
-
-triggers:
-  - type: alert.blackscreen
-    priority: critical
-    filters:
-      platform: web
-  - type: build.deployed
-    priority: high
-  - type: schedule.web_regression
-    priority: normal
-
-event_pools:
-  - shared.alerts
-  - own.qa-web-tasks
-
-subagents:
-  - id: explorer
-    version: ">=1.0.0"
-    delegate_for: [ui_discovery]
-  - id: executor
-    version: ">=1.0.0"
-    delegate_for: [test_execution]
-
-skills:                     # Must be valid MCP tools!
+skills:                     # Tools this agent can use
+  - list_testcases
   - list_userinterfaces
-  - take_control
-  - execute_testcase
-  - navigate_to_page
+  - navigate_to_page        # Browser navigation
+  - get_device_info
+  # NO navigate_to_node     # Must delegate for device nav
 
-permissions:
-  devices: [read, take_control]
-  database: [read, write.results]
-  external: [jira, slack]
+subagents:                  # Who this agent can delegate to
+  - id: explorer
+    delegate_for:
+      - ui_discovery
+      - navigation_exploration
+  - id: executor
+    delegate_for:
+      - test_execution
 
 config:
-  enabled: true                # Auto-start on backend boot
-  max_parallel_tasks: 5
-  approval_required_for: [create_jira_ticket]
-  auto_retry: true
-  feedback_collection: true
-  timeout_seconds: 1800
-  budget_limit_usd: 30.00
+  timeout_seconds: 300
 ```
 
-### Skills → MCP Tools Mapping
+### Skills → MCP Tools
 
 | Category | Tools |
 |----------|-------|
-| **control** | `take_control`, `release_control` |
+| **control** | `take_control` |
 | **device** | `get_device_info`, `list_hosts` |
-| **navigation** | `navigate_to_node`, `list_nodes`, `navigate_to_page` |
+| **navigation** | `navigate_to_node`, `navigate_to_page` |
 | **testcase** | `list_testcases`, `execute_testcase` |
-| **verification** | `list_verifications`, `verify_element` |
 | **userinterface** | `list_userinterfaces`, `get_userinterface_complete` |
 
 ### Platform-Specific Skills
 
 | Platform | UI Inspection | Why |
 |----------|---------------|-----|
-| **Web** | `dump_ui_elements` ✅ | DOM hierarchy available |
-| **Mobile** | `dump_ui_elements` ✅ | ADB UI hierarchy available |
-| **STB/TV** | `capture_screenshot` only ❌ | No UI hierarchy access, use AI vision |
-
-**STB/TV agents MUST use:**
-- `capture_screenshot` → AI vision analysis
-- `get_transcript` → Audio analysis
-- **NOT** `dump_ui_elements` (will fail)
-
-### Single Source of Truth
-
-Agent configuration flows: **YAML → Memory → API → Frontend**
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. YAML Templates (backend_server/src/agent/registry/templates) │
-│    Defines: id, name, nickname, icon, selectable, skills        │
-│    SOURCE OF TRUTH for system agents                            │
-└────────────────────────┬─────────────────────────────────────────┘
-                         │ loaded on startup
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Memory Cache (AgentRegistry._system_agents)                  │
-│    - All agents loaded into memory                              │
-│    - No database for system agents                              │
-│    - Agents are global (no team_id)                             │
-│    - Reload via POST /server/agents/reload                      │
-└────────────────────────┬─────────────────────────────────────────┘
-                         │ exposed via
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. REST API (GET /server/agents)                                │
-│    Returns all agents with full metadata                        │
-│    No team_id parameter - agents are system-wide                │
-└────────────────────────┬─────────────────────────────────────────┘
-                         │ consumed by
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 4. Frontend (AgentChat.tsx, AgentDashboard.tsx)                 │
-│    • Loads agents from API on mount                             │
-│    • Filters by selectable: true for dropdown                   │
-│    • Uses nickname everywhere (chat, dashboard, badges)         │
-│    • Includes internal agents in nickname lookup                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Backend uses nickname in all events:**
-```python
-# manager.py
-@property
-def nickname(self) -> str:
-    return self.agent_config.get('nickname', 'Atlas')
-
-yield AgentEvent(type=EventType.THINKING, agent=self.nickname, ...)
-```
+| **Web** | `dump_ui_elements` ✅ | DOM available |
+| **Mobile** | `dump_ui_elements` ✅ | ADB hierarchy |
+| **STB/TV** | `capture_screenshot` only | No UI hierarchy |
 
 ---
 
-## 4. 2-Step Workflow
+## 4. Interactive Navigation
 
-The AI agent follows a mandatory 2-step workflow for all requests, separating **navigation** (visual context) from **task execution** (actual work).
+### Browser Navigation (navigate_to_page)
 
-### Workflow Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER REQUEST                             │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ STEP 1: NAVIGATION (Optional - for visual context)              │
-├─────────────────────────────────────────────────────────────────┤
-│ Skip if:                                                         │
-│   • Auto-navigation toggle is OFF                               │
-│   • User is already on target page                              │
-│   • Request has no relevant page                                │
-│                                                                  │
-│ Execute if: Toggle ON + Not on page + Page exists               │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ STEP 2: TASK EXECUTION (Required unless navigation-only)        │
-├─────────────────────────────────────────────────────────────────┤
-│ Skip if: Request is purely navigation ("go to X")               │
-│                                                                  │
-│ Execute: Use tools to provide ACTUAL DATA                       │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Request Classification
-
-| Request Type | Step 1 (Navigate) | Step 2 (Execute) |
-|--------------|-------------------|------------------|
-| "go to incidents" | ✅ Navigate | ❌ Skip |
-| "how many alerts?" | ✅ Navigate (if enabled) | ✅ Fetch data |
-| "list test cases" | ✅ Navigate (if enabled) | ✅ Fetch data |
-| "run regression" | ❌ Skip | ✅ Execute |
-
-### Auto-Navigation Toggle
-
-Users can control whether the AI navigates their browser:
-
-- **Toggle ON**: AI navigates to relevant page, then executes task
-- **Toggle OFF**: AI skips navigation, directly executes task
-
-The toggle is available in the AgentChat UI (top bar).
-
-### Context Passed to Backend
-
-Frontend sends navigation context with every message:
-
-```typescript
-socketRef.current.emit('send_message', {
-  session_id: sessionId,
-  message: message,
-  team_id: teamId,
-  agent_id: agentId,
-  allow_auto_navigation: true,    // Toggle state
-  current_page: '/ai-agent',      // User's current location
-});
-```
-
-### Page Mapping
-
-| Keywords | Target Page |
-|----------|-------------|
-| alerts, incidents | `/monitoring/incidents` |
-| devices, device control | `/device-control` |
-| reports, test reports | `/test-results/reports` |
-| heatmap | `/monitoring/heatmap` |
-| test cases | `/test-plan/test-cases` |
-| dashboard | `/` |
-
-### Example Flow
-
-**User asks**: "How many alerts are there?"
-
-```
-1. AI receives context:
-   - allow_auto_navigation: true
-   - current_page: /ai-agent
-
-2. Step 1 (Navigation):
-   - Check: Is navigation enabled? → YES
-   - Check: Is user on /monitoring/incidents? → NO
-   - Action: navigate_to_page("incidents")
-
-3. Step 2 (Task Execution):
-   - Use available tools to fetch alert data
-   - Return: "There are 5 active alerts and 12 closed alerts."
-```
-
----
-
-## 5. Interactive Navigation
-
-The AI can control the user's browser within the React application.
-
-### Capabilities
-
-- Navigate to any page
-- Interact with UI elements (click, filter, select)
-- Highlight elements to draw attention
-- Show toast notifications
-
-### Event Flow
+Atlas has this tool - navigates within VirtualPyTest web UI:
 
 ```
 User: "go to incidents"
     ↓
-AI calls: navigate_to_page("incidents")
+Atlas calls: navigate_to_page("incidents")
     ↓
-Backend emits WebSocket: { action: "navigate", path: "/monitoring/incidents" }
-    ↓
-AIContext receives → calls React Router navigate()
-    ↓
-Page renders → AI can continue with interact_with_element()
+Frontend navigates to /monitoring/incidents
 ```
 
-### Page Schema
+### Device Navigation (navigate_to_node)
 
-```typescript
-// frontend/src/lib/ai/pageSchema.ts
-interface PageSchema {
-  path: string;           // Route path
-  name: string;           // Display name
-  elements: PageElement[];// Controllable elements
-}
+Atlas does NOT have this - delegates to Explorer:
 
-interface PageElement {
-  id: string;             // Unique element ID
-  type: string;           // button, table, dropdown, etc.
-  actions: string[];      // click, select, filter...
-}
+```
+User: "go to home on device s21x"
+    ↓
+Atlas: "I don't have navigate_to_node"
+Atlas: "DELEGATE TO explorer"
+    ↓
+Explorer calls: take_control(), navigate_to_node()
 ```
 
-### Navigation Aliases
+### Page Mapping (for navigate_to_page)
 
 | Alias | Path |
 |-------|------|
 | `dashboard`, `home` | `/` |
-| `device control`, `devices` | `/device-control` |
-| `run tests` | `/test-execution/run-tests` |
+| `devices` | `/device-control` |
 | `incidents`, `alerts` | `/monitoring/incidents` |
-| `heatmap` | `/monitoring/heatmap` |
 | `reports` | `/test-results/reports` |
-| `test builder` | `/builder/test-builder` |
-| `ai agent`, `chat` | `/ai-agent` |
-
-### useAIControllable Hook
-
-```tsx
-import { useAIControllable } from '../hooks/ai';
-
-const RunButton = () => {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  
-  useAIControllable({
-    elementId: 'run-btn',
-    ref: buttonRef,
-    onAction: (action, params) => {
-      if (action === 'click') handleRunClick();
-    }
-  });
-  
-  return <button ref={buttonRef}>Run Test</button>;
-};
-```
+| `test cases` | `/test-plan/test-cases` |
 
 ---
 
-## 6. Global Badge System
-
-Floating badges show real-time agent activity across all pages.
-
-### Badge Behavior
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         ANY PAGE                                 │
-│                                                                  │
-│                                                                  │
-│                                       ┌────────────────────────┐│
-│                                       │ 🧪 Sherlock        (2) ││ ← Manual on TOP
-│                                       │    Checking incidents  ││
-│                                       │    ●●○ processing      ││
-│                                       └────────────────────────┘│
-│                                       ┌────────────────────────┐│
-│                                       │ 🛡️ Guardian            ││ ← Auto below
-│                                       │    Health check        ││
-│                                       │    ●○○ processing      ││
-│                                       └────────────────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Stacking Rules
-
-1. **Manual triggers** → Always on TOP (user initiated = priority)
-2. **Auto triggers** → Stack BELOW manual ones
-3. **One badge per agent** (with task count if multiple)
-
-### Badge States
-
-| State | Visual | Duration |
-|-------|--------|----------|
-| Processing | `●●○` dots | Until complete |
-| Complete (manual) | `✓` + summary | Until user dismisses |
-| Complete (auto) | `✓` flash | 10 seconds then fade |
-| Error | `⚠` red | Until acknowledged |
-
-### On Completion (Manual Tasks)
-
-```
-┌────────────────────────────────────────┐
-│ 🧪 Sherlock                        ✓   │
-│ ──────────────────────────────────────│
-│ Found 3 open incidents                 │
-│                                        │
-│ Was this helpful?  [👍] [👎]           │
-│ [↩ Back to Chat]  [✕ Dismiss]         │
-└────────────────────────────────────────┘
-```
-
----
-
-## 7. API Reference
-
-### Chat & Sessions
-
-```bash
-# Health check
-GET /server/agent/health
-
-# Create session
-POST /server/agent/sessions
-
-# List sessions
-GET /server/agent/sessions
-
-# Get/Delete session
-GET/DELETE /server/agent/sessions/<id>
-```
+## 5. API Reference
 
 ### Agent Registry
 
 ```bash
-# List all agents (loaded from YAML templates)
+# List all agents
 GET /server/agents
 
-# List only selectable agents
+# List selectable only
 GET /server/agents?selectable=true
-GET /server/agents/selectable
 
-# Get agent by ID
+# Get specific agent
 GET /server/agents/<agent_id>
 
-# Export to YAML
-GET /server/agents/<agent_id>/export
-
-# Reload agents from YAML (development)
+# Reload from YAML
 POST /server/agents/reload
-
-# Note: No team_id - agents are global system resources
 ```
 
-### Agent Runtime
-
-**Note:** Agents auto-start on backend boot based on their `enabled` setting. Manual start/stop is rarely needed.
+### Chat
 
 ```bash
-# List running instances
-GET /server/runtime/instances
+# Create session
+POST /server/agent/sessions
 
-# Runtime status (includes auto-started agents)
-GET /server/runtime/status
-
-# Manual start (usually not needed - agents auto-start if enabled)
-POST /server/runtime/instances/start
-Body: {"agent_id": "qa-web-manager", "version": "1.0.0"}
-
-# Stop/Pause/Resume instance
-POST /server/runtime/instances/<instance_id>/stop
-POST /server/runtime/instances/<instance_id>/pause
-POST /server/runtime/instances/<instance_id>/resume
-```
-
-### Events
-
-```bash
-# Publish event
-POST /api/events/publish
-Body: {
-  "type": "alert.blackscreen",
-  "payload": {"device_id": "device1"},
-  "priority": "critical"
-}
-
-# Get stats
-GET /api/events/stats
-```
-
-### Benchmarks & Feedback
-
-```bash
-# Run benchmark
-POST /server/benchmarks/run
-Body: {"agent_id": "qa-web-manager", "version": "1.0.0"}
-
-# Submit feedback
-POST /server/benchmarks/feedback
-Body: {"agent_id": "...", "rating": 5, "comment": "Great!"}
-
-# Get leaderboard
-GET /server/benchmarks/leaderboard
-
-# Compare agents
-GET /server/benchmarks/compare?ids=agent1:1.0.0,agent2:1.0.0
-```
-
-### SocketIO Events
-
-| Event | Direction | Data |
-|-------|-----------|------|
-| `join_session` | Client → Server | `{session_id}` |
-| `send_message` | Client → Server | `{session_id, message, agent_id, allow_auto_navigation, current_page}` |
-| `agent_event` | Server → Client | Thinking, tool_call, message, etc. |
-| `ui_action` | Server → Client | navigate, interact, highlight, toast |
-
-**`send_message` payload:**
-```json
+# SocketIO: send_message
 {
   "session_id": "uuid",
-  "message": "how many alerts?",
-  "team_id": "default",
+  "message": "go to home on device s21x",
   "agent_id": "ai-assistant",
   "allow_auto_navigation": true,
   "current_page": "/ai-agent"
@@ -718,104 +232,63 @@ GET /server/benchmarks/compare?ids=agent1:1.0.0,agent2:1.0.0
 
 ---
 
-## 8. Frontend Integration
+## 6. Frontend Integration
 
-### AI Context
-
-Global state provider wrapping the application:
+### AgentChat Component
 
 ```tsx
-// App.tsx
-<AIProvider>
-  <AgentActivityProvider>
-    <AIOmniOverlay />
-    <GlobalAgentBadges />
-    <AgentActivityBridge />
-    {/* App content */}
-  </AgentActivityProvider>
-</AIProvider>
+// Loads agents from API
+const agents = await fetch('/server/agents?selectable=true');
+
+// Filters for dropdown
+agents.filter(a => a.metadata.selectable);
+
+// Shows nickname everywhere
+<AgentSelector agents={agents} />
 ```
 
-### Key Components
+### Agent Activity Badges
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| `AICommandBar` | Global (Cmd+K) | Quick command input |
-| `AgentPilotPanel` | Right sidebar | Agent steps & status |
-| `GlobalAgentBadges` | Bottom-right | Real-time activity badges |
-| `AgentDashboard` | `/agent-dashboard` | Manage all agents |
-| `AgentChat` | `/ai-agent` | Chat with agents |
-
-### Agent Dashboard Features
-
-- **Three tabs**: Agents | Benchmarks | Leaderboard
-- **Dark theme** with gold accents
-- **Per-agent controls**: Export, Rate, Benchmark, Enable/Disable toggle
-- **Enable/Disable toggle**: Controls auto-start on backend (does NOT directly start/stop)
-- **Activity Log**: Expandable panel with all actions
-- **Status display**: Shows which agents are running (managed by backend)
-
-### Agent Chat Features
-
-- **Agent selector** dropdown (loads agents from API, filters by `selectable: true`)
-- **Nicknames everywhere** (Atlas, Sherlock, Scout, Watcher, Guardian)
-- **Conversation history** sidebar
-- **Real-time streaming** of agent responses
-- **Tool call visualization** (collapsible)
-- **Approval requests** when needed
-- **Agent delegation visible** (e.g., "Atlas delegates to Pathfinder...")
+Shows real-time agent status across all pages.
 
 ---
 
-## 9. Scoring & Feedback
-
-### Score Formula
+## 7. File Structure
 
 ```
-Overall = (Benchmark × 40%) + (UserRating × 30%) + (SuccessRate × 20%) + (Cost × 10%)
+backend_server/src/agent/
+├── agents/                      # Sub-agent implementations
+│   ├── explorer.py             # Pathfinder (lazy-loaded)
+│   ├── executor.py             # Runner (lazy-loaded)
+│   └── ...
+├── core/
+│   ├── manager.py              # YAML-driven orchestrator
+│   ├── session.py
+│   └── tool_bridge.py
+├── registry/
+│   ├── templates/              # YAML configs (Source of Truth)
+│   │   ├── ai-assistant.yaml
+│   │   ├── explorer.yaml
+│   │   └── ...
+│   └── registry.py
+└── config.py                   # Model config only
+
+frontend/src/
+├── pages/
+│   ├── AgentChat.tsx
+│   └── AgentDashboard.tsx
+└── contexts/
+    └── AIContext.tsx
 ```
-
-| Component | Weight | Source |
-|-----------|--------|--------|
-| Benchmark Score | 40% | Automated tests (0-100) |
-| User Rating | 30% | 1-5 stars → 0-100 |
-| Success Rate | 20% | Execution history |
-| Cost Efficiency | 10% | Tokens per task |
-
-### Benchmark Categories
-
-| Category | Tests | Description |
-|----------|-------|-------------|
-| navigation | 2 | List UIs, navigate to nodes |
-| detection | 2 | Device status, health checks |
-| execution | 2 | List test cases, load details |
-| analysis | 2 | Coverage summary, requirements |
-| recovery | 2 | Handle invalid input, timeouts |
-
-### Feedback Collection
-
-- **Per task** rating (👍/👎 or 1-5 stars)
-- **Optional comment** for detailed feedback
-- **Automatic collection** after task completion
 
 ---
 
-## 10. Quick Start
-
-### Prerequisites
-
-```bash
-# Start Redis (required for Event Bus)
-sudo systemctl start redis-server   # Linux
-brew services start redis           # macOS
-```
+## 8. Quick Start
 
 ### Start Backend
 
 ```bash
 ./setup/local/launch_server.sh
-# Or
-./backend_server/scripts/launch_virtualserver.sh
 ```
 
 ### Start Frontend
@@ -824,193 +297,38 @@ brew services start redis           # macOS
 ./setup/local/launch_frontend.sh
 ```
 
-### Access URLs
-
-| URL | Description |
-|-----|-------------|
-| `http://localhost:5073/ai-agent` | Agent Chat |
-| `http://localhost:5073/agent-dashboard` | Agent Dashboard |
-| `http://localhost:5109/api/...` | Backend API |
-
-### Quick Test
+### Test
 
 ```bash
-# Import custom agent
-curl -X POST http://localhost:5109/server/agents/import \
-  -H "Content-Type: text/yaml" \
-  --data-binary @my-agent.yaml
+# Reload agents from YAML
+curl -X POST http://localhost:5109/server/agents/reload
 
-# Publish test event
-curl -X POST http://localhost:5109/api/events/publish \
-  -H "Content-Type: application/json" \
-  -d '{"type": "alert.blackscreen", "payload": {"device_id": "test"}, "priority": "high"}'
+# List agents
+curl http://localhost:5109/server/agents
 ```
 
 ---
 
-## 11. File Structure
+## 9. Troubleshooting
 
-```
-backend_server/src/
-├── agent/
-│   ├── agents/                    # Specialist agents
-│   │   ├── base_agent.py
-│   │   ├── explorer.py
-│   │   ├── builder.py
-│   │   ├── executor.py
-│   │   ├── analyst.py
-│   │   └── maintainer.py
-│   ├── core/
-│   │   ├── manager.py             # QA Manager orchestrator
-│   │   ├── session.py
-│   │   └── tool_bridge.py
-│   ├── registry/
-│   │   ├── config_schema.py       # Pydantic models
-│   │   ├── registry.py            # CRUD operations
-│   │   ├── validator.py           # YAML validation
-│   │   └── templates/             # Agent YAMLs (Source of Truth)
-│   │       ├── ai-assistant.yaml          # Atlas (main entrance)
-│   │       ├── qa-web-manager.yaml        # Sherlock
-│   │       ├── qa-mobile-manager.yaml     # Scout
-│   │       ├── qa-stb-manager.yaml        # Watcher
-│   │       ├── monitoring-manager.yaml    # Guardian
-│   │       ├── explorer.yaml              # Pathfinder (internal)
-│   │       └── executor.yaml              # Runner (internal)
-│   ├── runtime/
-│   │   ├── runtime.py
-│   │   └── state.py
-│   ├── skills/
-│   │   └── skill_registry.py
-│   └── async_utils.py
-├── events/
-│   ├── event_bus.py
-│   └── event_router.py
-├── resources/
-│   └── lock_manager.py
-├── database/
-│   └── async_client.py
-└── routes/
-    ├── server_agent_routes.py
-    ├── agent_registry_routes.py
-    ├── agent_runtime_routes.py
-    ├── agent_benchmark_routes.py
-    └── event_routes.py
+### "Cannot delegate to X"
 
-frontend/src/
-├── pages/
-│   ├── AgentChat.tsx
-│   └── AgentDashboard.tsx
-├── components/
-│   ├── agent/
-│   │   ├── AgentSelector.tsx
-│   │   ├── AgentStatus.tsx
-│   │   ├── GlobalAgentBadges.tsx
-│   │   └── AgentActivityBridge.tsx
-│   └── ai/
-│       ├── AICommandBar.tsx
-│       ├── AIOmniOverlay.tsx
-│       └── panels/
-│           ├── AgentPilotPanel.tsx
-│           └── LogTerminalPanel.tsx
-├── contexts/
-│   ├── AIContext.tsx
-│   └── AgentActivityContext.tsx
-├── hooks/
-│   └── ai/
-│       └── useAIControllable.ts
-└── lib/
-    └── ai/
-        └── pageSchema.ts
-
-setup/db/schema/
-├── 020_event_system.sql
-├── 021_agent_registry.sql
-├── 022_agent_feedback_benchmarks.sql
-├── 023_agent_scores_triggers.sql
-└── 024_agent_enabled_field.sql   # Agent auto-start enabled field
+Check YAML subagents list:
+```yaml
+subagents:
+  - id: explorer  # Must be listed here
 ```
 
----
+### Agent not in dropdown
 
-## Implementation Status
+Check `selectable: true` in YAML metadata.
 
-### ✅ Implemented
+### Tool not found
 
-| Component | Status |
-|-----------|--------|
-| Event Bus (Redis + PostgreSQL) | ✅ |
-| Resource Lock Manager | ✅ |
-| Agent Registry (CRUD, versioning) | ✅ |
-| Agent Runtime (start/stop/pause/resume) | ✅ |
-| Agent Templates (7 YAML files) | ✅ |
-| Database Schemas | ✅ |
-| REST API Routes | ✅ |
-| Agent Dashboard | ✅ |
-| Agent Chat with selector | ✅ |
-| Skill Registry & Validation | ✅ |
-| **Backend-Managed Agent Lifecycle** | ✅ |
-| **Auto-start Enabled Agents on Boot** | ✅ |
-| **Enable/Disable Agent Settings API** | ✅ |
-| Interactive Navigation | ✅ |
-| **2-Step Workflow (Navigate → Execute)** | ✅ |
-| **Auto-Navigation Toggle** | ✅ |
-| **Page Context Awareness** | ✅ |
-| Global Badge System | ✅ |
-| User Feedback (1-5 stars) | ✅ |
-| Benchmark Tests | ✅ |
-| Agent Scoring System | ✅ |
-| Leaderboard & Comparison | ✅ |
-| Agent Nicknames & Icons | ✅ |
-
-### 🚧 Not Yet Implemented
-
-| Component | Priority |
-|-----------|----------|
-| Cost Controls (Langfuse) | Medium |
-| Preemption Logic | Low |
-| Marketplace UI | Low |
-| A/B Testing | Low |
+Check agent's `skills` list in YAML.
 
 ---
 
-## Environment Variables
-
-```bash
-# Required
-ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
-SUPABASE_DB_URI=postgresql://...
-REDIS_URL=redis://localhost:6379
-
-# Optional
-AGENT_MODEL=claude-sonnet-4-20250514
-AGENT_MAX_TOKENS=8192
-```
-
----
-
-## Troubleshooting
-
-### AI says "Cannot navigate to X"
-- Check alias in `NAVIGATION_ALIASES` (backend)
-- Check path in `PAGE_SCHEMAS` (frontend)
-
-### Element doesn't respond to AI
-- Ensure `useAIControllable` hook is added
-- Verify `elementId` matches schema
-- Check console for `ai-interact` events
-
-### Badge not appearing
-- Verify `AgentActivityProvider` wraps app
-- Check `GlobalAgentBadges` is rendered
-- Confirm `AgentActivityBridge` is connecting events
-
-### Redis connection failed
-- Run `redis-cli ping` to verify Redis is running
-- Check `REDIS_URL` in environment
-
----
-
-*Document Version: 2.2*  
+*Document Version: 3.0*  
 *Last Updated: December 2024*  
-*Changelog: Backend-managed agent lifecycle - frontend no longer controls start/stop*
-
+*Changelog: Removed hardcoded mode detection - now fully YAML-driven*
