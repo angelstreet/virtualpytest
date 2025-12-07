@@ -21,8 +21,7 @@ class ScreenshotTools:
         """
         Capture screenshot from device
         
-        Returns base64-encoded image for AI vision analysis.
-        Optionally includes UI dump for element detection.
+        Uses AV controller for all devices (unified screenshot endpoint).
         
         Args:
             params: {
@@ -33,14 +32,12 @@ class ScreenshotTools:
             }
             
         Returns:
-            MCP-formatted response with base64 screenshot for AI vision analysis
+            MCP-formatted response with screenshot URL
         """
         device_id = params.get('device_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         include_ui_dump = params.get('include_ui_dump', False)
         host_name = params.get('host_name')
-        
-        # Validate required parameters
         
         # Build request
         data = {
@@ -52,21 +49,22 @@ class ScreenshotTools:
         
         query_params = {'team_id': team_id}
         
-        # Call appropriate endpoint
-        if include_ui_dump:
-            # Screenshot + UI dump
-            result = self.api.post('/server/remote/screenshotAndDump', data=data, params=query_params)
-        else:
-            # Screenshot only
-            result = self.api.post('/server/remote/takeScreenshot', data=data, params=query_params)
+        # Use AV endpoint for all devices (unified screenshot)
+        result = self.api.post('/server/av/takeScreenshot', data=data, params=query_params)
         
-        # Check if successful
         if not result.get('success'):
             return self.formatter.format_api_response(result)
         
-        # Extract screenshot data
-        screenshot_data = result.get('screenshot', '')
+        # AV endpoint returns screenshot_url
+        screenshot_url = result.get('screenshot_url', '')
+        device_id_result = result.get('device_id', device_id)
         
-        # Format as image response for AI vision analysis
-        return self.formatter.format_image_response(screenshot_data, mime_type="image/png")
+        response_text = f"✅ Screenshot captured successfully.\n\n"
+        response_text += f"Device: {device_id_result}\n"
+        response_text += f"Screenshot URL: {screenshot_url}\n"
+        
+        if include_ui_dump:
+            response_text += "\nNote: UI dump not supported via AV endpoint. Use dump_ui_elements tool separately if needed."
+        
+        return self.formatter.format_text_response(response_text)
 

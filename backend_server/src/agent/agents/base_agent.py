@@ -226,9 +226,9 @@ class BaseAgent(ABC):
                     
                 yield event
                 
-                # Execute tool
+                # Execute tool with validation
                 try:
-                    result = self.tool_bridge.execute(tool_call.name, tool_call.input)
+                    result = self.tool_bridge.execute(tool_call.name, tool_call.input, allowed_tools=self.tool_names)
                     
                     # Yield tool result
                     yield {

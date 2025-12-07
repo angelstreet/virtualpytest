@@ -378,7 +378,7 @@ const AgentChat: React.FC = () => {
           </Typography>
           {event.success === false ? 
             <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
-            <SuccessIcon sx={{ fontSize: 12, color: PALETTE.accent }} />
+            <SuccessIcon sx={{ fontSize: 12, color: 'success.main' }} />
           }
         </Box>
       </AccordionSummary>

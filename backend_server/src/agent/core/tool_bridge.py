@@ -219,22 +219,48 @@ class ToolBridge:
         
         return result
     
-    def execute(self, tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, tool_name: str, params: Dict[str, Any], allowed_tools: List[str] = None) -> Dict[str, Any]:
         """
         Execute an MCP tool or UI interaction tool
         
         Args:
             tool_name: Name of the tool
             params: Tool parameters
+            allowed_tools: Optional list of tools the agent is allowed to use
             
         Returns:
             Tool result
             
         Raises:
-            ValueError: If tool fails
+            ValueError: If tool fails or doesn't exist
         """
         self.logger.info(f"Executing tool: {tool_name}")
         self.logger.debug(f"Params: {params}")
+        
+        # VALIDATION: Check if tool exists in the system
+        all_available = self.get_available_tool_names()
+        if tool_name not in all_available:
+            error_msg = f"❌ Tool '{tool_name}' does not exist. "
+            # Suggest similar tools
+            similar = [t for t in all_available if tool_name.split('_')[0] in t or t.split('_')[0] in tool_name]
+            if similar:
+                error_msg += f"Did you mean: {', '.join(similar[:5])}?"
+            else:
+                error_msg += "Use list_userinterfaces to get tree IDs, then list_navigation_nodes to get nodes."
+            self.logger.error(f"Tool not found: {tool_name}")
+            return {
+                "content": [{"type": "text", "text": error_msg}],
+                "isError": True
+            }
+        
+        # VALIDATION: Check if tool is allowed for this agent
+        if allowed_tools and tool_name not in allowed_tools:
+            error_msg = f"❌ Tool '{tool_name}' is not in your allowed tools list. Use only these tools: {', '.join(allowed_tools[:10])}..."
+            self.logger.warning(f"Tool not allowed: {tool_name}")
+            return {
+                "content": [{"type": "text", "text": error_msg}],
+                "isError": True
+            }
         
         # UI Interaction tools
         if tool_name == "get_available_pages":

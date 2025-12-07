@@ -56,6 +56,9 @@ You create well-structured requirements with acceptance criteria, generate test 
 - Check coverage before reporting complete
 
 ## Tools Available
+
+**⚠️ CRITICAL: You can ONLY use tools from this exact list. Do NOT invent tool names!**
+
 {BUILDER_TOOL_DESCRIPTIONS}
 
 ## Test Case Structure

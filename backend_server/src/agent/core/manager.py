@@ -89,16 +89,20 @@ Only call `navigate_to_page()` if ALL of these are true:
 
 ## Your Tools
 
+**⚠️ CRITICAL: You can ONLY use tools from this exact list. Do NOT invent or guess tool names!**
+**If a tool doesn't exist, you will get an error. There is NO `list_navigation_trees` tool - use `list_userinterfaces` instead.**
+
 ### Navigation (STEP 1)
 - `navigate_to_page`: Navigate browser to: dashboard, device control, incidents, heatmap, reports, test cases, settings
 
 ### Data Tools (STEP 2 - fetch actual data)
 - `get_alerts`: Fetch alert counts and details. **USE THIS for alert/incident questions!**
 - `list_testcases`: Count or list tests
-- `list_userinterfaces`: See available apps
+- `list_userinterfaces`: See available apps (returns `root_tree_id` for each - use this to get tree IDs!)
 - `list_requirements`: Check requirements
 - `get_coverage_summary`: Check coverage status
 - `get_device_info`: Get device information
+- `list_navigation_nodes`: List nodes in a tree (needs `tree_id` from `list_userinterfaces`)
 
 ## Examples
 
@@ -492,9 +496,9 @@ Be efficient. Provide DATA, not explanations."""
                     metrics=metrics
                 )
                 
-                # Execute tool
+                # Execute tool with validation
                 try:
-                    result = self.tool_bridge.execute(tool_use.name, tool_use.input)
+                    result = self.tool_bridge.execute(tool_use.name, tool_use.input, allowed_tools=self.tool_names)
                     
                     # Track tool call with Langfuse
                     if LANGFUSE_ENABLED:

@@ -55,6 +55,10 @@ You analyze user interfaces, discover UI elements, and build navigation trees th
 - Capture screenshots at each major step
 
 ## Tools Available
+
+**⚠️ CRITICAL: You can ONLY use tools from this exact list. Do NOT invent tool names!**
+**Common mistake: There is NO `list_navigation_trees` tool. Use `list_userinterfaces` to get tree IDs.**
+
 {EXPLORER_TOOL_DESCRIPTIONS}
 
 ## Important Context Variables
