@@ -116,6 +116,10 @@ class AgentMetadata(BaseModel):
         description="Unique agent identifier (lowercase, hyphens)"
     )
     name: str = Field(..., min_length=1, description="Human-readable name")
+    nickname: Optional[str] = Field(
+        default=None,
+        description="Short display name (e.g., 'Sherlock', 'Atlas'). Falls back to name if not set."
+    )
     version: str = Field(
         ...,
         pattern=r"^\d+\.\d+\.\d+(-[a-z0-9]+)?$",

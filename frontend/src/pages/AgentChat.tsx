@@ -96,48 +96,13 @@ const AGENT_CONFIG: Record<string, { color: string; label: string }> = {
   'Maintainer': { color: '#4fc3f7', label: 'Maintainer' },
 };
 
-// Available agents for selection (nickname-only in UI) with agent-specific tips
-const AVAILABLE_AGENTS = [
-  { 
-    id: 'ai-assistant', 
-    name: 'AI Assistant', 
-    nickname: 'Atlas', 
-    description: 'AI Assistant', 
-    color: PALETTE.accent,
-    tips: ['Go to dashboard', 'Show me test reports', 'What can you do?', 'How many devices?']
-  },
-  { 
-    id: 'qa-web-manager', 
-    name: 'QA Web Manager', 
-    nickname: 'Sherlock', 
-    description: 'Web testing', 
-    color: '#4fc3f7',
-    tips: ['Run web regression tests', 'Automate login flow', 'Check broken links', 'Test form validation']
-  },
-  { 
-    id: 'qa-mobile-manager', 
-    name: 'QA Mobile Manager', 
-    nickname: 'Scout', 
-    description: 'Mobile testing', 
-    color: '#81c784',
-    tips: ['Run smoke test on Pixel 5', 'Test app on iOS', 'Check device status', 'Screenshot all screens']
-  },
-  { 
-    id: 'qa-stb-manager', 
-    name: 'QA STB Manager', 
-    nickname: 'Watcher', 
-    description: 'STB testing', 
-    color: '#ba68c8',
-    tips: ['Run STB zapping test', 'Check EPG loading', 'Test channel switch', 'Verify audio sync']
-  },
-  { 
-    id: 'monitoring-manager', 
-    name: 'Monitoring Manager', 
-    nickname: 'Guardian', 
-    description: 'Monitoring', 
-    color: '#ffb74d',
-    tips: ['Show active alerts', 'Check system health', 'Run incident analysis', 'View performance metrics']
-  },
+// Default agents (fallback when API unavailable)
+const DEFAULT_AGENTS = [
+  { id: 'ai-assistant', name: 'AI Assistant', nickname: 'Atlas', description: 'AI Assistant', color: PALETTE.accent, tips: ['Go to dashboard', 'Show me test reports', 'What can you do?', 'How many devices?'] },
+  { id: 'qa-web-manager', name: 'QA Web Manager', nickname: 'Sherlock', description: 'Web testing', color: '#4fc3f7', tips: ['Run web regression tests', 'Automate login flow', 'Check broken links', 'Test form validation'] },
+  { id: 'qa-mobile-manager', name: 'QA Mobile Manager', nickname: 'Scout', description: 'Mobile testing', color: '#81c784', tips: ['Run smoke test on Pixel 5', 'Test app on iOS', 'Check device status', 'Screenshot all screens'] },
+  { id: 'qa-stb-manager', name: 'QA STB Manager', nickname: 'Watcher', description: 'STB testing', color: '#ba68c8', tips: ['Run STB zapping test', 'Check EPG loading', 'Test channel switch', 'Verify audio sync'] },
+  { id: 'monitoring-manager', name: 'Monitoring Manager', nickname: 'Guardian', description: 'Monitoring', color: '#ffb74d', tips: ['Show active alerts', 'Check system health', 'Run incident analysis', 'View performance metrics'] },
 ];
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
@@ -211,6 +176,45 @@ const AgentChat: React.FC = () => {
   
   // Selected agent - default to AI Assistant (generic)
   const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
+  
+  // Available agents (loaded from API, fallback to defaults)
+  const [availableAgents, setAvailableAgents] = useState(DEFAULT_AGENTS);
+  
+  // Load agents from API
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        const response = await fetch(buildServerUrl('/server/agents'));
+        if (response.ok) {
+          const data = await response.json();
+          if (data.agents?.length) {
+            // Map API response to our format, preserving colors and tips from defaults
+            const agents = data.agents.map((a: any) => {
+              const defaultAgent = DEFAULT_AGENTS.find(d => d.id === a.id);
+              return {
+                id: a.id,
+                name: a.name,
+                nickname: a.nickname || defaultAgent?.nickname || a.name,
+                description: a.description || defaultAgent?.description || '',
+                color: defaultAgent?.color || PALETTE.accent,
+                tips: defaultAgent?.tips || [],
+              };
+            });
+            setAvailableAgents(agents.length ? agents : DEFAULT_AGENTS);
+          }
+        }
+      } catch (err) {
+        console.log('Using default agents (API unavailable)');
+      }
+    };
+    loadAgents();
+  }, []);
+  
+  // Agent nickname lookup (from loaded agents)
+  const getAgentNickname = (agentName: string | undefined) => {
+    const agent = availableAgents.find(a => a.name === agentName || a.id === agentName);
+    return agent?.nickname || agentName || 'QA Manager';
+  };
   
   // Feedback state - tracks ratings per message ID (shared concept with badge)
   const [messageFeedback, setMessageFeedback] = useState<Record<string, number>>({});
@@ -350,67 +354,113 @@ const AgentChat: React.FC = () => {
 
   // --- Renderers ---
 
-  const renderToolActivity = (event: AgentEvent, idx: number) => (
-    <Accordion 
-      key={`${event.tool_name}-${idx}-${event.success ?? 'pending'}-${event.tool_result ? 'done' : 'waiting'}`} 
-      disableGutters 
-      elevation={0}
-      sx={{ 
-        bgcolor: 'transparent',
-        border: 'none',
-        '&:before': { display: 'none' },
-        mb: 0.5
-      }}
-    >
-      <AccordionSummary
-        expandIcon={<ExpandIcon sx={{ fontSize: 14, color: 'text.disabled' }} />}
+  const renderToolActivity = (event: AgentEvent, idx: number) => {
+    // Extract error information from tool_result
+    const hasError = event.success === false;
+    let errorMessage = '';
+    
+    if (hasError) {
+      if (event.tool_result) {
+        if (typeof event.tool_result === 'string') {
+          errorMessage = event.tool_result;
+        } else if (typeof event.tool_result === 'object') {
+          errorMessage = (event.tool_result as any).error || JSON.stringify(event.tool_result, null, 2);
+        }
+      } else {
+        errorMessage = 'Tool failed with no error details';
+      }
+    }
+    
+    return (
+      <Accordion 
+        key={`${event.tool_name}-${idx}-${event.success ?? 'pending'}-${event.tool_result ? 'done' : 'waiting'}`} 
+        disableGutters 
+        elevation={0}
+        defaultExpanded={hasError} // Auto-expand errors
         sx={{ 
-          minHeight: 24, 
-          p: 0, 
-          '& .MuiAccordionSummary-content': { my: 0 },
-          flexDirection: 'row-reverse',
-          gap: 1
+          bgcolor: 'transparent',
+          border: 'none',
+          '&:before': { display: 'none' },
+          mb: 0.5
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-          <ConsoleIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', flex: 1 }}>
-            {event.tool_name}
-          </Typography>
-          {event.success === false ? 
-            <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
-            <SuccessIcon sx={{ fontSize: 12, color: 'success.main' }} />
-          }
-        </Box>
-      </AccordionSummary>
-      <AccordionDetails sx={{ p: 0, pl: 3 }}>
-        <Paper 
-          variant="outlined" 
+        <AccordionSummary
+          expandIcon={<ExpandIcon sx={{ fontSize: 14, color: hasError ? 'error.main' : 'text.disabled' }} />}
           sx={{ 
-            p: 1.5, 
-            bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.50',
-            borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300',
-            borderRadius: 2
+            minHeight: 24, 
+            p: 0, 
+            '& .MuiAccordionSummary-content': { my: 0 },
+            flexDirection: 'row-reverse',
+            gap: 1,
+            bgcolor: hasError ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+            borderRadius: 1,
+            px: 0.5,
           }}
         >
-          <Typography variant="caption" display="block" color="text.secondary" gutterBottom>Input</Typography>
-          <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 150 }}>
-            {event.tool_params ? JSON.stringify(event.tool_params, null, 2) : '{}'}
-          </Box>
-          
-          <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>Result</Typography>
-          <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 300 }}>
-            {event.tool_result === undefined || event.tool_result === null 
-              ? <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>No result data</Typography>
-              : typeof event.tool_result === 'string' 
-                ? event.tool_result 
-                : JSON.stringify(event.tool_result, null, 2)
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+            <ConsoleIcon sx={{ fontSize: 12, color: hasError ? 'error.main' : 'text.disabled' }} />
+            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: hasError ? 'error.main' : 'text.secondary', flex: 1, fontWeight: hasError ? 600 : 400 }}>
+              {event.tool_name}
+            </Typography>
+            {hasError ? 
+              <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
+              <SuccessIcon sx={{ fontSize: 12, color: 'success.main' }} />
             }
           </Box>
-        </Paper>
-      </AccordionDetails>
-    </Accordion>
-  );
+        </AccordionSummary>
+        <AccordionDetails sx={{ p: 0, pl: 3 }}>
+          {hasError && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 1.5, 
+                fontSize: '0.75rem',
+                '& .MuiAlert-message': { fontSize: '0.75rem' }
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                Tool Execution Failed
+              </Typography>
+              <Typography variant="caption" component="pre" sx={{ m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+                {errorMessage}
+              </Typography>
+            </Alert>
+          )}
+          
+          <Paper 
+            variant="outlined" 
+            sx={{ 
+              p: 1.5, 
+              bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.50',
+              borderColor: hasError 
+                ? 'error.main' 
+                : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
+              borderRadius: 2
+            }}
+          >
+            <Typography variant="caption" display="block" color="text.secondary" gutterBottom>Input</Typography>
+            <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 150 }}>
+              {event.tool_params ? JSON.stringify(event.tool_params, null, 2) : '{}'}
+            </Box>
+            
+            <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>
+              {hasError ? 'Error Details' : 'Result'}
+            </Typography>
+            <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: hasError ? 'error.main' : 'text.primary', maxHeight: 300 }}>
+              {event.tool_result === undefined || event.tool_result === null 
+                ? <Typography variant="caption" color={hasError ? 'error.main' : 'text.disabled'} sx={{ fontStyle: 'italic' }}>
+                    {hasError ? 'No error details provided' : 'No result data'}
+                  </Typography>
+                : typeof event.tool_result === 'string' 
+                  ? event.tool_result 
+                  : JSON.stringify(event.tool_result, null, 2)
+              }
+            </Box>
+          </Paper>
+        </AccordionDetails>
+      </Accordion>
+    );
+  };
 
   // --- Left Sidebar ---
   const renderLeftSidebar = () => (
@@ -697,7 +747,7 @@ const AgentChat: React.FC = () => {
           
           {/* Suggestion Chips - Dynamic based on selected agent */}
           <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {(AVAILABLE_AGENTS.find(a => a.id === selectedAgentId)?.tips || AVAILABLE_AGENTS[0].tips).map((suggestion) => (
+            {(availableAgents.find(a => a.id === selectedAgentId)?.tips || availableAgents[0]?.tips || []).map((suggestion) => (
               <Chip 
                 key={suggestion} 
                 label={suggestion} 
@@ -820,10 +870,10 @@ const AgentChat: React.FC = () => {
                       : [];
                     const delegatedAgents = agentChain.filter(a => a !== 'QA Manager' && a !== 'System');
                     
-                    return (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                        <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ fontSize: '0.8rem' }}>
-                      {msg.agent || 'QA Manager'}
+                      return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                          <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ fontSize: '0.8rem' }}>
+                      {getAgentNickname(msg.agent)}
                     </Typography>
                         {delegatedAgents.length > 0 && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1063,7 +1113,7 @@ const AgentChat: React.FC = () => {
                 </Avatar>
                 <Box>
                   <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
-                    {session?.active_agent || 'QA Manager'}
+                    {getAgentNickname(session?.active_agent)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                     {session?.mode ? `${session.mode} mode` : 'Processing...'}
@@ -1362,7 +1412,7 @@ const AgentChat: React.FC = () => {
                 }
               }}
             >
-              {AVAILABLE_AGENTS.map((agent) => (
+              {availableAgents.map((agent) => (
                 <MenuItem 
                   key={agent.id} 
                   value={agent.id}

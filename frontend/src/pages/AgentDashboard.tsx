@@ -24,6 +24,7 @@ import { buildServerUrl } from '../utils/buildUrlUtils';
 interface AgentDefinition {
   id: string;
   name: string;
+  nickname?: string;  // Display name from YAML config
   icon?: string;
   version: string;
   description: string;
@@ -71,8 +72,8 @@ interface LeaderboardEntry {
 const GOLD = '#D4AF37';
 const GOLD_DARK = '#B8860B';
 
-// Agent metadata for nickname display
-const AGENT_METADATA: Record<string, { name: string; nickname: string }> = {
+// Fallback metadata (used when API data doesn't include nickname)
+const FALLBACK_METADATA: Record<string, { name: string; nickname: string }> = {
   'ai-assistant': { name: 'AI Assistant', nickname: 'Atlas' },
   'qa-manager': { name: 'QA Manager', nickname: 'Captain' },
   'qa-web-manager': { name: 'QA Web Manager', nickname: 'Sherlock' },
@@ -81,11 +82,6 @@ const AGENT_METADATA: Record<string, { name: string; nickname: string }> = {
   'monitoring-manager': { name: 'Monitoring Manager', nickname: 'Guardian' },
   'explorer': { name: 'Explorer', nickname: 'Pathfinder' },
   'executor': { name: 'Executor', nickname: 'Runner' },
-};
-
-const getAgentDisplay = (agentId: string) => {
-  const meta = AGENT_METADATA[agentId];
-  return meta ? { nickname: meta.nickname, name: meta.name } : { nickname: agentId, name: agentId };
 };
 
 export const AgentDashboard: React.FC = () => {
@@ -115,6 +111,21 @@ export const AgentDashboard: React.FC = () => {
   const [feedbackRating, setFeedbackRating] = useState<number>(0);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackAgentId, setFeedbackAgentId] = useState('');
+
+  // Get agent display name (checks loaded agents first, then fallback)
+  const getAgentDisplay = (agentId: string) => {
+    // Check loaded agents first (they may have nickname from YAML)
+    const loadedAgent = agents.find(a => a.id === agentId);
+    if (loadedAgent) {
+      return { 
+        nickname: loadedAgent.nickname || loadedAgent.name, 
+        name: loadedAgent.name 
+      };
+    }
+    // Fallback to hardcoded metadata
+    const meta = FALLBACK_METADATA[agentId];
+    return meta ? { nickname: meta.nickname, name: meta.name } : { nickname: agentId, name: agentId };
+  };
 
   // Load data on mount
   useEffect(() => {
