@@ -143,7 +143,7 @@ export const useAgentChat = () => {
   useEffect(() => {
     // When a message is sent from AIContext
     const handleMessageSent = (e: CustomEvent) => {
-      const { conversationId, userMessage, agentId } = e.detail;
+      const { conversationId, userMessage } = e.detail;
       console.log('🔄 useAgentChat: AIContext sent message', { conversationId, userMessage: userMessage?.slice(0, 30) });
       
       // Create new conversation if needed
