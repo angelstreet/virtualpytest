@@ -127,9 +127,9 @@
       </a>
     </td>
     <td align="center" width="250">
-      <b>Zap Detection</b>
-      <a href="../../frontend/public/screenshot/zap_detection.png" target="_blank">
-        <img src="../../frontend/public/screenshot/zap_detection.png" width="240" alt="Zap Detection">
+      <b>Dependency Node Script</b>
+      <a href="../../frontend/public/screenshot/dependency_report_2.png" target="_blank">
+        <img src="../../frontend/public/screenshot/dependency_report_2.png" width="240" alt="Dependency Node Script">
       </a>
     </td>
     <td align="center" width="250">
@@ -201,12 +201,6 @@
   </tr>
   <tr>
     <td align="center" width="250">
-      <b>Dependency Node Script</b>
-      <a href="../../frontend/public/screenshot/dependency_report_2.png" target="_blank">
-        <img src="../../frontend/public/screenshot/dependency_report_2.png" width="240" alt="Dependency Node Script">
-      </a>
-    </td>
-    <td align="center" width="250">
       <b>Ask AI</b>
       <a href="../../frontend/public/screenshot/ask_ai.png" target="_blank">
         <img src="../../frontend/public/screenshot/ask_ai.png" width="240" alt="Ask AI">
@@ -218,6 +212,7 @@
         <img src="../../frontend/public/screenshot/ai_model1.png" width="240" alt="AI Model Generation">
       </a>
     </td>
+    <td align="center" width="250">
     </td>
   </tr>
 </table>
