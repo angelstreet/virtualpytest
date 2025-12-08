@@ -42,6 +42,20 @@ goal:
        - Report any unreachable or broken nodes
     
     CRITICAL: Always check if screenshot is missing and capture it!
+    
+    ACTION SELECTION WORKFLOW (MANDATORY):
+    When creating or updating edges, ALWAYS:
+    1. Call dump_ui_elements() to see available elements
+    2. Call analyze_screen_for_action(elements, intent, platform='mobile')
+    3. Use the returned selector (NOT tap_coordinates!)
+    
+    PRIORITY ORDER:
+    ✅ click_element_by_id (resource_id) - Use if available
+    ✅ click_element (text) - Use if text is unique on screen
+    ⚠️ xpath - Use if no id/text available
+    ❌ tap_coordinates - ONLY if no text/id/xpath possible!
+    
+    NEVER use tap_coordinates when text like "Search" is visible!
 
 triggers:
   - type: alert.app_crash
