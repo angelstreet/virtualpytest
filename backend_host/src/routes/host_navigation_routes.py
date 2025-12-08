@@ -153,10 +153,19 @@ def navigation_execute(tree_id):
                 
                 # Update execution state with result
                 with device.navigation_executor._lock:
-                    device.navigation_executor._executions[execution_id]['status'] = 'completed'
-                    device.navigation_executor._executions[execution_id]['result'] = result
-                    device.navigation_executor._executions[execution_id]['progress'] = 100
-                    device.navigation_executor._executions[execution_id]['message'] = result.get('message', 'Completed')
+                    # Check if navigation actually succeeded
+                    if result.get('success'):
+                        device.navigation_executor._executions[execution_id]['status'] = 'completed'
+                        device.navigation_executor._executions[execution_id]['result'] = result
+                        device.navigation_executor._executions[execution_id]['progress'] = 100
+                        device.navigation_executor._executions[execution_id]['message'] = result.get('message', 'Navigation completed')
+                    else:
+                        # Navigation failed - set status to error
+                        device.navigation_executor._executions[execution_id]['status'] = 'error'
+                        device.navigation_executor._executions[execution_id]['error'] = result.get('error', 'Navigation failed')
+                        device.navigation_executor._executions[execution_id]['result'] = result
+                        device.navigation_executor._executions[execution_id]['progress'] = 100
+                        device.navigation_executor._executions[execution_id]['message'] = 'Navigation failed'
                     
             except Exception as e:
                 print(f"[@route:host_navigation:navigation_execute] Execution error: {e}")
