@@ -33,6 +33,9 @@ if not logger.handlers:
     logger.addHandler(handler)
     logger.propagate = False  # Prevent propagation to root logger
 
+# R2 rejects presigned URLs with X-Amz-Expires >= 604800 seconds (7 days).
+# Use a safe ceiling of 604799s to stay under the limit.
+MAX_R2_PRESIGN_EXPIRY = 604_799
 
 class CloudflareUtils:
     """
@@ -524,11 +527,8 @@ class CloudflareUtils:
             base_url = public_url_base.rstrip('/')
             return f"{base_url}/{remote_path}"
         else:
-            # PRIVATE MODE: Return signed URL with 14-day expiry
-            # 14 days = 14 * 24 * 60 * 60 = 1,209,600 seconds
-            FOURTEEN_DAYS_SECONDS = 14 * 24 * 60 * 60
-            
-            result = self.generate_presigned_url(remote_path, expires_in=FOURTEEN_DAYS_SECONDS)
+            # PRIVATE MODE: Return signed URL capped at R2 max (must be < 604800s)
+            result = self.generate_presigned_url(remote_path, expires_in=MAX_R2_PRESIGN_EXPIRY)
             
             if result.get('success'):
                 logger.debug(f"Generated 14-day signed URL for report asset: {remote_path}")
