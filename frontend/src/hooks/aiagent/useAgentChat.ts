@@ -586,7 +586,7 @@ export const useAgentChat = () => {
     setCurrentEvents([]);
     setError(null);
 
-    // Failsafe: Auto-unstick processing after 5 minutes
+    // Failsafe: Auto-unstick processing after 15 minutes
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
     }
@@ -594,7 +594,7 @@ export const useAgentChat = () => {
       console.warn('[@useAgentChat] Processing timeout - auto-unsticking');
       setIsProcessing(false);
       setError('Processing timeout - please try again');
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);
 
     socketRef.current?.emit('send_message', {
       session_id: session?.id,
