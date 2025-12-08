@@ -8,19 +8,21 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "take_control",
-            "description": """🔒 ONLY FOR NAVIGATION: Take control of a device for UI tree navigation
+            "description": """🔒 Lock device for navigation or exploration
 
-⚠️ This is ONLY required if you plan to use navigate_to_node.
-DO NOT call this for simple actions like execute_device_action.
+Takes exclusive control of a device and builds navigation cache.
 
-This locks the device and builds navigation cache for the specified tree_id.
+**CRITICAL: Always call release_control when done!**
 
-WORKFLOW (for navigation only):
-1. Call take_control(device_id='device1', tree_id='<tree-id>') ONCE
-2. Call navigate_to_node multiple times
-3. Done - no need to release
+WORKFLOW:
+1. take_control(tree_id='...', host_name='...', device_id='...')
+2. Do your work (navigate_to_node, create_node, execute_edge, etc.)
+3. release_control(host_name='...', device_id='...')  ← DON'T FORGET!
 
-For simple actions (swipe, click, type), just call execute_device_action directly.""",
+Example:
+  take_control(tree_id='abc-123', host_name='pi1', device_id='device1')
+  # ... exploration or navigation ...
+  release_control(host_name='pi1', device_id='device1')""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -30,6 +32,36 @@ For simple actions (swipe, click, type), just call execute_device_action directl
                     "tree_id": {"type": "string", "description": "Navigation tree ID - REQUIRED for navigation"}
                 },
                 "required": []
+            }
+        },
+        {
+            "name": "release_control",
+            "description": """🔓 Release device control when done
+
+Unlocks the device so others can use it.
+
+**CRITICAL: Always call this after take_control!**
+
+Must be called:
+- After exploration is complete
+- After navigation session ends
+- After any operation that used take_control
+- Even if errors occurred (in finally block)
+
+Example:
+  # After exploration
+  release_control(host_name='pi1', device_id='device1')
+  
+  # Report results
+  "Exploration complete. Created 5 nodes, 4 edges. Device released." """,
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "host_name": {"type": "string", "description": "Host name where device is connected"},
+                    "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                    "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                },
+                "required": ["host_name"]
             }
         }
     ]

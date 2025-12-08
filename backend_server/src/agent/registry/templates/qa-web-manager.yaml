@@ -78,6 +78,7 @@ skills:
   
   # Device Control
   - take_control
+  - release_control
   - navigate_to_node
   - get_device_info
   - get_compatible_hosts
