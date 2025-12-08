@@ -2,7 +2,10 @@ from flask import Blueprint, jsonify, request
 import os
 import json
 import requests
+import threading
+import time
 from pathlib import Path
+from shared.src.lib.config.constants import CACHE_CONFIG
 
 server_integrations_bp = Blueprint('server_integrations_bp', __name__, url_prefix='/server/integrations')
 
@@ -430,6 +433,11 @@ def test_jira_connection(instance_id):
 SLACK_CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'integrations' / 'slack_config.json'
 THREADS_PATH = BACKEND_SERVER_ROOT / 'config' / 'integrations' / 'slack_threads.json'
 
+# Simple in-memory cache for Slack config to avoid re-reading from disk on every request
+_slack_config_cache = {'data': None, 'timestamp': 0.0}
+_slack_cache_lock = threading.Lock()
+SLACK_CONFIG_TTL = CACHE_CONFIG['MEDIUM_TTL']
+
 def load_slack_config():
     """Load Slack configuration from JSON file"""
     try:
@@ -473,14 +481,21 @@ def save_slack_config(config):
 def get_slack_config():
     """Get Slack configuration (without token for security)"""
     try:
+        with _slack_cache_lock:
+            age = time.time() - _slack_config_cache['timestamp']
+            if _slack_config_cache['data'] and age < SLACK_CONFIG_TTL:
+                response = jsonify(_slack_config_cache['data'])
+                response.headers['Cache-Control'] = f"public, max-age={int(SLACK_CONFIG_TTL)}"
+                return response
+
         config = load_slack_config()
-        
+
         # Build Slack URL if workspace_id and channel_id are available
         workspace_id = config.get('workspace_id', '')
         channel_id = config.get('channel_id', '')
         slack_url = f"https://app.slack.com/client/{workspace_id}/{channel_id}" if workspace_id and channel_id else None
-        
-        return jsonify({
+
+        payload = {
             'success': True,
             'config': {
                 'enabled': config.get('enabled', False),
@@ -491,7 +506,15 @@ def get_slack_config():
                 'sync_thinking': config.get('sync_thinking', False),
                 'has_token': bool(config.get('bot_token'))
             }
-        })
+        }
+
+        with _slack_cache_lock:
+            _slack_config_cache['data'] = payload
+            _slack_config_cache['timestamp'] = time.time()
+
+        response = jsonify(payload)
+        response.headers['Cache-Control'] = f"public, max-age={int(SLACK_CONFIG_TTL)}"
+        return response
     except Exception as e:
         print(f"[@integrations_routes:get_slack_config] Error: {e}")
         return jsonify({
@@ -524,6 +547,11 @@ def update_slack_config():
                 'success': False,
                 'error': 'Failed to save configuration'
             }), 500
+
+        # Update cache with new values so next GET is immediate
+        with _slack_cache_lock:
+            _slack_config_cache['data'] = None
+            _slack_config_cache['timestamp'] = 0.0
         
         # Reload the sync service if it exists
         try:
