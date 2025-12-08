@@ -196,6 +196,29 @@ Be efficient. Data, not explanations."""
         match = re.search(r'DELEGATE\s+TO\s+([\w-]+)', text, re.IGNORECASE)
         return match.group(1).lower() if match else None
 
+    def _resolve_agent_id(self, identifier: str) -> Optional[str]:
+        """Resolve agent identifier (ID or nickname) to agent ID
+        
+        Args:
+            identifier: Agent ID or nickname (case-insensitive)
+            
+        Returns:
+            Resolved agent ID or None if not found
+        """
+        identifier_lower = identifier.lower()
+        
+        # Check if it's already a valid agent ID
+        for sa_id in self.agent_config.get('subagents', []):
+            if sa_id.lower() == identifier_lower:
+                return sa_id
+        
+        # Check if it's a nickname
+        for sa in self.agent_config.get('subagents_info', []):
+            if sa['nickname'].lower() == identifier_lower:
+                return sa['id']
+        
+        return None
+    
     def _get_subagent_info(self, agent_id: str) -> Dict[str, str]:
         """Get nickname and description for a subagent by ID"""
         for sa in self.agent_config.get('subagents_info', []):
@@ -325,10 +348,10 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
                 break
         
         # Check for delegation request (use original response_text for parsing)
-        delegate_to = self._parse_delegation(response_text)
-        print(f"[AGENT DEBUG] {self.nickname} delegation parsed: {delegate_to}")
+        delegate_identifier = self._parse_delegation(response_text)
+        print(f"[AGENT DEBUG] {self.nickname} delegation parsed: {delegate_identifier}")
         
-        if not delegate_to:
+        if not delegate_identifier:
             # No delegation - we're done
             print(f"[AGENT DEBUG] {self.nickname} NO DELEGATION - finishing")
             if LANGFUSE_ENABLED:
@@ -340,11 +363,24 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
                 print(f"[AGENT DEBUG] {self.nickname} NOT yielding SESSION_ENDED (delegated)")
             return
         
+        # Resolve identifier (could be ID or nickname) to agent ID
+        delegate_to = self._resolve_agent_id(delegate_identifier)
+        
+        if not delegate_to:
+            # Agent not found (neither ID nor nickname matched)
+            print(f"[AGENT DEBUG] ERROR: Could not resolve '{delegate_identifier}' to any subagent")
+            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_identifier}' - agent not found")
+            if not _is_delegated:
+                yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
+            return
+        
+        print(f"[AGENT DEBUG] {self.nickname} resolved '{delegate_identifier}' to agent ID '{delegate_to}'")
+        
         # Get info for display
         delegate_info = self._get_subagent_info(delegate_to)
         print(f"[AGENT DEBUG] {self.nickname} DELEGATING to {delegate_info['nickname']} ({delegate_to})")
         
-        # Validate delegate is in our YAML config
+        # Validate delegate is in our YAML config (should always pass after resolution, but double-check)
         if delegate_to not in self.agent_config['subagents']:
             print(f"[AGENT DEBUG] ERROR: {delegate_to} not in subagents {self.agent_config['subagents']}")
             yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_info['nickname']}' - not in my subagents")
