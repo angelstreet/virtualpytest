@@ -8,7 +8,11 @@ Uses AI exploration tools for automated tree construction.
 from typing import List
 
 from .base_agent import BaseAgent
-from ..skills.explorer_skills import EXPLORER_TOOLS, EXPLORER_TOOL_DESCRIPTIONS
+# Default to mobile explorer skills; choose platform-specific imports per agent.
+from ..skills.explorer_mobile_skills import (
+    EXPLORER_MOBILE_TOOLS,
+    EXPLORER_MOBILE_TOOL_DESCRIPTIONS,
+)
 
 
 class ExplorerAgent(BaseAgent):
@@ -20,7 +24,7 @@ class ExplorerAgent(BaseAgent):
     
     @property
     def tool_names(self) -> List[str]:
-        return EXPLORER_TOOLS
+        return EXPLORER_MOBILE_TOOLS
     
     @property
     def system_prompt(self) -> str:
@@ -59,7 +63,7 @@ You analyze user interfaces, discover UI elements, and build navigation trees th
 **⚠️ CRITICAL: You can ONLY use tools from this exact list. Do NOT invent tool names!**
 **Common mistake: There is NO `list_navigation_trees` tool. Use `list_userinterfaces` to get tree IDs.**
 
-{EXPLORER_TOOL_DESCRIPTIONS}
+{EXPLORER_MOBILE_TOOL_DESCRIPTIONS}
 
 ## Important Context Variables
 When you receive context, pay attention to:
