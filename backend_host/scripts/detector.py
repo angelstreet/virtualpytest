@@ -772,6 +772,17 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
             'detection_method': freeze_details.get('detection_method', 'unknown'),
             'thumbnails_dir': thumbnails_dir
         }
+
+    # Restore freeze_diffs for downstream consumers (incident metadata/UI)
+    freeze_diffs = []
+    if freeze_details and freeze_details.get('frame_differences'):
+        freeze_diffs = freeze_details['frame_differences']
+    elif freeze_comparisons:
+        freeze_diffs = [
+            c.get('difference_percentage')
+            for c in freeze_comparisons
+            if c.get('difference_percentage') is not None
+        ]
     
     # Calculate total time
     timings['total'] = (time.perf_counter() - total_start) * 1000
@@ -797,6 +808,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
         
         # Freeze (with detailed comparisons)
         'freeze': bool(frozen),
+        'freeze_diffs': freeze_diffs,
         'freeze_comparisons': freeze_comparisons,  # ALWAYS populated (even when not frozen)
         'freeze_debug': freeze_debug_info if freeze_debug_info else None,
         'last_3_filenames': last_3_filenames,  # ALWAYS populated - for display even when not frozen

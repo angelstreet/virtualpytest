@@ -533,8 +533,7 @@ class InotifyFrameMonitor:
                         volume = detection_result.get('mean_volume_db', -100)
                         logger.info(f"[{capture_folder}] 🔇 AUDIO LOSS started (volume={volume:.1f}dB)")
                     elif event_type == 'freeze':
-                        freeze_comparisons = detection_result.get('freeze_comparisons', [])
-                        freeze_diffs = [c.get('difference_percentage', 0) for c in freeze_comparisons]
+                        freeze_diffs = detection_result.get('freeze_diffs', [])
                         diffs_str = f"diffs={freeze_diffs}" if freeze_diffs else "diffs=[]"
                         logger.info(f"[{capture_folder}] ⚠️  FREEZE started ({diffs_str})")
                     else:
