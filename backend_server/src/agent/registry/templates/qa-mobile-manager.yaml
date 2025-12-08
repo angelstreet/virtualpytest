@@ -77,6 +77,11 @@ skills:
   - load_testcase
   
   # Device Control
+  # CRITICAL WORKFLOW:
+  # 1. take_control - Call ONCE at task start
+  # 2. navigate_to_node - Call MULTIPLE times as needed
+  # 3. release_control - Call ONCE at task end ONLY
+  # NEVER release between operations - maintain control for entire task!
   - take_control
   - release_control
   - navigate_to_node
