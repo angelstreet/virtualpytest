@@ -288,9 +288,34 @@ export const useAgentChat = () => {
     const socket = io(`${serverBaseUrl}/agent`, {
       path: '/server/socket.io',
       transports: ['polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     socket.on('connect', () => {
+      console.log('[useAgentChat] Socket connected');
+      socket.emit('join_session', { session_id: sessionId });
+    });
+    
+    socket.on('disconnect', (reason) => {
+      console.warn(`[useAgentChat] Socket disconnected: ${reason}`);
+      // If server closed connection, session may have ended - auto-unstick after brief delay
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        setTimeout(() => {
+          // Only unstick if still processing (session_ended wasn't received)
+          if (pendingConversationIdRef.current) {
+            console.warn('[useAgentChat] Unsticking after disconnect - session likely ended');
+            setIsProcessing(false);
+            pendingConversationIdRef.current = null;
+            setPendingConversationId(null);
+          }
+        }, 2000);
+      }
+    });
+    
+    socket.on('reconnect', () => {
+      console.log('[useAgentChat] Socket reconnected, rejoining session');
       socket.emit('join_session', { session_id: sessionId });
     });
 
