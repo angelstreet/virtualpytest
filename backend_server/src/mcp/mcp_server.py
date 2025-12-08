@@ -104,8 +104,9 @@ class VirtualPyTestMCPServer:
         
         # Tool registry mapping
         self.tool_handlers = {
-            # Control tools (only for navigation)
+            # Control tools
             'take_control': self.control_tools.take_control,
+            'release_control': self.control_tools.release_control,
             
             # Action tools
             'list_actions': self.action_tools.list_actions,
