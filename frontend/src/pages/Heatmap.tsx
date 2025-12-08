@@ -211,13 +211,15 @@ const HeatmapContent: React.FC = () => {
                 
                 {/* Generate Report Button */}
                 <Tooltip title="Generate Report for Current Frame">
-                  <IconButton 
-                    size="small" 
-                    onClick={handleGenerateReport}
-                    disabled={isGeneratingReport || !analysisData || !timeline[currentIndex]}
-                  >
-                    <GridView />
-                  </IconButton>
+                  <span>
+                    <IconButton 
+                      size="small" 
+                      onClick={handleGenerateReport}
+                      disabled={isGeneratingReport || !analysisData || !timeline[currentIndex]}
+                    >
+                      <GridView />
+                    </IconButton>
+                  </span>
                 </Tooltip>
               </Box>
             </Box>
