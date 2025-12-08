@@ -31,6 +31,17 @@ goal:
     Monitor and validate quality for Android mobile applications.
     Uses ADB for UI inspection and touch automation.
     Specialized in mobile gestures, screen transitions, and app lifecycle.
+    
+    EXPLORATION MODES:
+    1. NEW TREE: Create nodes and edges from scratch using atomic CRUD tools
+    2. REVALIDATION (existing tree): For each node:
+       - Navigate to the node
+       - Verify the node is reachable and verifications pass
+       - If node has NO screenshot → MUST call save_node_screenshot
+       - Update edge actions if navigation failed but manual fix works
+       - Report any unreachable or broken nodes
+    
+    CRITICAL: Always check if screenshot is missing and capture it!
 
 triggers:
   - type: alert.app_crash
@@ -96,16 +107,17 @@ skills:
   
   # MOBILE-SPECIFIC: Autonomous Exploration (NO human approval gates)
   # Agent builds navigation trees using atomic CRUD tools directly
+  # REVALIDATION: Use get_node to check if screenshot exists, if not → save_node_screenshot
   - create_node
   - update_node
   - delete_node
-  - get_node
+  - get_node           # Check node.data.screenshot to see if screenshot exists
   - create_edge
   - update_edge
   - delete_edge
   - get_edge
   - create_subtree
-  - save_node_screenshot
+  - save_node_screenshot  # MUST call this if node has no screenshot!
   
   # MOBILE-SPECIFIC: Device Actions (swipe, tap, etc)
   - execute_device_action
