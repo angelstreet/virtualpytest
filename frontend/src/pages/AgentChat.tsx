@@ -1116,9 +1116,9 @@ const AgentChat: React.FC = () => {
                     const userPrompt = userMsgIndex >= 0 ? messages[userMsgIndex]?.content : undefined;
                     
                     return (
-                      <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap' }}>
                         {/* Feedback buttons */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
                           <Tooltip title={isPositive ? "Remove helpful rating" : "Mark as helpful"}>
                             <IconButton
                               size="small"
@@ -1161,20 +1161,20 @@ const AgentChat: React.FC = () => {
                         
                         {hasMetrics && (
                           <>
-                            <Box sx={{ width: '1px', height: 12, bgcolor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)' }} />
+                            <Box sx={{ width: '1px', height: 12, bgcolor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)', flexShrink: 0 }} />
                             
                             <Tooltip title="Processing time">
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.5 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.5, flexShrink: 0 }}>
                                 <TimeIcon sx={{ fontSize: 10 }} />
-                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem', whiteSpace: 'nowrap' }}>
                                   {(metrics.duration / 1000).toFixed(1)}s
                                 </Typography>
                               </Box>
                             </Tooltip>
                             <Tooltip title={`Input: ${metrics.input.toLocaleString()} tokens (read) / Output: ${metrics.output.toLocaleString()} tokens (generated)`}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.5 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.5, flexShrink: 0 }}>
                                 <TokenIcon sx={{ fontSize: 10 }} />
-                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.65rem', whiteSpace: 'nowrap' }}>
                                   ↓{metrics.input.toLocaleString()} ↑{metrics.output.toLocaleString()}
                                 </Typography>
                               </Box>
@@ -1183,7 +1183,7 @@ const AgentChat: React.FC = () => {
                               <IconButton 
                                 size="small" 
                                 onClick={copyMessage}
-                                sx={{ p: 0, opacity: 0.5, '&:hover': { opacity: 1, color: PALETTE.accent } }}
+                                sx={{ p: 0, opacity: 0.5, '&:hover': { opacity: 1, color: PALETTE.accent }, flexShrink: 0 }}
                               >
                                 <CopyIcon sx={{ fontSize: 12 }} />
                               </IconButton>
