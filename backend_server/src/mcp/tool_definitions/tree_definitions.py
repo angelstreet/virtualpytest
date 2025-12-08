@@ -354,56 +354,6 @@ Example:
             }
         },
         {
-            "name": "execute_edge",
-            "description": """Execute edge actions to navigate between nodes
-
-Test or execute an edge's action set to move from source to target node.
-
-**Use cases:**
-- Testing edges immediately after creation
-- Validating navigation works
-- Moving to a screen for exploration
-
-**AFTER successful execute_edge:**
-1. Call save_node_screenshot() to capture the screen you landed on
-2. Call analyze_screen_for_verification() if adding verifications
-3. Then execute the reverse edge to return
-
-**Exploration workflow:**
-```
-# 1. Create edge
-create_edge(source='home', target='search', action_sets=[...])
-
-# 2. Test forward
-execute_edge(tree_id, edge_id, 'home_to_search')
-
-# 3. Capture screenshot (IMPORTANT!)
-save_node_screenshot(tree_id, 'search', 'Search Screen', ...)
-
-# 4. Test back
-execute_edge(tree_id, edge_id, 'search_to_home')
-```
-
-Example:
-  execute_edge({
-    "edge_id": "edge-home-to-login",
-    "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
-    "action_set_id": "home_to_login"
-  })""",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "edge_id": {"type": "string", "description": "Edge identifier"},
-                    "tree_id": {"type": "string", "description": "Navigation tree ID"},
-                    "action_set_id": {"type": "string", "description": "Specific action set to execute (optional - uses default if omitted)"},
-                    "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'use get_compatible_hosts to discover')"},
-                    "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
-                },
-                "required": ["tree_id", "edge_id"]
-            }
-        },
-        {
             "name": "save_node_screenshot",
             "description": """Capture and attach screenshot to a node
 
@@ -415,15 +365,19 @@ Screenshots are essential for:
 - Documentation of the navigation tree
 
 **WHEN to call (during exploration):**
-1. After execute_edge succeeds and you're on a new screen
+1. After executing edge actions and you're on a new screen
 2. After adding verifications to a node
 3. For every node you create/validate
 
 **Workflow:**
 ```
-execute_edge(tree_id, edge_id, 'home_to_login')  # Navigate to login
+# 1. Get edge details
+edge = get_edge(tree_id, edge_id)
+# 2. Execute navigation
+execute_device_action(actions=edge['action_sets'][0]['actions'], ...)
 # ↓ Now on login screen
-save_node_screenshot(                             # Capture it!
+# 3. Capture it!
+save_node_screenshot(
   tree_id='...',
   node_id='login',
   label='Login Screen',

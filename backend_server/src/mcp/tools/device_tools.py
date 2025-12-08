@@ -132,7 +132,7 @@ class DeviceTools:
         """
         Get hosts and devices compatible with a userinterface
         
-        ⚠️ CRITICAL: Use this tool BEFORE execute_edge, navigate_to_node, 
+        ⚠️ CRITICAL: Use this tool BEFORE execute_device_action, navigate_to_node, 
         execute_testcase, or generate_test_graph to find compatible hosts/devices.
         
         This tool automatically filters hosts based on the userinterface's device models

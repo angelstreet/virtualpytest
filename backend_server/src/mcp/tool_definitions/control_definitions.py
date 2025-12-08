@@ -16,7 +16,7 @@ Takes exclusive control of a device and builds navigation cache.
 
 WORKFLOW:
 1. take_control(tree_id='...', host_name='...', device_id='...')
-2. Do your work (navigate_to_node, create_node, execute_edge, etc.)
+2. Do your work (navigate_to_node, create_node, execute_device_action, etc.)
 3. release_control(host_name='...', device_id='...')  ← DON'T FORGET!
 
 Example:

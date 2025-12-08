@@ -331,7 +331,7 @@ class ExplorationEngine:
         Workflow:
         1. create_node (MCP)
         2. create_edge (MCP)
-        3. execute_edge (MCP) ← MANDATORY TEST
+        3. get_edge + execute_device_action (MCP) ← MANDATORY TEST
         4. save_node_screenshot (MCP)
         
         Args:
@@ -416,11 +416,41 @@ class ExplorationEngine:
         
         # 3. TEST EDGE via MCP (CRITICAL!)
         print(f"  Step 3/4: Testing edge...")
-        test_result = self.mcp_server.call_tool('execute_edge', {
+        
+        # Get edge details first
+        edge_details = self.mcp_server.call_tool('get_edge', {
             'edge_id': edge_id,
             'tree_id': context.tree_id,
+            'team_id': context.team_id
+        })
+        
+        if edge_details.get('isError', False):
+            return {
+                'success': False,
+                'error': f"Failed to get edge details: {edge_details.get('content', [{}])[0].get('text', 'Get edge failed')}",
+                'step': 'get_edge',
+                'edge_id': edge_id
+            }
+        
+        # Extract actions from edge
+        edge_content = edge_details.get('content', [{}])[0].get('text', '{}')
+        import json
+        try:
+            edge_data = json.loads(edge_content)
+            actions = edge_data.get('action_sets', [{}])[0].get('actions', [])
+        except (json.JSONDecodeError, IndexError, KeyError) as e:
+            return {
+                'success': False,
+                'error': f"Failed to parse edge data: {str(e)}",
+                'step': 'parse_edge',
+                'edge_id': edge_id
+            }
+        
+        # Execute actions
+        test_result = self.mcp_server.call_tool('execute_device_action', {
             'device_id': context.device_id,
             'host_name': context.host_name,
+            'actions': actions,
             'team_id': context.team_id
         })
         
@@ -428,7 +458,7 @@ class ExplorationEngine:
             return {
                 'success': False,
                 'error': f"Edge test failed: {test_result.get('content', [{}])[0].get('text', 'Test failed')}",
-                'step': 'execute_edge',
+                'step': 'execute_device_action',
                 'edge_id': edge_id
             }
         

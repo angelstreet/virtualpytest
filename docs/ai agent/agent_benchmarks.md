@@ -264,7 +264,8 @@ tests:
         - dump_ui_elements
         - create_node
         - create_edge
-        - execute_edge
+        - get_edge
+        - execute_device_action
       min_nodes: 3
       min_edges: 2
     validation: exploration_result

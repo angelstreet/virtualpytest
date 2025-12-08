@@ -108,7 +108,6 @@ skills:
   - delete_edge
   - get_edge
   - create_subtree
-  - execute_edge
   - save_node_screenshot
   
   # Execution

@@ -114,11 +114,12 @@ class TreeTools:
         1. Add verifications to the node (unique stable elements)
         2. Test them: verify_node(node_id='...', tree_id='...')
         3. Create edges to/from this node
-        4. Test each edge: execute_edge(edge_id='...', tree_id='...')
+        4. Test each edge: get_edge() then execute_device_action()
         
         **Tools for validation:**
         - verify_node(node_id, tree_id) - Test node verifications
-        - execute_edge(edge_id, tree_id) - Test edges after creation
+        - get_edge(edge_id, tree_id) - Get edge details
+        - execute_device_action(actions=[...]) - Test edge actions
         
         Args:
             tree_id: Navigation tree ID
@@ -364,9 +365,10 @@ class TreeTools:
         
         **Workflow (AI must follow):**
           1. create_edge(...)  
-          2. execute_edge(edge_id='...', tree_id='...')  ← TEST IT
-          3. If fails: update_edge() with correct selectors, test again
-          4. If success: Create next edge
+          2. get_edge(edge_id='...', tree_id='...')  ← GET EDGE DETAILS
+          3. execute_device_action(actions=edge['action_sets'][0]['actions'], ...)  ← TEST IT
+          4. If fails: update_edge() with correct selectors, test again
+          5. If success: Create next edge
         
         **Why this matters:**
         - Catches selector errors immediately
@@ -375,7 +377,8 @@ class TreeTools:
         - Ensures each transition works before building on it
         
         **Tools for validation:**
-        - execute_edge(edge_id, tree_id) - Test specific edge
+        - get_edge(edge_id, tree_id) - Get edge details
+        - execute_device_action(actions=[...]) - Test edge actions
         - navigate_to_node(target_node_label, tree_id) - Test full path
         - verify_node(node_id, tree_id) - Test node verifications
         
@@ -741,7 +744,8 @@ class TreeTools:
                 return self.formatter.format_success(
                     f"✅ Edge created: {edge.get('source_node_id')} → {edge.get('target_node_id')} (ID: {permanent_edge_id})\n\n"
                     f"⚠️ NEXT STEP REQUIRED: Test this edge before creating more!\n"
-                    f"Run: execute_edge(edge_id='{permanent_edge_id}', tree_id='{tree_id}')"
+                    f"1. Get edge: get_edge(edge_id='{permanent_edge_id}', tree_id='{tree_id}')\n"
+                    f"2. Test: execute_device_action(actions=edge['action_sets'][0]['actions'], ...)"
                 )
             else:
                 error_msg = result.get('error', 'Unknown error')
@@ -1195,153 +1199,5 @@ class TreeTools:
         
         except Exception as e:
             self.logger.error(f"Error saving node screenshot: {e}", exc_info=True)
-            return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
-    
-    def execute_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute a specific edge's action set (frontend: useEdge.ts executeActionSet)
-        
-        This executes the actions in an edge's action set, useful for:
-        - Testing individual edges without full navigation
-        - Debugging edge actions
-        - Manual edge execution from UI
-        
-        Args:
-            edge_id: Edge identifier (REQUIRED)
-            tree_id: Navigation tree ID (REQUIRED)
-            action_set_id: Specific action set to execute (optional - uses default if omitted)
-            device_id: Device identifier (optional - defaults to 'device1')
-            host_name: Host name (optional - defaults to 'sunri-pi1')
-            team_id: Team ID (optional - defaults to default)
-        
-        Returns:
-            Action execution results with success/failure status
-        
-        Example:
-            execute_edge({
-                "edge_id": "edge-entry-node-to-home",
-                "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
-                "action_set_id": "actionset-1762771271791"  # optional
-            })
-        """
-        try:
-            edge_id = params['edge_id']
-            tree_id = params['tree_id']
-            action_set_id = params.get('action_set_id')  # Optional
-            device_id = params.get('device_id', 'device1')
-            host_name = params.get('host_name', 'sunri-pi1')
-            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
-            
-            self.logger.info(f"Executing edge {edge_id} in tree {tree_id}")
-            
-            # STEP 1: Get the edge to retrieve action sets
-            edge_result = self.api_client.get(
-                f'/server/navigationTrees/{tree_id}/edges/{edge_id}',
-                params={'team_id': team_id}
-            )
-            
-            if not edge_result.get('success'):
-                return self.formatter.format_error(
-                    f"Failed to get edge: {edge_result.get('error', 'Unknown error')}",
-                    ErrorCategory.BACKEND
-                )
-            
-            edge = edge_result.get('edge', {})
-            action_sets = edge.get('action_sets', [])
-            
-            if not action_sets:
-                return self.formatter.format_error(
-                    f"Edge {edge_id} has no action sets",
-                    ErrorCategory.VALIDATION
-                )
-            
-            # STEP 2: Determine which action set to execute
-            if action_set_id:
-                # Use specified action set
-                action_set = next((a for a in action_sets if a.get('id') == action_set_id), None)
-                if not action_set:
-                    return self.formatter.format_error(
-                        f"Action set {action_set_id} not found in edge {edge_id}",
-                        ErrorCategory.VALIDATION
-                    )
-            else:
-                # Use default action set
-                default_id = edge.get('default_action_set_id')
-                if default_id:
-                    action_set = next((a for a in action_sets if a.get('id') == default_id), None)
-                else:
-                    action_set = action_sets[0]  # Fallback to first
-                
-                if not action_set:
-                    return self.formatter.format_error(
-                        f"No default action set found in edge {edge_id}",
-                        ErrorCategory.VALIDATION
-                    )
-            
-            # STEP 3: Prepare navigation context (same as frontend - useEdge.ts line 129-135)
-            executing_action_set_id = action_set.get('id')
-            is_forward = executing_action_set_id == action_sets[0].get('id')
-            target_node_id = edge.get('target_node_id') if is_forward else edge.get('source_node_id')
-            
-            navigation_context = {
-                'tree_id': tree_id,
-                'edge_id': edge_id,
-                'action_set_id': executing_action_set_id,
-                'target_node_id': target_node_id,
-                'skip_db_recording': False  # MCP execution - DO record to DB
-            }
-            
-            # STEP 4: Execute actions (same as frontend - calls executeActions)
-            actions = action_set.get('actions', [])
-            retry_actions = action_set.get('retry_actions', [])
-            failure_actions = action_set.get('failure_actions', [])
-            
-            if not actions:
-                return self.formatter.format_error(
-                    f"Action set {executing_action_set_id} has no actions to execute",
-                    ErrorCategory.VALIDATION
-                )
-            
-            self.logger.info(f"Executing {len(actions)} actions from action set {executing_action_set_id}")
-            self.logger.info(f"Direction: {'forward' if is_forward else 'backward'}, target: {target_node_id}")
-            
-            # Call backend action execution with navigation context
-            # EXACTLY same as frontend useAction.ts line 163-173
-            result = self.api_client.post(
-                '/server/action/executeBatch',
-                data={
-                    'host_name': host_name,
-                    'device_id': device_id,
-                    'actions': actions,
-                    'retry_actions': retry_actions,
-                    'failure_actions': failure_actions,
-                    # Spread navigation context into payload (same as frontend line 171)
-                    'tree_id': navigation_context.get('tree_id'),
-                    'edge_id': navigation_context.get('edge_id'),
-                    'action_set_id': navigation_context.get('action_set_id'),
-                    'target_node_id': navigation_context.get('target_node_id'),
-                    'skip_db_recording': navigation_context.get('skip_db_recording')
-                },
-                params={'team_id': team_id}
-            )
-            
-            if result.get('success'):
-                return self.formatter.format_success(
-                    f"✅ Edge executed: {edge.get('label', edge_id)}\n"
-                    f"   Direction: {'forward' if is_forward else 'backward'} ({edge.get('source_node_id')} → {edge.get('target_node_id')})\n"
-                    f"   Action Set: {executing_action_set_id}\n"
-                    f"   Actions: {len(actions)} executed\n"
-                    f"   Result: {result.get('message', 'Success')}\n"
-                    f"\n💡 Check execution logs for details"
-                )
-            else:
-                error_msg = result.get('error', 'Unknown error')
-                return self.formatter.format_error(
-                    f"Edge execution failed: {error_msg}",
-                    ErrorCategory.BACKEND
-                )
-        
-        except Exception as e:
-            self.logger.error(f"Error executing edge: {e}", exc_info=True)
             return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
 

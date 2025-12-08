@@ -164,7 +164,6 @@ class VirtualPyTestMCPServer:
             # Tree READ tools (NEW - Query primitives)
             'get_node': self.tree_tools.get_node,
             'get_edge': self.tree_tools.get_edge,
-            'execute_edge': self.tree_tools.execute_edge,  # NEW - Execute edge actions
             'save_node_screenshot': self.tree_tools.save_node_screenshot,  # NEW - Save screenshot to node
             
             # UserInterface Management tools (NEW)

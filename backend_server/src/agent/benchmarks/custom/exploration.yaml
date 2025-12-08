@@ -24,7 +24,7 @@ tests:
         - dump_ui_elements
         - create_node
         - create_edge
-        - execute_edge
+        - execute_device_action
       min_nodes: 3
       min_edges: 2
     validation: exploration_result
@@ -36,7 +36,7 @@ tests:
   - id: mobile_explore_002
     name: Exploration with Edge Testing
     description: Agent explores AND tests each edge bidirectionally
-    prompt: "Explore google_tv and create the navigation tree. Test every edge you create."
+    prompt: "Explore google_tv and create the navigation tree. Test every edge you create by getting edge details and executing actions."
     expected:
       contains:
         - "test"
@@ -45,7 +45,8 @@ tests:
       tools_called:
         - create_node
         - create_edge
-        - execute_edge
+        - get_edge
+        - execute_device_action
       edges_tested: true
     validation: exploration_result
     timeout: 300
@@ -104,7 +105,7 @@ tests:
   - id: mobile_explore_005
     name: Full Autonomous Mobile Exploration
     description: Complete exploration - nodes, edges, tests, verifications, screenshots
-    prompt: "Build a complete navigation model for google_tv. Create all nodes and edges, test them, add verifications, and save screenshots."
+    prompt: "Build a complete navigation model for google_tv. Create all nodes and edges, test them by getting edge details and executing actions, add verifications, and save screenshots."
     expected:
       contains:
         - "node"
@@ -118,7 +119,8 @@ tests:
         - analyze_screen_for_action
         - create_node
         - create_edge
-        - execute_edge
+        - get_edge
+        - execute_device_action
         - analyze_screen_for_verification
         - update_node
         - save_node_screenshot
@@ -186,12 +188,13 @@ tests:
   - id: mobile_explore_007
     name: Fix Failed Edges
     description: Agent repairs edges that fail on first attempt
-    prompt: "Explore google_tv. If any edge fails, analyze why and fix it."
+    prompt: "Explore google_tv. If any edge fails when testing, analyze why and fix it."
     expected:
       contains:
         - "edge"
       tools_called:
-        - execute_edge
+        - get_edge
+        - execute_device_action
         - dump_ui_elements
         - analyze_screen_for_action
         - update_edge
