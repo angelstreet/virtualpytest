@@ -773,6 +773,12 @@ def _execute_navigation_thread(
         
         # Update with result
         with device.navigation_executor._lock:
+            # DEBUG: Check what result actually contains
+            print(f"[@route:DEBUG] result.get('success') = {result.get('success')}, result keys = {result.keys()}")
+            print(f"[@route:DEBUG] result['success'] = {result.get('success', 'KEY_MISSING')}")
+            if 'error' in result:
+                print(f"[@route:DEBUG] result['error'] = {result['error']}")
+            
             if result.get('success'):
                 device.navigation_executor._executions[execution_id]['status'] = 'completed'
                 device.navigation_executor._executions[execution_id]['result'] = result
