@@ -24,8 +24,8 @@
     </td>
     <td align="center" width="320">
       <b>Monitoring</b>
-      <a href="https://www.youtube.com/watch?v=" target="_blank">
-        <img src="https://img.youtube.com/vi//hqdefault.jpg" width="300" alt="Monitoring">
+      <a href="https://www.youtube.com/watch?v=9S78Zt-PZuY" target="_blank">
+        <img src="https://img.youtube.com/vi/9S78Zt-PZuY/hqdefault.jpg" width="300" alt="Monitoring">
       </a>
     </td>
   </tr>
