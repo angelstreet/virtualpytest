@@ -227,3 +227,51 @@ def delete_reference(team_id: str, reference_id: str = None, name: str = None, u
             'success': False,
             'error': str(e)
         }
+
+def update_references_userinterface_name(team_id: str, userinterface_id: str, old_name: str, new_name: str) -> Dict:
+    """
+    Cascade rename userinterface on all references.
+    
+    Args:
+        team_id: Team ID for RLS
+        userinterface_id: ID of the userinterface being renamed (preferred match)
+        old_name: Previous userinterface name (fallback match when id is missing)
+        new_name: New userinterface name to set
+    
+    Returns:
+        Dict: {'success': bool, 'updated_count': int, 'error': str}
+    """
+    try:
+        supabase = get_supabase()
+        total_updated = 0
+
+        # Update by userinterface_id when available
+        if userinterface_id:
+            result_id = (
+                supabase
+                .table('verifications_references')
+                .update({'userinterface_name': new_name, 'userinterface_id': userinterface_id})
+                .eq('team_id', team_id)
+                .eq('userinterface_id', userinterface_id)
+                .execute()
+            )
+            total_updated += len(result_id.data or [])
+
+        # Update by old name to catch legacy rows without userinterface_id
+        if old_name:
+            result_name = (
+                supabase
+                .table('verifications_references')
+                .update({'userinterface_name': new_name, 'userinterface_id': userinterface_id})
+                .eq('team_id', team_id)
+                .eq('userinterface_name', old_name)
+                .execute()
+            )
+            total_updated += len(result_name.data or [])
+
+        print(f"[@db:verifications_references:update_references_userinterface_name] Renamed references -> {total_updated} rows")
+        return {'success': True, 'updated_count': total_updated}
+
+    except Exception as e:
+        print(f"[@db:verifications_references:update_references_userinterface_name] Error: {e}")
+        return {'success': False, 'error': str(e), 'updated_count': 0}

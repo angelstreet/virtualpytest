@@ -21,6 +21,9 @@ from shared.src.lib.database.userinterface_db import (
     check_userinterface_name_exists,
     duplicate_userinterface_with_tree
 )
+from shared.src.lib.database.verifications_references_db import (
+    update_references_userinterface_name,
+)
 from shared.src.lib.database.navigation_trees_db import (
     get_root_tree_for_interface,
     get_tree_nodes
@@ -284,6 +287,14 @@ def update_userinterface_route(interface_id):
     
     try:
         interface_data = request.json
+        if not interface_data:
+            return jsonify({'error': 'Request body is required'}), 400
+        
+        # Fetch current interface to detect name changes
+        current_interface = get_userinterface(interface_id, team_id)
+        if not current_interface:
+            return jsonify({'error': 'User interface not found'}), 404
+        old_name = current_interface.get('name')
         
         # Validate required fields
         if not interface_data.get('name'):
@@ -298,12 +309,26 @@ def update_userinterface_route(interface_id):
         
         # Update the user interface
         updated_interface = update_userinterface(interface_id, interface_data, team_id)
-        if updated_interface:
-            # Invalidate cache after successful update
-            _invalidate_interfaces_cache(team_id)
-            return jsonify({'status': 'success', 'userinterface': updated_interface})
-        else:
+        if not updated_interface:
             return jsonify({'error': 'User interface not found or failed to update'}), 404
+
+        # Cascade rename for references when name changed
+        new_name = updated_interface.get('name')
+        if new_name and old_name and new_name != old_name:
+            cascade_result = update_references_userinterface_name(
+                team_id=team_id,
+                userinterface_id=interface_id,
+                old_name=old_name,
+                new_name=new_name,
+            )
+            if not cascade_result.get('success'):
+                print(f"[@userinterface:update] ⚠️ Failed to cascade rename references: {cascade_result.get('error')}")
+            else:
+                print(f"[@userinterface:update] ✅ Cascaded rename to references: {cascade_result.get('updated_count')} rows")
+        
+        # Invalidate cache after successful update
+        _invalidate_interfaces_cache(team_id)
+        return jsonify({'status': 'success', 'userinterface': updated_interface})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
