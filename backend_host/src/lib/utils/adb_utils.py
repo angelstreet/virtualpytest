@@ -520,9 +520,8 @@ class ADBUtils:
                 # 1. ALWAYS filter: Pure scrolling/list containers (never interactive)
                 # 2. Conditionally filter: Layout containers (can be clickable buttons)
                 
-                # Pure containers - ALWAYS filter (these are never interactive)
-                # These are structural containers that organize child elements but aren't interactive themselves
-                always_filter_classes = [
+                # Pure scrolling/list containers - ALWAYS filter (never interactive)
+                scrolling_container_classes = [
                     'androidx.viewpager.widget.ViewPager',
                     'android.support.v7.widget.RecyclerView',
                     'androidx.recyclerview.widget.RecyclerView',
@@ -533,16 +532,27 @@ class ADBUtils:
                     'android.widget.ScrollView',
                     'android.widget.HorizontalScrollView',
                     'androidx.compose.ui.platform.ComposeView',
-                    # Layout containers - these are just for positioning children, never interactive elements
+                ]
+                if class_name in scrolling_container_classes:
+                    skip_element = True
+                    filter_reason = f"Scrolling container (always filtered): {class_name}"
+                
+                # Layout containers - filter ONLY if they have no useful content
+                # (Some FrameLayouts/LinearLayouts are used as clickable navigation tabs with content_desc)
+                layout_container_classes = [
                     'android.widget.FrameLayout',
                     'android.widget.LinearLayout',
                     'android.widget.RelativeLayout',
                     'android.widget.ConstraintLayout',
                     'android.view.ViewGroup',
                 ]
-                if class_name in always_filter_classes:
-                    skip_element = True
-                    filter_reason = f"Pure container (always filtered): {class_name}"
+                if not skip_element and class_name in layout_container_classes:
+                    has_useful_content = (text and text.strip()) or (content_desc and content_desc.strip())
+                    
+                    # Filter layout containers that have NO useful content
+                    if not has_useful_content:
+                        skip_element = True
+                        filter_reason = f"Layout container with no content: {class_name}"
                 
                 
                 # Filter 1: Skip completely empty/useless elements
