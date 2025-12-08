@@ -1,8 +1,8 @@
 
 <p align="center">
   <b>Overview</b><br>
-  <a href="https://www.youtube.com/watch?v=" target="_blank">
-    <img src="https://img.youtube.com/vi//maxresdefault.jpg" width="600" alt="Featured Video">
+  <a href="https://www.youtube.com/watch?v=eGC_-t5bpzE" target="_blank">
+    <img src="https://img.youtube.com/vi/eGC_-t5bpzE/maxresdefault.jpg" width="600" alt="Featured Video">
   </a>
 </p>
 
