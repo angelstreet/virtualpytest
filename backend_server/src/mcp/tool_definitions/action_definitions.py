@@ -41,7 +41,10 @@ Example:
             "name": "execute_device_action",
             "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
 
-NO PREREQUISITES - Just call this directly for any device actions.
+CRITICAL PREREQUISITE:
+- If working with a navigation tree or userinterface: Call take_control(tree_id='...') ONCE FIRST
+- If doing standalone device actions (not part of navigation): Can call directly
+- RULE: Always take_control BEFORE any navigation-related device operations
 
 Executes direct device commands including:
 - Launch apps (launch_app)

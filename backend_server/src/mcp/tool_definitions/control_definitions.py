@@ -8,21 +8,29 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "take_control",
-            "description": """Lock device for navigation or exploration
+            "description": """CALL THIS FIRST before ANY navigation or device actions!
 
 Takes exclusive control of a device and builds navigation cache.
 
-**CRITICAL: Always call release_control when done!**
+MANDATORY FIRST STEP for:
+- navigate_to_node (will fail with "cache not ready" without this)
+- execute_device_action (when working with navigation tree/userinterface)
+- Any exploration or navigation workflow
 
-WORKFLOW:
-1. take_control(tree_id='...', host_name='...', device_id='...')
-2. Do your work (navigate_to_node, create_node, execute_device_action, etc.)
-3. release_control(host_name='...', device_id='...')  ← DON'T FORGET!
+WORKFLOW (ALWAYS FOLLOW THIS ORDER):
+1. take_control(tree_id='...', host_name='...', device_id='...')  ← CALL FIRST!
+2. Do your work (navigate_to_node, execute_device_action, etc.)
+3. [Optional] release_control(host_name='...', device_id='...')
 
 Example:
-  take_control(tree_id='abc-123', host_name='pi1', device_id='device1')
-  # ... exploration or navigation ...
-  release_control(host_name='pi1', device_id='device1')""",
+  # STEP 1: Take control FIRST
+  take_control(tree_id='abc-123', host_name='sunri-pi1', device_id='device1')
+  
+  # STEP 2: Now you can navigate
+  navigate_to_node(target_node_label='shop', ...)
+  
+  # STEP 3: (Optional) Release when completely done
+  release_control(host_name='sunri-pi1', device_id='device1')""",
             "inputSchema": {
                 "type": "object",
                 "properties": {

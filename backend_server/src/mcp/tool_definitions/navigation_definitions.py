@@ -39,7 +39,13 @@ Example:
             "name": "navigate_to_node",
             "description": """Navigate to target node in UI tree using pathfinding
 
-PREREQUISITE: take_control(tree_id='<tree>') must be called ONCE first with the SAME tree_id.
+CRITICAL PREREQUISITE - ALWAYS READ THIS FIRST
+YOU MUST call take_control(tree_id='<tree>') ONCE FIRST before ANY navigation.
+DO NOT attempt to navigate without taking control first - it will fail.
+
+STEP 1: take_control(tree_id='...', host_name='...', device_id='...')
+STEP 2: Then call this tool to navigate
+
 If you get "cache not ready" error, call take_control() first then retry this tool.
 
 Can be called MULTIPLE times in the same session to navigate to different nodes.
@@ -48,10 +54,10 @@ All parameters (device_id, tree_id, userinterface_name) MUST match the take_cont
 The tool polls automatically until navigation completes (up to 3 minutes).
 
 Example workflow:
-1. take_control(device_id='device1', tree_id='abc-123')
+1. take_control(device_id='device1', tree_id='abc-123', host_name='sunri-pi1')  ← REQUIRED FIRST STEP
 2. navigate_to_node(device_id='device1', tree_id='abc-123', userinterface_name='horizon_android_tv', target_node_label='home')
 3. navigate_to_node(device_id='device1', tree_id='abc-123', userinterface_name='horizon_android_tv', target_node_label='settings')
-4. release_control(device_id='device1')""",
+4. [Optional] release_control when completely done""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
