@@ -760,6 +760,18 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                           </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ padding: '0px 12px !important' }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              display: 'block',
+                              color: 'text.secondary',
+                              fontSize: '0.75rem',
+                              mb: step.state.result?.logs ? 1 : 0,
+                              whiteSpace: 'pre-wrap',
+                            }}
+                          >
+                            {step.state.error}
+                          </Typography>
                           {/* Execution Logs */}
                           {step.state.result?.logs && (
                             <Box
