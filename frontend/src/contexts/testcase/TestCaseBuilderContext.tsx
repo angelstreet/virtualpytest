@@ -12,6 +12,13 @@ import {
 } from '../../hooks/testcase';
 import { useDeviceData } from '../device/DeviceDataContext';
 
+// Single UUID generator for platform-friendly unique IDs
+const generateId = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  const r = Math.random() * 16 | 0;
+  const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return v.toString(16);
+});
+
 interface TestCaseBuilderContextType {
   // Graph state
   nodes: Node[];
@@ -246,7 +253,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     return hasExecutableConnection;
   }, [nodes, edges]);
 
-  // ID generation now uses crypto.randomUUID for nodes and edges
+  // ID generation uses a single UUID helper for nodes and edges
   
   // Block counters for auto-labeling (tracks count per type)
   const blockCounters = useRef<Record<string, number>>({});
@@ -302,7 +309,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     }
     
     const newNode: Node = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       type,
       position,
       data: {
@@ -401,7 +408,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       
       const newEdge: Edge = {
         ...connection,
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: edgeType,
         source: connection.source!,
         target: connection.target!,
@@ -457,7 +464,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     if (copiedBlock && copiedBlock.id !== 'start' && copiedBlock.id !== 'success' && copiedBlock.id !== 'failure') {
       const newBlock: Node = {
         ...copiedBlock,
-        id: crypto.randomUUID(),
+        id: generateId(),
         position: {
           x: copiedBlock.position.x + 50,
           y: copiedBlock.position.y + 50,
@@ -497,7 +504,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     // 🛡️ SAFEGUARD: Rename duplicate nodes with new UUIDs
     const seenIds = new Set<string>();
     const uniqueNodes = nodes.map(node => 
-      seenIds.has(node.id) ? { ...node, id: crypto.randomUUID() } : (seenIds.add(node.id), node)
+      seenIds.has(node.id) ? { ...node, id: generateId() } : (seenIds.add(node.id), node)
     );
     
     // Build graph from current state - NO SAVE REQUIRED
@@ -710,7 +717,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     // 🛡️ SAFEGUARD: Rename duplicate nodes with new UUIDs
     const seenIds = new Set<string>();
     const uniqueNodes = nodes.map(node => 
-      seenIds.has(node.id) ? { ...node, id: crypto.randomUUID() } : (seenIds.add(node.id), node)
+      seenIds.has(node.id) ? { ...node, id: generateId() } : (seenIds.add(node.id), node)
     );
     
     // Convert nodes and edges to TestCaseGraph format
