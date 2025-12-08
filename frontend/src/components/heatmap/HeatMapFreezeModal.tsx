@@ -1,6 +1,6 @@
 import { Close as CloseIcon } from '@mui/icons-material';
 import { Modal, Box, IconButton, Typography } from '@mui/material';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useR2UrlsBatch } from '../../hooks/storage/useR2Url';
 
 interface HeatMapFreezeModalProps {
@@ -22,8 +22,14 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
   timestamp,
   onClose,
 }) => {
-  // Convert R2 URLs to signed URLs (handles public/private mode automatically)
-  const { urls: signedThumbnailUrls, loading } = useR2UrlsBatch(thumbnailUrls);
+  const httpRegex = /^https?:\/\//i;
+
+  // Determine if any URL needs signing (non-HTTP paths)
+  const needsSigning = useMemo(() => thumbnailUrls.some((u) => u && !httpRegex.test(u)), [thumbnailUrls]);
+
+  // Only sign when needed; otherwise use URLs as-is
+  const { urls: signedThumbnailUrls, loading } = useR2UrlsBatch(needsSigning ? thumbnailUrls : []);
+  const resolvedThumbnailUrls = needsSigning ? signedThumbnailUrls : thumbnailUrls;
   
   if (!freezeModalOpen || thumbnailUrls.length === 0) return null;
 
@@ -121,7 +127,7 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
               <Typography sx={{ color: 'white' }}>Loading images...</Typography>
             </Box>
           ) : (
-            signedThumbnailUrls.map((imageUrl: string | null, index: number) => {
+            resolvedThumbnailUrls.map((imageUrl: string | null, index: number) => {
               const diff = freezeDiffs[index];
               const frameLabels = ['Frame -2', 'Frame -1', 'Current'];
 
