@@ -88,9 +88,10 @@ Without analyze_screen_for_action, you risk clicking the WRONG element.
 DEVICE-SPECIFIC COMMANDS & PARAMETERS:
 
 MOBILE/ADB (android_mobile/android_tv):
-- Commands: launch_app, swipe_up, click_element_by_id (preferred), click_element, input_text, press_key
+- Commands: launch_app, swipe_up, click_element (preferred - text-based), input_text, press_key
+- IMPORTANT: Use click_element with 'text' param, NOT click_element_by_id
 - input_text: Sends text to focused element (no selector needed)
-- Example: {"command": "input_text", "params": {"text": "Hello", "wait_time": 1000}}
+- Example: {"command": "click_element", "params": {"text": "Settings", "wait_time": 1000}}
 
 WEB (host_vnc/web):
 - Commands: click_element, click_element_by_id, input_text, navigate_to_url
@@ -135,19 +136,19 @@ Swipe:
     "actions": [{"command": "swipe_up", "params": {"wait_time": 1000}}]
   })
 
-Click Element (⭐ PREFERRED - Use ID):
-  execute_device_action({
-    "actions": [{
-      "command": "click_element_by_id",
-      "params": {"element_id": "customer_login_link", "wait_time": 2000}
-    }]
-  })
-
-Click Element (fallback - text when no ID available):
+Click Element - MOBILE (PREFERRED - Use text):
   execute_device_action({
     "actions": [{
       "command": "click_element",
       "params": {"text": "Home", "wait_time": 2000}
+    }]
+  })
+
+Click Element - WEB ONLY (Use ID when available):
+  execute_device_action({
+    "actions": [{
+      "command": "click_element_by_id",
+      "params": {"element_id": "customer_login_link", "wait_time": 2000}
     }]
   })
 

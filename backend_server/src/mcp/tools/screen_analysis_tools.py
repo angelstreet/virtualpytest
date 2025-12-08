@@ -82,24 +82,23 @@ class ScreenAnalysisTools:
             selector_type = result['selector_type']
             selector_value = result['selector_value']
             
-            if selector_type == 'id':
-                command = 'click_element_by_id'
-                action_params = {
-                    'element_id': selector_value,
-                    'wait_time': 1000
-                }
-            elif selector_type == 'xpath':
+            # MOBILE: Always use click_element (text-based) - IDs are unreliable on mobile ADB
+            # WEB: Can use click_element_by_id for stable element IDs
+            if platform == 'mobile':
+                # Mobile always uses click_element with text/xpath - never by ID
                 command = 'click_element'
-                action_params = {
-                    'xpath': selector_value,
-                    'wait_time': 1000
-                }
-            else:  # text or content_desc
-                command = 'click_element'
-                action_params = {
-                    'text': selector_value,
-                    'wait_time': 1000
-                }
+                action_params = {'text': selector_value, 'wait_time': 1000}
+            else:
+                # Web platform
+                if selector_type == 'id':
+                    command = 'click_element_by_id'
+                    action_params = {'element_id': selector_value, 'wait_time': 1000}
+                elif selector_type == 'xpath':
+                    command = 'click_element'
+                    action_params = {'xpath': selector_value, 'wait_time': 1000}
+                else:  # text or content_desc
+                    command = 'click_element'
+                    action_params = {'text': selector_value, 'wait_time': 1000}
             
             # Determine confidence
             score = result['score']

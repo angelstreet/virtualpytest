@@ -30,22 +30,20 @@ Uses same selector scoring logic as AI exploration system (shared/src/selector_s
 Ready-to-use action parameters with:
 - selector_type: 'id', 'xpath', or 'text'
 - selector_value: The actual selector string
-- command: The correct command ('click_element_by_id', etc.)
+- command: The correct command (platform-specific)
+  • WEB: 'click_element_by_id' or 'click_element'
+  • MOBILE: Always 'click_element' (text-based)
 - action_params: Ready to use in create_edge
 - score: Confidence score (>1000 = high, >500 = medium)
 - unique: Boolean - is this selector unique on page?
 
-Example:
-  # Step 1: Get elements
-  elements = dump_ui_elements(device_id='device1')
-  
-  # Step 2: Analyze what to click
-  action = analyze_screen_for_action(
-    elements=elements['elements'],
-    intent='search field',
-    platform='web'
-  )
-  # Returns: {command: 'click_element_by_id', params: {element_id: 'search-field'}, score: 1200, unique: true}
+Example (WEB):
+  action = analyze_screen_for_action(elements=elements, intent='search field', platform='web')
+  # Returns: {command: 'click_element_by_id', params: {element_id: 'search-field'}, unique: true}
+
+Example (MOBILE):
+  action = analyze_screen_for_action(elements=elements, intent='search field', platform='mobile')
+  # Returns: {command: 'click_element', params: {text: 'Search'}, unique: true}
   
   # Step 3: Use in edge
   create_edge(
