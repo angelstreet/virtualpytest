@@ -88,19 +88,18 @@ skills:
   - analyze_screen_for_verification
   - capture_screenshot
   
-  # WEB-SPECIFIC: AI Exploration
-  - start_ai_exploration
-  - approve_exploration_plan
-  - validate_exploration_edges
-  - get_node_verification_suggestions
-  - approve_node_verifications
-  - finalize_exploration
-  
-  # WEB-SPECIFIC: Tree Building
+  # WEB-SPECIFIC: Autonomous Exploration (NO human approval gates)
+  # Agent builds navigation trees using atomic CRUD tools directly
   - create_node
-  - create_edge
   - update_node
+  - delete_node
+  - get_node
+  - create_edge
   - update_edge
+  - delete_edge
+  - get_edge
+  - create_subtree
+  - execute_edge
   - save_node_screenshot
   
   # Execution

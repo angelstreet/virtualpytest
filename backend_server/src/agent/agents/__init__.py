@@ -1,30 +1,17 @@
 """
 Agent Definitions
 
-Each agent has:
-- System prompt (personality, role)
-- Tool list (from skills)
-- Execution logic
+NOTE: Python agent classes have been removed.
+The system uses YAML-driven agents loaded from registry/templates/*.yaml
 
-Agent Responsibilities:
-- Explorer: UI discovery, navigation tree building
-- Builder: Test cases, requirements, coverage setup
-- Executor: Execution STRATEGY (devices, parallelization, retries)
-- Analyst: Result ANALYSIS (bug vs UI change, Jira lookup)
-- Maintainer: Self-healing (fix selectors, update edges)
+All agent behavior is defined in YAML:
+- qa-mobile-manager.yaml (Scout)
+- qa-web-manager.yaml (Sherlock)
+- qa-stb-manager.yaml (Watcher)
+- ai-assistant.yaml (Atlas)
+- monitoring-manager.yaml (Guardian)
+
+See core/manager.py for the QAManagerAgent that loads and runs YAML configs.
 """
 
-from .explorer import ExplorerAgent
-from .builder import BuilderAgent
-from .executor import ExecutorAgent
-from .analyst import AnalystAgent
-from .maintainer import MaintainerAgent
-
-__all__ = [
-    'ExplorerAgent',
-    'BuilderAgent',
-    'ExecutorAgent',
-    'AnalystAgent',
-    'MaintainerAgent',
-]
-
+__all__ = []

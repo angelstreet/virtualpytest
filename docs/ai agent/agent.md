@@ -25,7 +25,7 @@ YAML-driven agent system. Flat hierarchy with specialized managers.
 │   - take_control                                                           │
 │   - navigate_to_node                                                       │
 │   - execute_testcase                                                       │
-│   - dump_ui_elements                                                       │
+│   - create_node, create_edge (autonomous exploration)                      │
 │   - etc.                                                                   │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -149,13 +149,29 @@ That's it. The tools handle everything internally.
 
 ```yaml
 skills:
+  # Navigation
   - take_control
   - navigate_to_node
-  - dump_ui_elements        # ADB hierarchy
+  
+  # Screen Analysis (ADB)
+  - dump_ui_elements
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
   - capture_screenshot
-  - execute_device_action   # Touch, swipe
+  
+  # Autonomous Exploration (NO human approval)
+  - create_node
+  - update_node
+  - delete_node
+  - create_edge
+  - update_edge
+  - delete_edge
+  - execute_edge
+  - save_node_screenshot
+  
+  # Execution
+  - execute_device_action
   - execute_testcase
-  - start_ai_exploration
   - get_compatible_hosts
 ```
 
@@ -163,23 +179,55 @@ skills:
 
 ```yaml
 skills:
+  # Navigation
   - take_control
   - navigate_to_node
-  - dump_ui_elements        # DOM hierarchy
+  
+  # Screen Analysis (DOM)
+  - dump_ui_elements
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
   - capture_screenshot
+  
+  # Autonomous Exploration
+  - create_node
+  - update_node
+  - delete_node
+  - create_edge
+  - update_edge
+  - delete_edge
+  - execute_edge
+  - save_node_screenshot
+  
+  # Execution
   - execute_testcase
-  - start_ai_exploration
+  - execute_device_action
 ```
 
 ### Watcher (STB/TV)
 
 ```yaml
 skills:
+  # Navigation
   - take_control
   - navigate_to_node
-  - capture_screenshot      # AI vision (no dump_ui_elements)
-  - get_transcript          # Audio analysis
-  - execute_device_action   # D-pad, remote keys
+  
+  # Screen Analysis (AI Vision - NO dump_ui_elements)
+  - capture_screenshot
+  - get_transcript
+  
+  # Autonomous Exploration
+  - create_node
+  - update_node
+  - delete_node
+  - create_edge
+  - update_edge
+  - delete_edge
+  - execute_edge
+  - save_node_screenshot
+  
+  # Execution
+  - execute_device_action    # D-pad, remote keys
   - execute_testcase
 ```
 
@@ -254,10 +302,19 @@ skills:
   - take_control
   - navigate_to_node
   - dump_ui_elements
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
   - capture_screenshot
+  - create_node
+  - update_node
+  - delete_node
+  - create_edge
+  - update_edge
+  - delete_edge
+  - execute_edge
+  - save_node_screenshot
   - execute_device_action
   - execute_testcase
-  - start_ai_exploration
   - get_compatible_hosts
   - list_navigation_nodes
 
@@ -271,22 +328,28 @@ subagents: []  # No sub-agents - all skills included
 ```
 backend_server/src/agent/
 ├── core/
-│   ├── manager.py              # YAML-driven orchestrator
+│   ├── manager.py              # QAManagerAgent (THE ONLY agent class)
 │   ├── session.py
 │   └── tool_bridge.py
 ├── registry/
-│   ├── templates/              # YAML configs (Source of Truth)
+│   ├── templates/              # YAML configs (SOURCE OF TRUTH)
 │   │   ├── ai-assistant.yaml       # Atlas
 │   │   ├── qa-mobile-manager.yaml  # Scout
 │   │   ├── qa-web-manager.yaml     # Sherlock
 │   │   ├── qa-stb-manager.yaml     # Watcher
 │   │   └── monitoring-manager.yaml # Guardian
-│   └── registry.py
+│   ├── registry.py
+│   └── validator.py
+├── skills/
+│   └── skill_registry.py       # Validates YAML skills against MCP tools
 └── config.py                   # Model config only
 ```
 
+**Note:** Python agent classes (explorer.py, builder.py, etc.) have been removed.
+YAML is the single source of truth for all agent definitions.
+
 ---
 
-*Document Version: 4.0*  
+*Document Version: 5.0*  
 *Last Updated: December 2024*  
-*Changelog: Simplified to flat hierarchy - no Explorer/Executor sub-agents*
+*Changelog: Removed human-approval exploration tools, added autonomous CRUD tools, deleted dead Python agent code*

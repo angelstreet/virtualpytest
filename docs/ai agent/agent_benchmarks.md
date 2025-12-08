@@ -42,12 +42,13 @@ backend_server/src/agent/benchmarks/
 │   ├── tier1_tool_selection.yaml   # 10 tests - Quick health check
 │   ├── tier2_skill_workflows.yaml  # 5 tests - Capability validation
 │   ├── tier3_e2e_integration.yaml  # 3 tests - Full sauce-demo flow
-│   ├── navigation.yaml             # Legacy: Basic navigation
-│   ├── detection.yaml              # Legacy: Device detection
-│   ├── execution.yaml              # Legacy: Test execution
-│   ├── analysis.yaml               # Legacy: Coverage analysis
-│   └── recovery.yaml               # Legacy: Error handling
-└── custom/                         # Your custom tests
+│   ├── navigation.yaml             # Basic navigation
+│   ├── detection.yaml              # Device detection
+│   ├── execution.yaml              # Test execution
+│   ├── analysis.yaml               # Coverage analysis
+│   └── recovery.yaml               # Error handling
+└── custom/
+    └── exploration.yaml            # Autonomous exploration benchmarks
 ```
 
 ---
@@ -97,18 +98,64 @@ backend_server/src/agent/benchmarks/
 
 | Test ID | Name | Description |
 |---------|------|-------------|
-| `e2e_001` | **Sauce Demo Full Automation** | Complete workflow: hosts → exploration → approve → validate → requirement → testcase → coverage |
+| `e2e_001` | **Sauce Demo Full Automation** | Complete workflow: hosts → exploration → validate → requirement → testcase → coverage |
 | `e2e_002` | **Navigation Tree Validation** | Verify tree has: home, login, signup, cart nodes |
 | `e2e_003` | **Coverage Validation** | Verify 100% coverage for created requirements |
 
 ### Sauce Demo Expected Deliverables
 
-Based on `docs/examples/sauce-demo-optimal-prompt.md`:
-
 - **7 nodes**: home, signup, login, logout, product_detail, cart, search_results
 - **6 requirements**: signup, login, logout, search, add to cart, verify cart
 - **6 test cases**: linked to requirements
 - **100% coverage**: all requirements covered
+
+---
+
+## Autonomous Exploration Benchmarks
+
+Custom benchmarks for testing autonomous navigation tree building.
+
+**Location:** `benchmarks/custom/exploration.yaml`
+
+| Test ID | Name | Points | Description |
+|---------|------|--------|-------------|
+| `mobile_explore_001` | Basic Exploration | 10 | Creates nodes + edges |
+| `mobile_explore_002` | With Edge Testing | 10 | Tests all edges bidirectionally |
+| `mobile_explore_003` | Optimal Selectors | 10 | Uses IDs over text |
+| `mobile_explore_004` | Add Verifications | 12 | Adds node detection |
+| `mobile_explore_005` | Full Autonomous | 25 | Everything + screenshots |
+| `mobile_explore_006` | Reference Model Match | 30 | Matches expected structure |
+| `mobile_explore_007` | Fix Failed Edges | 15 | Error recovery |
+| `mobile_explore_008` | Simple Natural Prompt | 8 | Understands human prompts |
+
+### Reference Model (mobile_explore_006)
+
+```yaml
+expected:
+  reference_model:
+    userinterface: google_tv
+    platform: android_mobile
+    expected_nodes:
+      - label: home
+        has_verification: true
+      - label: search
+        has_verification: true
+      - label: library
+        has_verification: true
+      - label: settings
+        has_verification: true
+    expected_edges:
+      - source: home
+        target: search
+        bidirectional: true
+      - source: home
+        target: library
+        bidirectional: true
+      - source: home
+        target: settings
+        bidirectional: true
+    min_match_percentage: 75
+```
 
 ---
 
@@ -151,12 +198,17 @@ Based on `docs/examples/sauce-demo-optimal-prompt.md`:
 # Quick health check (Tier 1 only)
 curl -X POST "http://localhost:5109/server/benchmarks/run?team_id=<team_id>" \
   -H "Content-Type: application/json" \
-  -d '{"agent_id": "qa-web-manager", "version": "1.0.0", "category": "tool_selection"}'
+  -d '{"agent_id": "qa-mobile-manager", "version": "1.0.0", "category": "tool_selection"}'
 
 # Full benchmark (all tiers)
 curl -X POST "http://localhost:5109/server/benchmarks/run?team_id=<team_id>" \
   -H "Content-Type: application/json" \
-  -d '{"agent_id": "qa-web-manager", "version": "1.0.0"}'
+  -d '{"agent_id": "qa-mobile-manager", "version": "1.0.0"}'
+
+# Run exploration benchmarks
+curl -X POST "http://localhost:5109/server/benchmarks/run?team_id=<team_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "qa-mobile-manager", "version": "1.0.0", "category": "exploration_mobile"}'
 
 # Execute the run
 curl -X POST "http://localhost:5109/server/benchmarks/run/<run_id>/execute?team_id=<team_id>"
@@ -166,7 +218,7 @@ curl -X POST "http://localhost:5109/server/benchmarks/run/<run_id>/execute?team_
 
 ```bash
 # List runs
-GET /server/benchmarks/runs?team_id=<team_id>&agent_id=qa-web-manager
+GET /server/benchmarks/runs?team_id=<team_id>&agent_id=qa-mobile-manager
 
 # Get run details
 GET /server/benchmarks/runs/<run_id>
@@ -185,10 +237,10 @@ POST /server/benchmarks/feedback?team_id=<team_id>
 Content-Type: application/json
 
 {
-  "agent_id": "qa-web-manager",
+  "agent_id": "qa-mobile-manager",
   "version": "1.0.0",
   "rating": 5,
-  "comment": "Excellent exploration capabilities"
+  "comment": "Excellent autonomous exploration"
 }
 ```
 
@@ -197,21 +249,28 @@ Content-Type: application/json
 ## YAML Test Schema
 
 ```yaml
-category: tool_selection
-description: Agent tool selection accuracy
+category: exploration_mobile
+description: Autonomous mobile exploration benchmarks
 
 tests:
-  - id: ts_001                    # Unique test ID
-    name: List User Interfaces    # Human-readable name
-    description: Agent should call list_userinterfaces tool
-    prompt: "List all userinterfaces"
+  - id: mobile_explore_001       # Unique test ID
+    name: Basic Mobile Exploration
+    description: Agent explores and creates navigation structure
+    prompt: "Explore google_tv and map all screens reachable from home."
     expected:
-      contains: ["userinterface"]  # Keywords to check
-    validation: contains           # contains | contains_any | exact | regex
-    timeout: 15                    # Max seconds
-    points: 1.0                    # Points if passed
-    agents:                        # Applicable agents (null = all)
-      - qa-web-manager
+      contains: ["node", "edge", "created"]
+      tools_called:
+        - get_compatible_hosts
+        - dump_ui_elements
+        - create_node
+        - create_edge
+        - execute_edge
+      min_nodes: 3
+      min_edges: 2
+    validation: exploration_result
+    timeout: 300
+    points: 10.0
+    agents:
       - qa-mobile-manager
 ```
 
@@ -223,6 +282,9 @@ tests:
 | `contains_any` | Output must contain ANY keyword | `{contains: ["error", "not found"]}` |
 | `exact` | Exact match required | `{value: "exact string"}` |
 | `regex` | Regex pattern match | `{pattern: "regex.*pattern"}` |
+| `exploration_result` | Validates exploration output | `{min_nodes, min_edges, tools_called}` |
+| `reference_model` | Compares to expected structure | `{reference_model: {...}}` |
+| `selector_analysis` | Checks selector quality | `{selector_quality: {...}}` |
 
 ---
 
@@ -246,7 +308,7 @@ tests:
     timeout: 60
     points: 1.0
     agents:
-      - qa-web-manager
+      - qa-mobile-manager
 ```
 
 ### Step 2: Restart Server
@@ -272,37 +334,6 @@ curl http://localhost:5109/server/benchmarks/tests?category=custom
 
 ---
 
-## Frontend Integration
-
-### AgentDashboard Tabs
-
-1. **Agents Tab** - Agent cards with benchmark/rate actions
-2. **Benchmarks Tab** - Benchmark run history
-3. **Leaderboard Tab** - Ranked agent comparison
-
-### Triggering Benchmarks
-
-```typescript
-const handleRunBenchmark = async (agentId: string, version: string) => {
-  // 1. Create run
-  const createResponse = await fetch(buildServerUrl('/server/benchmarks/run'), {
-    method: 'POST',
-    body: JSON.stringify({ agent_id: agentId, version })
-  });
-  const { run_id } = await createResponse.json();
-  
-  // 2. Execute
-  await fetch(buildServerUrl(`/server/benchmarks/run/${run_id}/execute`), {
-    method: 'POST'
-  });
-  
-  // 3. Refresh
-  await loadBenchmarkRuns();
-};
-```
-
----
-
 ## Best Practices
 
 ### When to Run Each Tier
@@ -313,6 +344,7 @@ const handleRunBenchmark = async (agentId: string, version: string) => {
 | After code changes | Tier 1 + Tier 2 |
 | Before release | All tiers |
 | CI/CD pipeline | Tier 1 (fast), Tier 3 (nightly) |
+| Testing exploration | `exploration_mobile` category |
 
 ### Regression Detection
 
@@ -335,3 +367,9 @@ When adding a new MCP tool:
 1. **Test Execution**: Currently uses simulation; real execution requires live agent
 2. **Cost Efficiency**: 10% score component not yet implemented
 3. **Hot Reload**: Server restart required after adding/editing YAML tests
+
+---
+
+*Document Version: 2.0*  
+*Last Updated: December 2024*  
+*Changelog: Added autonomous exploration benchmarks, updated test categories*

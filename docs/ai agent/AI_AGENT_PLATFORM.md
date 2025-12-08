@@ -27,9 +27,10 @@ VirtualPyTest AI Agent - YAML-driven platform with specialized managers.
 ```
 
 **Key Principles:**
-- No sub-agents (Explorer/Executor deleted)
+- No sub-agents (all skills inline)
 - Each manager has ALL skills for its platform
 - One selectable agent = one chat bubble
+- YAML is the single source of truth
 
 ---
 
@@ -106,7 +107,45 @@ The tools are self-sufficient. Just use them.
 
 ---
 
-## 5. YAML Configuration
+## 5. Autonomous Exploration
+
+Agents build navigation trees **autonomously** using atomic CRUD tools.
+No human approval gates required.
+
+### Available Tools
+
+| Tool | Purpose |
+|------|---------|
+| `create_node` | Add screen/node to tree |
+| `update_node` | Modify node (add verifications) |
+| `delete_node` | Remove node |
+| `create_edge` | Add navigation path with actions |
+| `update_edge` | Fix edge actions |
+| `delete_edge` | Remove edge |
+| `execute_edge` | Test edge immediately |
+| `save_node_screenshot` | Attach screenshot to node |
+
+### Exploration Workflow
+
+```
+User: "Explore google_tv and create its navigation model"
+
+Scout:
+  1. get_compatible_hosts(userinterface_name='google_tv')
+  2. take_control(tree_id=..., device_id=..., host_name=...)
+  3. dump_ui_elements(...)  → Analyze screen
+  4. analyze_screen_for_action(elements, intent='search button', platform='mobile')
+  5. create_node(tree_id=..., label='search')
+  6. create_edge(tree_id=..., source='home', target='search', action_sets=[...])
+  7. execute_edge(...)  → Test it works
+  8. Repeat for all screens
+```
+
+**Key:** Agent decides what to create, tests immediately, fixes if needed.
+
+---
+
+## 6. YAML Configuration
 
 ### Atlas (Orchestrator)
 
@@ -143,13 +182,29 @@ metadata:
   selectable: true
 
 skills:
+  # Navigation
   - take_control
   - navigate_to_node
+  
+  # Screen Analysis
   - dump_ui_elements
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
   - capture_screenshot
+  
+  # Autonomous Exploration (CRUD)
+  - create_node
+  - update_node
+  - delete_node
+  - create_edge
+  - update_edge
+  - delete_edge
+  - execute_edge
+  - save_node_screenshot
+  
+  # Execution
   - execute_device_action
   - execute_testcase
-  - start_ai_exploration
   - get_compatible_hosts
   - list_navigation_nodes
 
@@ -158,7 +213,7 @@ subagents: []  # No sub-agents
 
 ---
 
-## 6. Chat Bubbles
+## 7. Chat Bubbles
 
 **Rule:** Each YAML agent with `selectable: true` gets its own chat bubble.
 
@@ -179,7 +234,7 @@ No hidden sub-agent bubbles. What you see is what you get.
 
 ---
 
-## 7. Delegation Flow
+## 8. Delegation Flow
 
 ```
 User sends: "go to home on horizon_android_mobile"
@@ -204,7 +259,7 @@ User sends: "go to home on horizon_android_mobile"
 
 ---
 
-## 8. API Reference
+## 9. API Reference
 
 ### Agent Registry
 
@@ -232,28 +287,33 @@ POST /server/agents/reload
 
 ---
 
-## 9. File Structure
+## 10. File Structure
 
 ```
 backend_server/src/agent/
 ├── core/
-│   ├── manager.py              # YAML-driven orchestrator
+│   ├── manager.py              # QAManagerAgent (THE ONLY agent class)
 │   ├── session.py
 │   └── tool_bridge.py
 ├── registry/
-│   ├── templates/
+│   ├── templates/              # YAML configs (SOURCE OF TRUTH)
 │   │   ├── ai-assistant.yaml       # Atlas
 │   │   ├── qa-mobile-manager.yaml  # Scout
 │   │   ├── qa-web-manager.yaml     # Sherlock
 │   │   ├── qa-stb-manager.yaml     # Watcher
 │   │   └── monitoring-manager.yaml # Guardian
-│   └── registry.py
+│   ├── registry.py
+│   └── validator.py
+├── skills/
+│   └── skill_registry.py       # Validates YAML skills against MCP tools
 └── config.py
 ```
 
+**Note:** Python agent classes have been removed. YAML is the single source of truth.
+
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 ### "Cannot delegate to X"
 
@@ -271,8 +331,12 @@ Check agent's `skills` list in YAML.
 
 Update system prompt to emphasize: "Just use take_control + navigate_to_node. No screenshots or dumps needed first."
 
+### Exploration not working
+
+Ensure agent has CRUD tools: `create_node`, `create_edge`, `execute_edge`, etc.
+
 ---
 
-*Document Version: 4.0*  
+*Document Version: 5.0*  
 *Last Updated: December 2024*  
-*Changelog: Simplified architecture - flat hierarchy, no Explorer/Executor*
+*Changelog: Added autonomous exploration section, removed human-approval tools, cleaned up architecture*
