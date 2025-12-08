@@ -66,6 +66,8 @@ const MonitoringIncidents: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
   const [freezeModalAlert, setFreezeModalAlert] = useState<Alert | null>(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageModalUrl, setImageModalUrl] = useState<string | null>(null);
 
   // Load alerts data function - extracted for reuse
   const loadAlerts = useCallback(async () => {
@@ -403,6 +405,17 @@ const MonitoringIncidents: React.FC = () => {
     setFreezeModalAlert(null);
   };
 
+  const handleImageModalOpen = (url?: string | null) => {
+    if (!url) return;
+    setImageModalUrl(url);
+    setImageModalOpen(true);
+  };
+
+  const handleImageModalClose = () => {
+    setImageModalOpen(false);
+    setImageModalUrl(null);
+  };
+
 
   // Handle clear all alerts
   const handleClearAllAlerts = async () => {
@@ -636,6 +649,7 @@ const MonitoringIncidents: React.FC = () => {
                       cursor: 'pointer',
                       '&:hover': { opacity: 0.8 },
                     }}
+                    onClick={() => handleImageModalOpen(imageUrls.thumbnailUrl)}
                   />
                 </Box>
               </Grid>
@@ -664,6 +678,7 @@ const MonitoringIncidents: React.FC = () => {
                         cursor: 'pointer',
                         '&:hover': { opacity: 0.8 },
                       }}
+                    onClick={() => handleImageModalOpen(imageUrls.closureUrl)}
                     />
                   </Box>
                 </Grid>
@@ -1227,6 +1242,35 @@ const MonitoringIncidents: React.FC = () => {
         timestamp={freezeModalAlert?.start_time}
         onClose={handleCloseFreezeModal}
       />
+
+      {/* Generic Image Modal for non-freeze incidents (e.g., audio_loss) */}
+      <Dialog
+        open={imageModalOpen}
+        onClose={handleImageModalClose}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Incident Image</DialogTitle>
+        <DialogContent>
+          {imageModalUrl && (
+            <R2Image
+              src={imageModalUrl}
+              alt="Incident"
+              showLoading={false}
+              sx={{
+                width: '100%',
+                height: 'auto',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleImageModalClose}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

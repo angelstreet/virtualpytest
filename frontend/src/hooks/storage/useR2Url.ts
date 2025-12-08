@@ -36,7 +36,7 @@
  * );
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getR2Url, getR2UrlsBatch, extractR2Path } from '../../utils/infrastructure/cloudflareUtils';
 
 export interface UseR2UrlResult {
@@ -149,6 +149,8 @@ export const useR2UrlsBatch = (
   expiresIn: number = 3600,
   autoRefresh: boolean = true
 ): UseR2UrlsBatchResult => {
+  const pathsKey = useMemo(() => JSON.stringify(paths ?? []), [paths]);
+  const stablePaths = useMemo(() => paths, [pathsKey]);
   const [urls, setUrls] = useState<(string | null)[]>([]);
   const [urlMap, setUrlMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<boolean>(false);
@@ -156,7 +158,7 @@ export const useR2UrlsBatch = (
 
   const fetchUrls = useCallback(async () => {
     // Filter out null/undefined paths
-    const validPaths = paths.filter((p): p is string => !!p);
+    const validPaths = stablePaths.filter((p): p is string => !!p);
 
     if (validPaths.length === 0) {
       setUrls([]);
@@ -182,7 +184,7 @@ export const useR2UrlsBatch = (
       const resultMap = await getR2UrlsBatch(r2Paths, expiresIn);
       
       // Convert map back to array in original order
-      const resultUrls = paths.map(path => {
+      const resultUrls = stablePaths.map(path => {
         if (!path) return null;
         
         let r2Path = path;
@@ -205,19 +207,19 @@ export const useR2UrlsBatch = (
     } finally {
       setLoading(false);
     }
-  }, [paths, expiresIn]);
+  }, [stablePaths, expiresIn]);
 
   useEffect(() => {
     fetchUrls();
 
     // Setup auto-refresh if enabled
-    if (autoRefresh && paths.length > 0) {
+    if (autoRefresh && stablePaths.length > 0) {
       const refreshInterval = Math.max((expiresIn - 300) * 1000, 60000);
       const intervalId = setInterval(fetchUrls, refreshInterval);
 
       return () => clearInterval(intervalId);
     }
-  }, [fetchUrls, autoRefresh, paths, expiresIn]);
+  }, [fetchUrls, autoRefresh, stablePaths, expiresIn]);
 
   return {
     urls,
