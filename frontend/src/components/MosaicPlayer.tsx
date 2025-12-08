@@ -5,7 +5,7 @@
  * Shows mosaic images and provides timeline navigation controls.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Slider,
@@ -73,97 +73,85 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   }, [filter, currentIndex]);
 
   // Calculate overlay positions based on actual image dimensions
-  useEffect(() => {
-    const calculatePositions = () => {
-      if (!imgElementRef.current || !containerRef.current || !analysisData?.devices) return;
+  const calculatePositions = useCallback(() => {
+    if (!imgElementRef.current || !containerRef.current || !analysisData?.devices) return;
 
-      const img = imgElementRef.current;
-      const container = containerRef.current;
+    const img = imgElementRef.current;
+    const container = containerRef.current;
 
-      // Get container dimensions
-      const containerRect = container.getBoundingClientRect();
-      const containerWidth = containerRect.width;
-      const containerHeight = containerRect.height;
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
 
-      // Get actual image dimensions (natural size)
-      const imageNaturalWidth = img.naturalWidth;
-      const imageNaturalHeight = img.naturalHeight;
+    const imageNaturalWidth = img.naturalWidth;
+    const imageNaturalHeight = img.naturalHeight;
+    if (imageNaturalWidth === 0 || imageNaturalHeight === 0) return;
 
-      if (imageNaturalWidth === 0 || imageNaturalHeight === 0) return;
+    const containerAspectRatio = containerWidth / containerHeight;
+    const imageAspectRatio = imageNaturalWidth / imageNaturalHeight;
 
-      // Calculate how the image is displayed with object-fit: contain
-      const containerAspectRatio = containerWidth / containerHeight;
-      const imageAspectRatio = imageNaturalWidth / imageNaturalHeight;
+    let displayedImageWidth: number;
+    let displayedImageHeight: number;
+    let offsetX: number;
+    let offsetY: number;
 
-      let displayedImageWidth: number;
-      let displayedImageHeight: number;
-      let offsetX: number;
-      let offsetY: number;
-
-      if (imageAspectRatio > containerAspectRatio) {
-        // Image is wider - constrained by width
-        displayedImageWidth = containerWidth;
-        displayedImageHeight = containerWidth / imageAspectRatio;
-        offsetX = 0;
-        offsetY = (containerHeight - displayedImageHeight) / 2;
-      } else {
-        // Image is taller - constrained by height
-        displayedImageWidth = containerHeight * imageAspectRatio;
-        displayedImageHeight = containerHeight;
-        offsetX = (containerWidth - displayedImageWidth) / 2;
-        offsetY = 0;
-      }
-
-      // Calculate grid layout (same as backend)
-      const deviceCount = analysisData.devices.length;
-      let cols: number, rows: number;
-      if (deviceCount <= 1) {
-        cols = 1; rows = 1;
-      } else if (deviceCount === 2) {
-        cols = 2; rows = 1;
-      } else if (deviceCount <= 4) {
-        cols = 2; rows = 2;
-      } else if (deviceCount <= 6) {
-        cols = 3; rows = 2;
-      } else if (deviceCount <= 9) {
-        cols = 3; rows = 3;
-      } else {
-        // For more than 9 devices, use 6 columns max
-        cols = Math.min(6, deviceCount);
-        rows = Math.ceil(deviceCount / cols);
-      }
-
-      // Calculate cell dimensions within the displayed image
-      const cellWidth = displayedImageWidth / cols;
-      const cellHeight = displayedImageHeight / rows;
-
-      // Calculate positions for each device
-      const positions = analysisData.devices.map((_: any, index: number) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-
-        return {
-          left: offsetX + (col * cellWidth),
-          top: offsetY + (row * cellHeight),
-          width: cellWidth,
-          height: cellHeight
-        };
-      });
-
-      setOverlayPositions(positions);
-    };
-
-    // Calculate on image load and when analysis data changes
-    if (imgElementRef.current) {
-      const img = imgElementRef.current;
-      if (img.complete && !imageLoading) {
-        calculatePositions();
-      } else {
-        img.addEventListener('load', calculatePositions);
-      }
+    if (imageAspectRatio > containerAspectRatio) {
+      displayedImageWidth = containerWidth;
+      displayedImageHeight = containerWidth / imageAspectRatio;
+      offsetX = 0;
+      offsetY = (containerHeight - displayedImageHeight) / 2;
+    } else {
+      displayedImageWidth = containerHeight * imageAspectRatio;
+      displayedImageHeight = containerHeight;
+      offsetX = (containerWidth - displayedImageWidth) / 2;
+      offsetY = 0;
     }
 
-    // Recalculate on window resize
+    const deviceCount = analysisData.devices.length;
+    let cols: number, rows: number;
+    if (deviceCount <= 1) {
+      cols = 1; rows = 1;
+    } else if (deviceCount === 2) {
+      cols = 2; rows = 1;
+    } else if (deviceCount <= 4) {
+      cols = 2; rows = 2;
+    } else if (deviceCount <= 6) {
+      cols = 3; rows = 2;
+    } else if (deviceCount <= 9) {
+      cols = 3; rows = 3;
+    } else {
+      cols = Math.min(6, deviceCount);
+      rows = Math.ceil(deviceCount / cols);
+    }
+
+    const cellWidth = displayedImageWidth / cols;
+    const cellHeight = displayedImageHeight / rows;
+
+    const positions = analysisData.devices.map((_: any, index: number) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+
+      return {
+        left: offsetX + (col * cellWidth),
+        top: offsetY + (row * cellHeight),
+        width: cellWidth,
+        height: cellHeight
+      };
+    });
+
+    setOverlayPositions(positions);
+  }, [analysisData]);
+
+  useEffect(() => {
+    if (!imgElementRef.current) return;
+
+    const img = imgElementRef.current;
+    if (img.complete && !imageLoading) {
+      calculatePositions();
+    } else {
+      img.addEventListener('load', calculatePositions);
+    }
+
     window.addEventListener('resize', calculatePositions);
 
     return () => {
@@ -172,7 +160,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
       }
       window.removeEventListener('resize', calculatePositions);
     };
-  }, [analysisData, imageLoading, mosaicSrc]);
+  }, [analysisData, imageLoading, mosaicSrc, calculatePositions]);
   
   // Preload and cache image
   useEffect(() => {
@@ -344,11 +332,20 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
                 height: '100%',
                 objectFit: 'contain'
               }}
+              onLoad={() => {
+                setImageLoading(false);
+                setImageError(false);
+                calculatePositions();
+              }}
+              onError={() => {
+                setImageLoading(false);
+                setImageError(true);
+              }}
             />
             
             {/* Device Overlays */}
             {!imageLoading && analysisData?.devices && overlayPositions.length > 0 && (
-              <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+              <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2 }}>
                 {analysisData.devices.map((device: any, index: number) => {
                   const position = overlayPositions[index];
                   if (!position) return null;
@@ -372,6 +369,7 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
                           width: `${position.width}px`,
                           height: `${position.height}px`,
                           cursor: 'pointer',
+                          zIndex: 3,
                           '&:hover': {
                             backgroundColor: 'rgba(255, 255, 255, 0.1)',
                             border: '2px solid #fff'
