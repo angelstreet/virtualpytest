@@ -2,7 +2,7 @@
 Skill Registry
 
 Central registry of all available skills/tools that agents can use.
-Maps skill names (from YAML) to MCP tool implementations.
+Maps skill names (from YAML) to MCP tool implementations + UI interaction tools.
 """
 
 from typing import Dict, List, Set, Optional
@@ -26,6 +26,14 @@ from mcp.tool_definitions import (
     get_screen_analysis_tools,
     get_exploration_tools,
 )
+
+# Import UI interaction tools (browser control)
+try:
+    from agent.tools.page_interaction import PAGE_INTERACTION_TOOLS
+    UI_TOOLS_AVAILABLE = True
+except ImportError:
+    PAGE_INTERACTION_TOOLS = []
+    UI_TOOLS_AVAILABLE = False
 
 
 @dataclass
@@ -55,7 +63,7 @@ def _extract_tool_names(tool_definitions: List[dict]) -> Dict[str, SkillInfo]:
 
 
 def _build_skill_registry() -> Dict[str, SkillInfo]:
-    """Build registry of all available skills from MCP tools"""
+    """Build registry of all available skills from MCP tools + UI interaction tools"""
     all_skills = {}
     
     # Categorize by tool definition file
@@ -77,6 +85,7 @@ def _build_skill_registry() -> Dict[str, SkillInfo]:
         ('exploration', get_exploration_tools()),
     ]
     
+    # Add MCP tools
     for category, tools in tool_categories:
         for tool in tools:
             name = tool.get('name', '')
@@ -90,6 +99,26 @@ def _build_skill_registry() -> Dict[str, SkillInfo]:
                     description=desc,
                     requires_device='device' in category or name in ['take_control', 'navigate_to_node']
                 )
+    
+    # Add UI interaction tools (browser control)
+    if UI_TOOLS_AVAILABLE:
+        ui_tool_descriptions = {
+            'get_available_pages': 'List all navigable pages in the application',
+            'get_page_schema': 'Get interactive elements available on a specific page',
+            'navigate_to_page': 'Navigate user browser to a specific page',
+            'interact_with_element': 'Interact with a UI element (click, select, filter, etc)',
+            'highlight_element': 'Highlight an element to draw user attention',
+            'show_toast': 'Show a toast notification to the user',
+            'get_alerts': 'Fetch alerts from the monitoring system'
+        }
+        
+        for tool_name in PAGE_INTERACTION_TOOLS:
+            all_skills[tool_name] = SkillInfo(
+                name=tool_name,
+                category='ui_interaction',
+                description=ui_tool_descriptions.get(tool_name, 'UI interaction tool'),
+                requires_device=False
+            )
     
     return all_skills
 
