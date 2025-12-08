@@ -12,6 +12,7 @@ import {
 import React from 'react';
 
 import { StyledDialog } from '../common/StyledDialog';
+import { extractR2Path, getR2Url, isCloudflareR2Url } from '../../utils/infrastructure/cloudflareUtils';
 
 interface ValidationResultsClientProps {
   open: boolean;

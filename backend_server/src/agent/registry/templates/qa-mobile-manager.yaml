@@ -10,7 +10,6 @@ metadata:
   id: qa-mobile-manager
   name: QA Mobile Manager
   nickname: Scout
-  icon: "🔍"
   selectable: true
   version: 1.0.0
   author: system

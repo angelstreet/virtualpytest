@@ -41,7 +41,7 @@ Example:
             "name": "execute_device_action",
             "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
 
-✅ NO PREREQUISITES - Just call this directly for any device actions.
+NO PREREQUISITES - Just call this directly for any device actions.
 
 Executes direct device commands including:
 - Launch apps (launch_app)
@@ -58,7 +58,7 @@ ELEMENT SELECTION (selector MUST be unique on page):
 3. [attr] or .class (verify uniqueness first)
 4. plain text (fallback, slower, AVOID if text appears multiple times)
 
-⚠️ UNIQUENESS-FIRST PATTERN (Critical for Reliable Automation):
+UNIQUENESS-FIRST PATTERN (Critical for Reliable Automation):
 The AI exploration system demonstrates best practice - ALWAYS verify uniqueness:
 
 1. dump_ui_elements() BEFORE any click action
@@ -78,7 +78,7 @@ action = analyze_screen_for_action(
 create_edge(actions=[{command: action['command'], params: action['action_params']}])
 ```
 
-🎯 Platform-Specific Priority (shared/src/selector_scoring.py):
+Platform-Specific Priority (shared/src/selector_scoring.py):
 - Mobile: ID (resource_id) > CONTENT_DESC > XPATH > TEXT
 - Web: ID (#id) > XPATH > TEXT
 
@@ -87,14 +87,14 @@ Without analyze_screen_for_action, you risk clicking the WRONG element.
 
 DEVICE-SPECIFIC COMMANDS & PARAMETERS:
 
-📱 MOBILE/ADB (android_mobile/android_tv):
+MOBILE/ADB (android_mobile/android_tv):
 - Commands: launch_app, swipe_up, click_element_by_id (preferred), click_element, input_text, press_key
 - input_text: Sends text to focused element (no selector needed)
 - Example: {"command": "input_text", "params": {"text": "Hello", "wait_time": 1000}}
 
-🌐 WEB (host_vnc/web):
+WEB (host_vnc/web):
 - Commands: click_element, click_element_by_id, input_text, navigate_to_url
-- ⚠️ CRITICAL: Web uses DIFFERENT parameter names:
+- CRITICAL: Web uses DIFFERENT parameter names:
   • click_element_by_id: Use 'element_id' NOT 'text'
   • input_text: Use 'selector' NOT 'element_text'
 - Example: {"command": "input_text", "params": {"selector": "#search-field", "text": "Hello", "wait_time": 1000}}
@@ -104,11 +104,11 @@ INPUT PATTERN (both platforms):
 2. Then input text with appropriate params
 See examples below for correct syntax per platform.
 
-⏱️ CRITICAL - ACTION WAIT TIMES:
+CRITICAL - ACTION WAIT TIMES:
 Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
 
-✅ CORRECT: {"command": "launch_app", "params": {"package": "...", "wait_time": 8000}}
-❌ WRONG: {"command": "launch_app", "params": {"package": "..."}, "delay": 8000}
+CORRECT: {"command": "launch_app", "params": {"package": "...", "wait_time": 8000}}
+WRONG: {"command": "launch_app", "params": {"package": "..."}, "delay": 8000}
 
 Standard Wait Times (milliseconds) - INSIDE params:
 - launch_app:     8000  (app initialization)
@@ -121,7 +121,7 @@ Standard Wait Times (milliseconds) - INSIDE params:
 
 Common Examples:
 
-🚀 Launch App:
+Launch App:
   execute_device_action({
     "device_id": "device1",
     "actions": [{
@@ -130,12 +130,12 @@ Common Examples:
     }]
   })
 
-📱 Swipe:
+Swipe:
   execute_device_action({
     "actions": [{"command": "swipe_up", "params": {"wait_time": 1000}}]
   })
 
-👆 Click Element (⭐ PREFERRED - Use ID):
+Click Element (⭐ PREFERRED - Use ID):
   execute_device_action({
     "actions": [{
       "command": "click_element_by_id",
@@ -143,7 +143,7 @@ Common Examples:
     }]
   })
 
-👆 Click Element (fallback - text when no ID available):
+Click Element (fallback - text when no ID available):
   execute_device_action({
     "actions": [{
       "command": "click_element",
@@ -151,7 +151,7 @@ Common Examples:
     }]
   })
 
-⌨️ Type Text:
+Type Text:
   
   WEB (host_vnc/web):
   execute_device_action({
@@ -169,7 +169,7 @@ Common Examples:
     ]
   })
 
-🔑 Press Key:
+Press Key:
   execute_device_action({
     "actions": [{
       "command": "press_key",

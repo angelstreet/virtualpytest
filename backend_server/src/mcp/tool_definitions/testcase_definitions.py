@@ -48,7 +48,7 @@ Usage:
         },
         {
             "name": "execute_testcase_by_id",
-            "description": """⚠️ DEPRECATED: Load and execute a saved test case by ID
+            "description": """DEPRECATED: Load and execute a saved test case by ID
 
 DEPRECATED: Use execute_testcase(testcase_name='...') instead.
 This wrapper is kept for backward compatibility only.
@@ -77,7 +77,7 @@ Polls automatically until completion (up to 5 minutes).""",
             "name": "save_testcase",
             "description": """Save a test case graph to database
 
-⚠️ REQUIRED GRAPH STRUCTURE:
+REQUIRED GRAPH STRUCTURE:
 - Must have exactly ONE node with type: "start" (lowercase)
 - Must have at least ONE terminal node with type: "success" or "failure" (lowercase)
 - All edges must have type: "success" or "failure"

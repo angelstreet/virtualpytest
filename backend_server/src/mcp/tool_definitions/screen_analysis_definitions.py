@@ -10,7 +10,7 @@ def get_tools() -> List[Dict[str, Any]]:
             "name": "analyze_screen_for_action",
             "description": """Analyze screen elements to find BEST selector for clicking/interacting.
 
-✅ Uses same selector scoring logic as AI exploration system (shared/src/selector_scoring.py)
+Uses same selector scoring logic as AI exploration system (shared/src/selector_scoring.py)
 
 **CRITICAL - Use this BEFORE creating edges:**
 1. Call dump_ui_elements() to get elements
@@ -23,8 +23,8 @@ def get_tools() -> List[Dict[str, Any]]:
 - Web: ID (#id) > XPATH > TEXT
 
 **Why use this:**
-- ❌ OLD WAY: LLM guesses from raw dump → picks ambiguous "Search" text → edge fails
-- ✅ NEW WAY: LLM calls this tool → gets analyzed "#search-field" ID → edge works
+- OLD WAY: LLM guesses from raw dump → picks ambiguous "Search" text → edge fails
+- NEW WAY: LLM calls this tool → gets analyzed "#search-field" ID → edge works
 
 **Returns:**
 Ready-to-use action parameters with:
@@ -82,7 +82,7 @@ Example:
             "name": "analyze_screen_for_verification",
             "description": """Analyze screen elements to find BEST verification for node detection.
 
-✅ Uses same selector scoring logic as AI exploration system (shared/src/selector_scoring.py)
+Uses same selector scoring logic as AI exploration system (shared/src/selector_scoring.py)
 
 **CRITICAL - Use this BEFORE creating nodes:**
 1. Navigate to the screen
@@ -96,8 +96,8 @@ Example:
 - Web: ID (#id) > XPATH > TEXT
 
 **Why use this:**
-- ❌ OLD WAY: LLM guesses verification → uses ambiguous text → node detection fails
-- ✅ NEW WAY: LLM calls this tool → gets unique selector → node detection works
+- OLD WAY: LLM guesses verification → uses ambiguous text → node detection fails
+- NEW WAY: LLM calls this tool → gets unique selector → node detection works
 
 **Returns:**
 Ready-to-use verification with:

@@ -8,7 +8,7 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "take_control",
-            "description": """🔒 Lock device for navigation or exploration
+            "description": """Lock device for navigation or exploration
 
 Takes exclusive control of a device and builds navigation cache.
 
@@ -36,7 +36,7 @@ Example:
         },
         {
             "name": "release_control",
-            "description": """🔓 Release device control when done
+            "description": """Release device control when done
 
 Unlocks the device so others can use it.
 

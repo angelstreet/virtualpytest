@@ -13,7 +13,7 @@ def get_tools() -> List[Dict[str, Any]]:
 Atomic primitive for building navigation structures.
 Can be composed for AI exploration, manual tree building, or tree refactoring.
 
-⚠️ IMPORTANT - NODE ID USAGE:
+IMPORTANT - NODE ID USAGE:
 The tool returns the PERMANENT database UUID immediately. Use this ID for creating edges.
 - create_node() → Returns permanent UUID (e.g., "60f8c86e-d0ec-4dd9-bbf5-88f7f74e016e")
 - Use this UUID directly in create_edge(source_node_id=..., target_node_id=...)
@@ -22,18 +22,18 @@ The tool returns the PERMANENT database UUID immediately. Use this ID for creati
 Workflow for building navigation trees:
   # Step 1: Create nodes
   result1 = create_node(tree_id="main", label="home")
-  # Returns: ✅ Node created: home (ID: abc-123-uuid)
+  # Returns: Node created: home (ID: abc-123-uuid)
   home_id = "abc-123-uuid"  # Extract from response
   
   result2 = create_node(tree_id="main", label="settings")
-  # Returns: ✅ Node created: settings (ID: def-456-uuid)
+  # Returns: Node created: settings (ID: def-456-uuid)
   settings_id = "def-456-uuid"  # Extract from response
   
   # Step 2: Create edges with the returned permanent IDs
   create_edge(
     tree_id="main",
-    source_node_id=home_id,      # ✅ Use permanent UUID from step 1
-    target_node_id=settings_id,   # ✅ Use permanent UUID from step 1
+    source_node_id=home_id,      # Use permanent UUID from step 1
+    target_node_id=settings_id,   # Use permanent UUID from step 1
     action_sets=[
       {
         "id": "home_to_settings",
@@ -127,13 +127,13 @@ IMPORTANT - INPUT FIELDS:
 Before using input_text, click the input field first to focus it.
 Example: click_element("Search") then input_text("Search", "text")
 
-⚠️ CRITICAL - NODE IDs MUST BE STRINGS (e.g., 'home'), NOT UUIDs!
+CRITICAL - NODE IDs MUST BE STRINGS (e.g., 'home'), NOT UUIDs!
 - Use the 'node_id' field from list_navigation_nodes() or create_node() response.
-- Examples: source_node_id='home' ✅ | source_node_id='ce97c317-...' ❌ (this is a database UUID and will error).
+- Examples: source_node_id='home' | source_node_id='ce97c317-...' (this is a database UUID and will error).
 - If creating new nodes: create_node returns "node_id: 'home'" – use that string value.
 - Validation will reject UUIDs with an error message.
 
-⚠️ HANDLES - FIXED TO MENU HANDLES ONLY:
+HANDLES - FIXED TO MENU HANDLES ONLY:
 - sourceHandle: ALWAYS "bottom-right-menu-source" (auto-applied)
 - targetHandle: ALWAYS "top-right-menu-target" (auto-applied)
 - These create vertical connections between nodes.
@@ -146,15 +146,15 @@ Best Practice Workflow (From Scratch):
    list_navigation_nodes(userinterface_name='your_ui')  # Returns: • home (node_id: 'home', ...) → Use 'home'
 
 3. Create nodes if needed (returns string node_id):
-   result1 = create_node(tree_id='your_tree_id', label='home')  # Returns: ✅ Node created: home (node_id: 'home')
+   result1 = create_node(tree_id='your_tree_id', label='home')  # Returns: Node created: home (node_id: 'home')
    home_id = 'home'  # Extract the string 'home'
 
-   result2 = create_node(tree_id='your_tree_id', label='login')  # Returns: ✅ Node created: login (node_id: 'login')
+   result2 = create_node(tree_id='your_tree_id', label='login')  # Returns: Node created: login (node_id: 'login')
    login_id = 'login'  # Extract the string 'login'
 
 4. Create the edge - FORMAT DEPENDS ON DEVICE TYPE:
 
-   📱 MOBILE/ADB (Android) - ⭐ USE ELEMENT IDs:
+   MOBILE/ADB (Android) - ⭐ USE ELEMENT IDs:
    create_edge(
      tree_id='your_tree_id',
      source_node_id='home',
@@ -171,7 +171,7 @@ Best Practice Workflow (From Scratch):
      ]
    )
 
-   🌐 WEB (Playwright) - ⭐ USE ELEMENT IDs or SELECTORS:
+   WEB (Playwright) - ⭐ USE ELEMENT IDs or SELECTORS:
    create_edge(
      tree_id='your_tree_id',
      source_node_id='home',
@@ -188,7 +188,7 @@ Best Practice Workflow (From Scratch):
      ]
    )
 
-   🔴 REMOTE/IR (STB/TV):
+   REMOTE/IR (STB/TV):
    create_edge(
      tree_id='your_tree_id',
      source_node_id='home',
@@ -205,7 +205,7 @@ Best Practice Workflow (From Scratch):
      ]
    )
 
-   ⚠️ KEY DIFFERENCES:
+   KEY DIFFERENCES:
    - Mobile: NO action_type, NO wait_time, use element_id
    - Web: MUST have action_type="web", wait_time in params, use element_id
    - Remote: MUST have action_type="remote", wait_time in params, use key
@@ -355,30 +355,41 @@ Example:
         },
         {
             "name": "execute_edge",
-            "description": """Execute a specific edge's action set (frontend: useEdge.ts executeActionSet)
+            "description": """Execute edge actions to navigate between nodes
 
-This executes the actions in an edge's action set, useful for:
-- Testing individual edges without full navigation
-- Debugging edge actions
-- Manual edge execution from UI
+Test or execute an edge's action set to move from source to target node.
 
-Args:
-    edge_id: Edge identifier (REQUIRED)
-    tree_id: Navigation tree ID (REQUIRED)
-    action_set_id: Specific action set to execute (optional - uses default if omitted)
-    device_id: Device identifier (optional - defaults to 'device1')
-    host_name: Host name (optional - defaults to 'use get_compatible_hosts to discover')
-    team_id: Team ID (optional - defaults to default)
+**Use cases:**
+- Testing edges immediately after creation
+- Validating navigation works
+- Moving to a screen for exploration
 
-Returns:
-    Action execution results with success/failure status
+**AFTER successful execute_edge:**
+1. Call save_node_screenshot() to capture the screen you landed on
+2. Call analyze_screen_for_verification() if adding verifications
+3. Then execute the reverse edge to return
+
+**Exploration workflow:**
+```
+# 1. Create edge
+create_edge(source='home', target='search', action_sets=[...])
+
+# 2. Test forward
+execute_edge(tree_id, edge_id, 'home_to_search')
+
+# 3. Capture screenshot (IMPORTANT!)
+save_node_screenshot(tree_id, 'search', 'Search Screen', ...)
+
+# 4. Test back
+execute_edge(tree_id, edge_id, 'search_to_home')
+```
 
 Example:
-    execute_edge({
-        "edge_id": "edge-entry-node-to-home",
-        "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
-        "action_set_id": "actionset-1762771271791"  # optional
-    })""",
+  execute_edge({
+    "edge_id": "edge-home-to-login",
+    "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+    "action_set_id": "home_to_login"
+  })""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -394,42 +405,48 @@ Example:
         },
         {
             "name": "save_node_screenshot",
-            "description": """Take screenshot and save it to a specific node (frontend: useNode.ts takeAndSaveScreenshot)
+            "description": """Capture and attach screenshot to a node
 
-This wraps the screenshot capture and node update into a single operation:
+**CRITICAL: Call this during exploration for every node!**
+
+Screenshots are essential for:
+- Visual reference of each screen
+- Node verification (comparing current vs expected)
+- Documentation of the navigation tree
+
+**WHEN to call (during exploration):**
+1. After execute_edge succeeds and you're on a new screen
+2. After adding verifications to a node
+3. For every node you create/validate
+
+**Workflow:**
+```
+execute_edge(tree_id, edge_id, 'home_to_login')  # Navigate to login
+# ↓ Now on login screen
+save_node_screenshot(                             # Capture it!
+  tree_id='...',
+  node_id='login',
+  label='Login Screen',
+  host_name='pi1',
+  device_id='device1',
+  userinterface_name='google_tv'
+)
+```
+
+This tool does 3 things in one call:
 1. Takes screenshot from device
-2. Saves it to userinterface-specific path
+2. Saves to /screenshots/{userinterface_name}/{label}.png
 3. Updates node with screenshot URL
 
-Frontend equivalent: useNode.ts line 99-160
-
-Use this after navigating to a node to automatically capture and attach screenshot.
-
-Args:
-    tree_id: Navigation tree ID (REQUIRED)
-    node_id: Node identifier to attach screenshot to (REQUIRED)
-    label: Node label used as filename (REQUIRED)
-    host_name: Host where device is connected (REQUIRED)
-    device_id: Device identifier (REQUIRED)
-    userinterface_name: User interface name for organizing screenshots (REQUIRED)
-    team_id: Team ID (optional - defaults to default)
-
-Returns:
-    {
-        "success": true,
-        "screenshot_url": "/screenshots/netflix_mobile/home_screen.png",
-        "node_id": "home"
-    }
-
 Example:
-    save_node_screenshot({
-        "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
-        "node_id": "home",
-        "label": "Home Screen",
-        "host_name": "use get_compatible_hosts to discover",
-        "device_id": "device1",
-        "userinterface_name": "netflix_mobile"
-    })""",
+  save_node_screenshot({
+    "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+    "node_id": "home",
+    "label": "Home Screen",
+    "host_name": "sunri-pi1",
+    "device_id": "device1",
+    "userinterface_name": "netflix_mobile"
+  })""",
             "inputSchema": {
                 "type": "object",
                 "properties": {

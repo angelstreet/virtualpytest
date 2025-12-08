@@ -41,12 +41,12 @@ Example:
 
 Returns list of requirements with optional filtering by category, priority, or status.
 
-💡 Common Next Steps:
+Common Next Steps:
 - To link requirements to test cases → Call list_testcases() FIRST to see what test cases exist
 - To check coverage → Call get_coverage_summary()
 - To find gaps → Call get_uncovered_requirements()
 
-⚠️ Don't assume test cases exist just because requirements exist!
+Don't assume test cases exist just because requirements exist!
 
 Example:
   list_requirements(
@@ -120,18 +120,18 @@ Example:
 
 Creates a link between a testcase and requirement to track test coverage.
 
-⚠️ CRITICAL PREREQUISITE - ALWAYS CHECK FIRST:
+CRITICAL PREREQUISITE - ALWAYS CHECK FIRST:
 1. Call list_testcases() to see what test cases exist
 2. Call list_requirements() to see what requirements exist  
 3. Verify both IDs exist before linking
 4. DO NOT assume test cases exist just because requirements exist
 
-❌ WRONG Workflow (causes errors):
+WRONG Workflow (causes errors):
   list_requirements() → ✓ Found requirements
   [SKIP list_testcases] ← ERROR: Assumption
-  link_testcase_to_requirement() → ❌ FAILS: testcase_id doesn't exist
+  link_testcase_to_requirement() → FAILS: testcase_id doesn't exist
 
-✅ CORRECT Workflow:
+CORRECT Workflow:
   list_requirements() → ✓ Found requirements
   list_testcases() → ✓ Found 1 test case for sauce-demo
   link_testcase_to_requirement(

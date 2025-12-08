@@ -74,7 +74,7 @@ Example workflow:
 Shows all nodes, edges, actions, and verifications in 8-10 lines.
 Perfect for answering "What do we test and how?"
 
-✅ NO PREREQUISITES - Just call with userinterface_name
+NO PREREQUISITES - Just call with userinterface_name
 
 Output format:
   netflix_mobile (7 nodes, 13 transitions)

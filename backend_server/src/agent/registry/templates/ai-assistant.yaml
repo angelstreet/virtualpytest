@@ -10,7 +10,6 @@ metadata:
   id: ai-assistant
   name: AI Assistant
   nickname: Atlas
-  icon: "🤖"
   selectable: true
   default: true
   version: 1.0.0

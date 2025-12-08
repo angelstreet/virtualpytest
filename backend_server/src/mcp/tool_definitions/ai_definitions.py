@@ -10,7 +10,7 @@ def get_tools() -> List[Dict[str, Any]]:
             "name": "generate_test_graph",
             "description": """Generate test case graph from natural language using AI
 
-⚠️ CRITICAL - NAVIGATION IS AUTONOMOUS:
+CRITICAL - NAVIGATION IS AUTONOMOUS:
 The navigation tree (from Phase 1) already defines HOW to move between screens.
 Test cases should use 'navigation' nodes that reference tree nodes by label.
 
@@ -36,7 +36,7 @@ This automatically uses the pre-built navigation tree to go home→content_detai
 
 **DO NOT** create manual action sequences for navigation:
 ```json
-❌ {"type": "action", "data": {"command": "click_element", "text": "Play"}}
+{"type": "action", "data": {"command": "click_element", "text": "Play"}}
 ```
 
 **When to Use Actions:**
@@ -49,7 +49,7 @@ Returns executable graph that can be:
 1. Passed to execute_testcase() to run immediately
 2. Passed to save_testcase() to save for later
 
-⚠️ GRAPH STRUCTURE (auto-generated):
+GRAPH STRUCTURE (auto-generated):
 The AI generates a graph with these required elements:
 - `type: "start"` node (entry point)
 - `type: "success"` node (test passed terminal)
@@ -80,9 +80,9 @@ Example workflow:
 This tool combines AI generation + saving to work around MCP protocol limitations.
 Use this instead of generate_test_graph when you want to save the result immediately.
 
-⚠️ CRITICAL: Use get_compatible_hosts(userinterface_name='...') FIRST to find host/device.
+CRITICAL: Use get_compatible_hosts(userinterface_name='...') FIRST to find host/device.
 
-⚠️ CRITICAL: Testcase Naming Convention (REQUIRED)
+CRITICAL: Testcase Naming Convention (REQUIRED)
 - Format: TC_<CATEGORY>_<NUMBER>_<CamelCaseAction>
 - Examples: TC_AUTH_01_LoginFlow, TC_SRCH_01_ProductSearch (note: SRCH not SEARCH)
 - Categories: AUTH, NAV, SRCH, PLAY, PROD, CART, VOD, etc.

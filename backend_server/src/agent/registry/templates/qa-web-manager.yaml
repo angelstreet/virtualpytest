@@ -10,7 +10,6 @@ metadata:
   id: qa-web-manager
   name: QA Web Manager
   nickname: Sherlock
-  icon: "🧪"
   selectable: true
   version: 1.0.0
   author: system

@@ -41,10 +41,10 @@ Example:
             "name": "dump_ui_elements",
             "description": """Dump UI elements from current device screen
 
-⚠️ **DEVICE MODEL COMPATIBILITY:**
-- ✅ **android_mobile**: Use this tool (gets UI hierarchy via ADB)
-- ✅ **web**: Use this tool (gets DOM elements)
-- ❌ **android_tv / other**: Use capture_screenshot + AI vision instead (no UI dump support)
+**DEVICE MODEL COMPATIBILITY:**
+- **android_mobile**: Use this tool (gets UI hierarchy via ADB)
+- **web**: Use this tool (gets DOM elements)
+- **android_tv / other**: Use capture_screenshot + AI vision instead (no UI dump support)
 
 **How to choose:**
 1. Call get_device_info() first to check device_model

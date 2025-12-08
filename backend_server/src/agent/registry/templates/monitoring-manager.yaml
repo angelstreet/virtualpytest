@@ -10,7 +10,6 @@ metadata:
   id: monitoring-manager
   name: Monitoring Manager
   nickname: Guardian
-  icon: "🛡️"
   selectable: true  # Shown in UI dropdown
   version: 1.0.0
   author: system

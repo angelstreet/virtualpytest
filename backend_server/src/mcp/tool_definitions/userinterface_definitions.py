@@ -67,8 +67,8 @@ Example:
   # Returns: {nodes: [...], edges: [...], metrics: {...}}
 
 Replaces multiple calls:
-  ❌ OLD: get_userinterface() → list_nodes() → list_edges() = 3 calls
-  ✅ NEW: get_userinterface_complete() = 1 call""",
+  OLD: get_userinterface() → list_nodes() → list_edges() = 3 calls
+  NEW: get_userinterface_complete() = 1 call""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -124,7 +124,7 @@ Returns: List of edges with action sets""",
             "name": "delete_userinterface",
             "description": """Delete a userinterface (soft delete)
 
-⚠️ DESTRUCTIVE OPERATION - Requires explicit confirmation
+DESTRUCTIVE OPERATION - Requires explicit confirmation
 
 Removes a user interface model from the system.
 This operation is destructive and requires explicit confirmation.
@@ -139,14 +139,14 @@ Example:
   delete_userinterface(
     userinterface_id="abc-123-def-456"
   )
-  # Returns: ⚠️ DESTRUCTIVE OPERATION - Confirmation Required
+  # Returns: DESTRUCTIVE OPERATION - Confirmation Required
   
   # Step 2: Confirm and delete
   delete_userinterface(
     userinterface_id="abc-123-def-456",
     confirm=true
   )
-  # Returns: ✅ Userinterface deleted
+  # Returns: Userinterface deleted
 
 Returns: Success confirmation or confirmation request""",
             "inputSchema": {
