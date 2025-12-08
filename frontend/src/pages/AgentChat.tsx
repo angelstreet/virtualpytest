@@ -412,17 +412,26 @@ const AgentChat: React.FC = () => {
   // --- Renderers ---
 
   const renderToolActivity = (event: AgentEvent, idx: number) => {
-    // Extract error information from tool_result
+    // Extract error information from multiple possible sources
     const hasError = event.success === false;
     let errorMessage = '';
     
     if (hasError) {
+      // Try to extract error from various sources
       if (event.tool_result) {
         if (typeof event.tool_result === 'string') {
           errorMessage = event.tool_result;
         } else if (typeof event.tool_result === 'object') {
           errorMessage = (event.tool_result as any).error || JSON.stringify(event.tool_result, null, 2);
         }
+      } else if ((event as any).error) {
+        // Check if error is directly on the event object
+        errorMessage = typeof (event as any).error === 'string' 
+          ? (event as any).error 
+          : JSON.stringify((event as any).error, null, 2);
+      } else if (event.content) {
+        // Check if error is in content field
+        errorMessage = event.content;
       } else {
         errorMessage = 'Tool failed with no error details';
       }
@@ -504,13 +513,15 @@ const AgentChat: React.FC = () => {
               {hasError ? 'Error Details' : 'Result'}
             </Typography>
             <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: hasError ? 'error.main' : 'text.primary', maxHeight: 300 }}>
-              {event.tool_result === undefined || event.tool_result === null 
-                ? <Typography variant="caption" color={hasError ? 'error.main' : 'text.disabled'} sx={{ fontStyle: 'italic' }}>
-                    {hasError ? 'No error details provided' : 'No result data'}
-                  </Typography>
-                : typeof event.tool_result === 'string' 
-                  ? event.tool_result 
-                  : JSON.stringify(event.tool_result, null, 2)
+              {hasError && errorMessage
+                ? errorMessage
+                : event.tool_result === undefined || event.tool_result === null 
+                  ? <Typography variant="caption" color={hasError ? 'error.main' : 'text.disabled'} sx={{ fontStyle: 'italic' }}>
+                      {hasError ? errorMessage || 'No error details provided' : 'No result data'}
+                    </Typography>
+                  : typeof event.tool_result === 'string' 
+                    ? event.tool_result 
+                    : JSON.stringify(event.tool_result, null, 2)
               }
             </Box>
           </Paper>

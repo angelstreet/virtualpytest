@@ -41,10 +41,21 @@ Example:
             "name": "execute_device_action",
             "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
 
-CRITICAL PREREQUISITE:
-- If working with a navigation tree or userinterface: Call take_control(tree_id='...') ONCE FIRST
-- If doing standalone device actions (not part of navigation): Can call directly
-- RULE: Always take_control BEFORE any navigation-related device operations
+CRITICAL PREREQUISITES:
+1. **host_name is REQUIRED**: Use get_compatible_hosts(userinterface_name='...') to find the host
+2. If working with navigation tree: Call take_control(tree_id='...') ONCE FIRST
+3. RULE: Always take_control BEFORE any navigation-related device operations
+
+Example workflow:
+  # Step 1: Get host
+  hosts = get_compatible_hosts(userinterface_name='google_tv')
+  
+  # Step 2: Execute action
+  execute_device_action(
+    host_name=hosts['recommended_host'],  # ← REQUIRED!
+    device_id=hosts['recommended_device'],
+    actions=[...]
+  )
 
 Executes direct device commands including:
 - Launch apps (launch_app)
@@ -185,6 +196,7 @@ If you're unsure about available commands, call list_actions() first.""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "host_name": {"type": "string", "description": "Host name where device is connected (REQUIRED - use get_compatible_hosts to discover)"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1') - MUST match take_control"},
                     "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                     "actions": {
@@ -236,7 +248,7 @@ If you're unsure about available commands, call list_actions() first.""",
                         }
                     }
                 },
-                "required": ["actions"]
+                "required": ["host_name", "actions"]
             }
         }
     ]
