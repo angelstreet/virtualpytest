@@ -11,6 +11,7 @@ import { useHostManager } from '../useHostManager';
 import { useScript } from '../script/useScript';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { extractR2Path, getR2Url, isCloudflareR2Url } from '../../utils/infrastructure/cloudflareUtils';
 
 // Simplified shared state store for validation - only track report URLs
 const validationStore: Record<
@@ -103,12 +104,41 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
   const state = getValidationState(treeId);
 
   /**
+   * Resolve a validation report URL to a signed URL when needed (private R2 buckets)
+   */
+  const resolveReportUrl = useCallback(async (reportUrl: string): Promise<string> => {
+    const isHttpUrl = /^https?:\/\//i.test(reportUrl);
+
+    // Non-R2 HTTP links can be used as-is
+    if (isHttpUrl && !isCloudflareR2Url(reportUrl)) {
+      return reportUrl;
+    }
+
+    // Normalize to R2 path for signing
+    let path = reportUrl;
+    if (isCloudflareR2Url(reportUrl)) {
+      const extracted = extractR2Path(reportUrl);
+      if (extracted) {
+        path = extracted;
+      }
+    }
+
+    return getR2Url(path);
+  }, []);
+
+  /**
    * Open validation report in new tab
    */
-  const openValidationReport = useCallback((reportUrl: string) => {
-    console.log(`[@hook:useValidation] Opening validation report: ${reportUrl}`);
-    window.open(reportUrl, '_blank');
-  }, []);
+  const openValidationReport = useCallback(async (reportUrl: string) => {
+    try {
+      const resolvedUrl = await resolveReportUrl(reportUrl);
+      console.log(`[@hook:useValidation] Opening validation report: ${resolvedUrl}`);
+      window.open(resolvedUrl, '_blank');
+    } catch (error) {
+      console.error('[@hook:useValidation] Failed to open validation report:', error);
+      updateValidationState(treeId, { validationError: 'Failed to open validation report' });
+    }
+  }, [resolveReportUrl, treeId]);
 
   /**
    * Load validation preview
@@ -225,7 +255,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         });
       }
     },
-    [treeId, selectedHost, selectedDeviceId, state.preview, executeScript, openValidationReport],
+    [treeId, selectedHost, selectedDeviceId, state.preview, executeScript],
   );
 
   /**

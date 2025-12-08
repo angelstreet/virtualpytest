@@ -35,6 +35,34 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
   duration,
   reportUrl,
 }) => {
+  const handleOpenReport = async () => {
+    if (!reportUrl) return;
+
+    try {
+      const isHttpUrl = /^https?:\/\//i.test(reportUrl);
+
+      // Non-R2 HTTP links can be opened directly
+      if (isHttpUrl && !isCloudflareR2Url(reportUrl)) {
+        window.open(reportUrl, '_blank');
+        return;
+      }
+
+      // Normalize to R2 path for signing
+      let path = reportUrl;
+      if (isCloudflareR2Url(reportUrl)) {
+        const extracted = extractR2Path(reportUrl);
+        if (extracted) {
+          path = extracted;
+        }
+      }
+
+      const signedUrl = await getR2Url(path);
+      window.open(signedUrl, '_blank');
+    } catch (error) {
+      console.error('[@ValidationResultsClient] Failed to open validation report:', error);
+    }
+  };
+
   return (
     <StyledDialog 
       open={open} 
@@ -65,7 +93,7 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
                 variant="outlined"
                 color="primary"
                 fullWidth
-                onClick={() => window.open(reportUrl, '_blank')}
+                onClick={handleOpenReport}
               >
                 View Detailed Report ↗
               </Button>
