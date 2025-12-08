@@ -1047,18 +1047,15 @@ const AgentChat: React.FC = () => {
                       </Typography>
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
-                      {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
-                    </Typography>
-                  )}
-
-                  {isUser && (
-                    <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, justifyContent: 'space-between' }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem', flex: 1, minWidth: 0 }}>
+                        {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
+                      </Typography>
                       <Tooltip title="Copy message">
                         <IconButton 
                           size="small" 
                           onClick={() => navigator.clipboard.writeText(msg.content || '')}
-                          sx={{ p: 0.25, opacity: 0.5, '&:hover': { opacity: 1, color: PALETTE.accent } }}
+                          sx={{ p: 0.25, opacity: 0.3, '&:hover': { opacity: 1, color: PALETTE.accent }, flexShrink: 0, mt: -0.5 }}
                         >
                           <CopyIcon sx={{ fontSize: 12 }} />
                         </IconButton>
