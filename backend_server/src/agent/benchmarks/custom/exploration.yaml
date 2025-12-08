@@ -14,11 +14,18 @@ tests:
     name: Basic Mobile Exploration
     description: Agent explores a mobile app and creates navigation structure
     prompt: |
-      Explore the google_tv mobile app. For each screen:
-      1. Create a node
-      2. Create edges to navigate there (use text-based selectors, coordinates only as a last resort)
-      3. Add verification so we can detect the screen
-      4. Save screenshot if missing
+      Explore google_tv. FOR EACH SCREEN:
+      1. Navigate there (or stay if home)
+      2. dump_ui_elements → see clickable elements
+      3. analyze_screen_for_action → get best selector (ID > text > coordinates)
+      4. Create/update node
+      5. Create/update edge using selector from step 3
+      6. analyze_screen_for_verification → find unique identifier
+      7. update_node with verification
+      8. get_node → check if screenshot exists
+      9. save_node_screenshot if missing
+      
+      PRIORITY: Use text "Search" instead of tap(500,300)!
     expected:
       contains:
         - "node"
