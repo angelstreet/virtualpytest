@@ -50,7 +50,8 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const sliderRef = useRef<HTMLDivElement>(null);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
-  const currentImageRef = useRef<HTMLImageElement | null>(null);
+  const preloadImageRef = useRef<HTMLImageElement | null>(null);
+  const imgElementRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [overlayPositions, setOverlayPositions] = useState<Array<{
     left: number;
@@ -74,9 +75,9 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   // Calculate overlay positions based on actual image dimensions
   useEffect(() => {
     const calculatePositions = () => {
-      if (!currentImageRef.current || !containerRef.current || !analysisData?.devices) return;
+      if (!imgElementRef.current || !containerRef.current || !analysisData?.devices) return;
 
-      const img = currentImageRef.current;
+      const img = imgElementRef.current;
       const container = containerRef.current;
 
       // Get container dimensions
@@ -153,8 +154,8 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
     };
 
     // Calculate on image load and when analysis data changes
-    if (currentImageRef.current) {
-      const img = currentImageRef.current;
+    if (imgElementRef.current) {
+      const img = imgElementRef.current;
       if (img.complete && !imageLoading) {
         calculatePositions();
       } else {
@@ -166,8 +167,8 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
     window.addEventListener('resize', calculatePositions);
 
     return () => {
-      if (currentImageRef.current) {
-        currentImageRef.current.removeEventListener('load', calculatePositions);
+      if (imgElementRef.current) {
+        imgElementRef.current.removeEventListener('load', calculatePositions);
       }
       window.removeEventListener('resize', calculatePositions);
     };
@@ -200,12 +201,12 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
       setImageError(true);
     };
     img.src = mosaicSrc;
-    currentImageRef.current = img;
+    preloadImageRef.current = img;
     
     return () => {
-      if (currentImageRef.current) {
-        currentImageRef.current.onload = null;
-        currentImageRef.current.onerror = null;
+      if (preloadImageRef.current) {
+        preloadImageRef.current.onload = null;
+        preloadImageRef.current.onerror = null;
       }
     };
   }, [mosaicSrc]);
@@ -335,7 +336,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
         ) : (
           <>
             <img
-              ref={currentImageRef}
+              ref={imgElementRef}
               src={mosaicSrc || undefined}
               alt={`Heatmap ${currentItem.timeKey} - ${filter}`}
               style={{
