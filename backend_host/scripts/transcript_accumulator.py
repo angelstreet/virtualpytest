@@ -1195,6 +1195,41 @@ class InotifyTranscriptMonitor:
                 logger.info(f"✓ [{device_folder}] Started adaptive audio detection worker (5-10s intervals based on load)")
             except Exception as e:
                 logger.error(f"✗ [{device_folder}] Failed to start audio detection worker: {e}")
+
+    def _attach_audio_loss_image(self, device_folder: str, latest_json_filename: str, detection_result: dict):
+        """
+        Reuse existing thumbnails (same as freeze pipeline) and upload one frame for audio_loss.
+        No generation, just reuse the latest capture thumbnail and pass its R2 URL forward.
+        """
+        if not self.incident_manager or not latest_json_filename:
+            return
+
+        device_state = self.incident_manager.get_device_state(device_folder)
+
+        # Reuse already-uploaded URLs if present
+        existing = device_state.get('audio_loss_r2_images')
+        if existing:
+            detection_result['r2_images'] = existing
+            return
+
+        # Derive thumbnail path from latest capture filename
+        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
+        thumbnail_filename = latest_json_filename.replace('.jpg', '_thumbnail.jpg')
+        thumbnail_path = os.path.join(get_thumbnails_path(device_folder), thumbnail_filename)
+
+        if not os.path.exists(thumbnail_path):
+            logger.warning(f"[AUDIO:{device_folder}] Thumbnail not found for audio_loss: {thumbnail_path}")
+            return
+
+        time_key = datetime.now().strftime('%Y%m%d_%H%M%S')
+        r2_urls = self.incident_manager.upload_incident_frame_to_r2(
+            thumbnail_path, device_folder, time_key, 'audio_loss', 'start'
+        )
+
+        if r2_urls and r2_urls.get('thumbnail_url'):
+            device_state['audio_loss_r2_images'] = r2_urls
+            detection_result['r2_images'] = r2_urls
+            logger.info(f"[AUDIO:{device_folder}] Uploaded audio_loss frame to R2: {r2_urls['thumbnail_url']}")
     
     def _audio_detection_worker(self, device_folder):
         """Worker thread: Check audio every 5s by scanning segments directory with dynamic load adjustment"""
@@ -1465,43 +1500,13 @@ class InotifyTranscriptMonitor:
                 if latest_json_filename:
                     detection_result['filename'] = latest_json_filename
                 
-                # Upload R2 image for audio_loss incidents (once per incident)
-                if not has_audio and self.incident_manager and latest_json_filename:
+                # Attach existing thumbnail (no generation) for audio_loss
+                if not has_audio:
+                    self._attach_audio_loss_image(device_folder, latest_json_filename, detection_result)
+                elif self.incident_manager:
+                    # Clear cached audio_loss image when audio returns
                     device_state = self.incident_manager.get_device_state(device_folder)
-                    cached_audio_r2_urls = device_state.get('audio_loss_r2_urls')
-                    
-                    if not cached_audio_r2_urls:
-                        # First audio loss - upload frame to R2
-                        now = datetime.now()
-                        time_key = f"{now.year}{now.month:02d}{now.day:02d}_{now.hour:02d}{now.minute:02d}{now.second:02d}"
-                        thumbnail_filename = latest_json_filename.replace('.jpg', '_thumbnail.jpg')
-                        
-                        # Check if thumbnail exists
-                        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
-                        thumbnails_dir = get_thumbnails_path(device_folder)
-                        thumbnail_path = os.path.join(thumbnails_dir, thumbnail_filename)
-                        
-                        if os.path.exists(thumbnail_path):
-                            logger.info(f"{BLUE}[AUDIO:{device_folder}] 🆕 NEW audio_loss - uploading frame to R2{RESET}")
-                            r2_urls = self.incident_manager.upload_incident_frame_to_r2(
-                                thumbnail_path, device_folder, time_key, 'audio_loss', 'start'
-                            )
-                            if r2_urls and r2_urls.get('thumbnail_url'):
-                                device_state['audio_loss_r2_urls'] = [r2_urls['thumbnail_url']]
-                                device_state['audio_loss_r2_images'] = r2_urls
-                                detection_result['r2_images'] = r2_urls
-                                logger.info(f"{BLUE}[AUDIO:{device_folder}] 📤 Uploaded to R2: {r2_urls['thumbnail_url']}{RESET}")
-                        else:
-                            logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⚠️  Thumbnail not found: {thumbnail_path}{RESET}")
-                    else:
-                        # Reuse cached R2 URL
-                        detection_result['r2_images'] = device_state.get('audio_loss_r2_images', {'thumbnail_url': cached_audio_r2_urls[0]})
-                
-                # Clear audio_loss R2 cache when audio returns
-                if has_audio and self.incident_manager:
-                    device_state = self.incident_manager.get_device_state(device_folder)
-                    if device_state.get('audio_loss_r2_urls'):
-                        device_state['audio_loss_r2_urls'] = None
+                    if device_state.get('audio_loss_r2_images'):
                         device_state['audio_loss_r2_images'] = None
                 
                 # Report to incident manager for tracking only (no lifecycle management)

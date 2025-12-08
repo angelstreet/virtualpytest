@@ -100,7 +100,7 @@ killPort5073();
 // Define registered frontend routes (must match your React Router routes)
 const registeredRoutes = [
   '/',
-  '/rec',
+  '/device-control',
   '/test-plan/test-cases',
   '/test-plan/campaigns',
   '/test-plan/collections',
