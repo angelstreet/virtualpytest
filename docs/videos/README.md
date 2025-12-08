@@ -29,24 +29,4 @@
       </a>
     </td>
   </tr>
-  <tr>
-    <td align="center" width="320">
-      <b>AI Model Generation</b>
-      <a href="https://www.youtube.com/watch?v=" target="_blank">
-        <img src="https://img.youtube.com/vi//hqdefault.jpg" width="300" alt="AI Model Generation">
-      </a>
-    </td>
-    <td align="center" width="320">
-      <b>AI Script Generation</b>
-      <a href="https://www.youtube.com/watch?v=" target="_blank">
-        <img src="https://img.youtube.com/vi//hqdefault.jpg" width="300" alt="Coming soon">
-      </a>
-    </td>
-    <td align="center" width="320">
-      <b>AI Script Execution and Analysis</b>
-      <a href="https://www.youtube.com/watch?v=" target="_blank">
-        <img src="https://img.youtube.com/vi//hqdefault.jpg" width="300" alt="Coming soon">
-      </a>
-    </td>
-  </tr>
 </table>
