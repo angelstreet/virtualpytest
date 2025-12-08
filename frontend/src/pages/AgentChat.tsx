@@ -1041,6 +1041,20 @@ const AgentChat: React.FC = () => {
                     </Typography>
                   )}
 
+                  {isUser && (
+                    <Box sx={{ mt: 1, pt: 0.75, borderTop: '1px solid', borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                      <Tooltip title="Copy message">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => navigator.clipboard.writeText(msg.content || '')}
+                          sx={{ p: 0.25, opacity: 0.5, '&:hover': { opacity: 1, color: PALETTE.accent } }}
+                        >
+                          <CopyIcon sx={{ fontSize: 12 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )}
+
                   {!isUser && (() => {
                     const metrics = msg.events?.reduce((acc, e) => {
                       if (e.metrics) {
