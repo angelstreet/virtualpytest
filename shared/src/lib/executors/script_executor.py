@@ -864,7 +864,8 @@ class ScriptExecutor:
                     team_id=context.team_id,
                     script_name=self.script_name,
                     script_type=self.script_name,
-                    userinterface_name=getattr(args, 'userinterface_name', None),
+                    # Always persist the canonical userinterface value captured earlier
+                    userinterface_name=context.userinterface,
                     host_name=context.host.host_name,
                     device_name=context.selected_device.device_name,
                     metadata={
