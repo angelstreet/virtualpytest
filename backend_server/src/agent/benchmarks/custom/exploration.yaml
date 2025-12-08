@@ -13,7 +13,12 @@ tests:
   - id: mobile_explore_001
     name: Basic Mobile Exploration
     description: Agent explores a mobile app and creates navigation structure
-    prompt: "Explore the google_tv mobile app and map all screens reachable from home."
+    prompt: |
+      Explore the google_tv mobile app. For each screen:
+      1. Create a node
+      2. Create edges to navigate there (use text-based selectors, coordinates only as a last resort)
+      3. Add verification so we can detect the screen
+      4. Save screenshot if missing
     expected:
       contains:
         - "node"
@@ -36,7 +41,12 @@ tests:
   - id: mobile_explore_002
     name: Exploration with Edge Testing
     description: Agent explores AND tests each edge bidirectionally
-    prompt: "Explore google_tv and create the navigation tree. Test every edge you create by getting edge details and executing actions."
+    prompt: |
+      Explore google_tv:
+      1. Create nodes for each screen
+      2. Create edges using text selectors (NOT coordinates)
+      3. Test each edge: get_edge → execute_device_action → verify arrival
+      4. If edge fails, update it with correct selector
     expected:
       contains:
         - "test"
@@ -61,7 +71,12 @@ tests:
   - id: mobile_explore_003
     name: Use Optimal Selectors
     description: Agent uses analyze_screen_for_action to get best selectors
-    prompt: "Explore google_tv using the most reliable selectors. Prefer element IDs over text."
+    prompt: |
+      Explore google_tv. IMPORTANT: 
+      - Call dump_ui_elements first
+      - Then analyze_screen_for_action to get best selector
+      - Priority: ID > text > xpath > coordinates (LAST RESORT)
+      - NEVER use tap_coordinates if text is visible!
     expected:
       tools_called:
         - dump_ui_elements
@@ -83,7 +98,13 @@ tests:
   - id: mobile_explore_004
     name: Add Node Verifications
     description: Agent adds verifications to nodes for screen detection
-    prompt: "Explore google_tv and add verifications to each node so we can detect which screen we're on."
+    prompt: |
+      Explore google_tv. For EACH node:
+      1. Navigate to the node
+      2. Call dump_ui_elements
+      3. Call analyze_screen_for_verification to find unique identifier
+      4. Update node with verification using update_node
+      5. Save screenshot with save_node_screenshot if missing
     expected:
       contains:
         - "verification"
@@ -105,7 +126,14 @@ tests:
   - id: mobile_explore_005
     name: Full Autonomous Mobile Exploration
     description: Complete exploration - nodes, edges, tests, verifications, screenshots
-    prompt: "Build a complete navigation model for google_tv. Create all nodes and edges, test them by getting edge details and executing actions, add verifications, and save screenshots."
+    prompt: |
+      Build a complete navigation model for google_tv. For EACH screen:
+      1. Create node
+      2. Create edge with text-based selectors (use analyze_screen_for_action, only use coordinates as a last resort)
+      3. Test edge by executing it
+      4. Add verification using analyze_screen_for_verification
+      5. Save screenshot with save_node_screenshot
+      6. Show final tree with preview_userinterface
     expected:
       contains:
         - "node"
@@ -143,7 +171,12 @@ tests:
   - id: mobile_explore_006
     name: Match google_tv Reference Model
     description: Agent creates structure matching expected google_tv model
-    prompt: "Explore google_tv and create its navigation model."
+    prompt: |
+      Explore google_tv completely:
+      - Create nodes: home, search, library, settings (minimum)
+      - Create bidirectional edges with text-based selectors
+      - Add verifications to each node
+      - Save screenshots for all nodes
     expected:
       reference_model:
         userinterface: google_tv
@@ -188,7 +221,13 @@ tests:
   - id: mobile_explore_007
     name: Fix Failed Edges
     description: Agent repairs edges that fail on first attempt
-    prompt: "Explore google_tv. If any edge fails when testing, analyze why and fix it."
+    prompt: |
+      Explore google_tv. For failed edges:
+      1. Test edge with execute_device_action
+      2. If fails, call dump_ui_elements to see current screen
+      3. Call analyze_screen_for_action to find correct selector
+      4. Update edge with update_edge using new selector
+      5. Prefer text-based selectors over coordinates!
     expected:
       contains:
         - "edge"
@@ -212,7 +251,9 @@ tests:
   - id: mobile_explore_008
     name: Simple Natural Prompt
     description: Agent understands simple human-like prompt
-    prompt: "Explore google_tv and map out all the screens."
+    prompt: |
+      Explore google_tv. Create nodes, edges (prefer text selectors over coordinates), 
+      verifications, and screenshots for each screen.
     expected:
       contains:
         - "node"
