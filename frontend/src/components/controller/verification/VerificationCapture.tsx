@@ -17,6 +17,7 @@ import {
 import React, { useRef } from 'react';
 
 import { UseVerificationEditorType } from '../../../hooks/verification/useVerificationEditor';
+import { useR2Url } from '../../../hooks/storage/useR2Url';
 
 interface DragArea {
   x: number;
@@ -77,8 +78,9 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
   // Use processed URL directly from backend
   const processedCapturedReferenceImage = capturedReferenceImage || '';
 
-  // Use processed URL directly from backend
-  const processedSelectedReferenceImage = selectedReferenceImage || '';
+  // Use R2Url hook to handle signed URLs for private bucket reference images
+  const { url: signedSelectedReferenceImage } = useR2Url(selectedReferenceImage || null);
+  const processedSelectedReferenceImage = signedSelectedReferenceImage || '';
 
   return (
     <Box>
