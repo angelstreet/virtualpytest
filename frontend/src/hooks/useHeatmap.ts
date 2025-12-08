@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useHostManager } from './useHostManager';
+import { getR2Url } from '../utils/infrastructure/cloudflareUtils';
 
 export interface TimelineItem {
   timeKey: string;        // "1425" (2:25 PM)
@@ -132,13 +133,23 @@ export const useHeatmap = () => {
     
     setAnalysisLoading(true);
     try {
-      const response = await fetch(item.analysisUrl, {
+      // Resolve URL based on mode: direct when public, signed when private
+      const analysisUrl = R2_BASE_URL
+        ? item.analysisUrl
+        : await getR2Url(item.analysisUrl);
+      
+      const response = await fetch(analysisUrl, {
         mode: 'cors',
         credentials: 'omit', // Don't send credentials to prevent CORS issues
         cache: 'no-cache' // Prevent caching of failed requests
       });
       
       if (response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Non-JSON response (content-type: ${contentType || 'unknown'})`);
+        }
+
         const data = await response.json();
         console.log(`[useHeatmap] Successfully loaded analysis data for ${item.timeKey}:`, data);
         
