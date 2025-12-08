@@ -18,8 +18,8 @@
     </td>
     <td align="center" width="320">
       <b>Navigation Tree</b>
-      <a href="https://www.youtube.com/watch?v=" target="_blank">
-        <img src="https://img.youtube.com/vi//hqdefault.jpg" width="300" alt="Navigation Tree">
+      <a href="https://www.youtube.com/watch?v=GmN9vmE8PfE" target="_blank">
+        <img src="https://img.youtube.com/vi/GmN9vmE8PfE/hqdefault.jpg" width="300" alt="Navigation Tree">
       </a>
     </td>
     <td align="center" width="320">
