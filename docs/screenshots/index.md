@@ -168,23 +168,9 @@
   </div>
 
   <div class="screenshot-card">
-    <h3>Test Report - Detail</h3>
-    <a href="/screenshot/test_report_2.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/test_report_2.png" alt="Test Report - Detail 1">
-    </a>
-  </div>
-
-  <div class="screenshot-card">
-    <h3>Test Report</h3>
-    <a href="/screenshot/test_report_3.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/test_report_3.png" alt="Test Report - Detail 2">
-    </a>
-  </div>
-
-  <div class="screenshot-card">
-    <h3>Zap Detection</h3>
-    <a href="/screenshot/zap_detection.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/zap_detection.png" alt="Zap Detection">
+    <h3>Heatmap</h3>
+    <a href="/screenshot/heatmap_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/heatmap_1.png" alt="Heatmap">
     </a>
   </div>
 
@@ -213,28 +199,6 @@
     <h3>Live Monitoring</h3>
     <a href="/screenshot/monitoring_1.png" target="_blank" rel="noopener noreferrer">
       <img src="/screenshot/monitoring_1.png" alt="Live Monitoring">
-    </a>
-  </div>
-
-  <div class="screenshot-card">
-    <h3>Heatmap</h3>
-    <a href="/screenshot/heatmap_1.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/heatmap_1.png" alt="Heatmap">
-    </a>
-  </div>
-
-  <div class="screenshot-card">
-    <h3>Heatmap Details</h3>
-    <a href="/screenshot/heatmap_2.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/heatmap_2.png" alt="Heatmap Details">
-    </a>
-  </div>
-
-
-  <div class="screenshot-card">
-    <h3>Heatmap Report</h3>
-    <a href="/screenshot/heatmap_report.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/heatmap_report.png" alt="Heatmap Report">
     </a>
   </div>
 
@@ -298,27 +262,6 @@
     <h3>AI Model Generation</h3>
     <a href="/screenshot/ai_model1.png" target="_blank" rel="noopener noreferrer">
       <img src="/screenshot/ai_model1.png" alt="AI Model Generation">
-    </a>
-  </div>
-
-  <div class="screenshot-card">
-    <h3>AI Model Progression</h3>
-    <a href="/screenshot/ai_model2.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/ai_model2.png" alt="AI Model Progression">
-    </a>
-  </div>
-
-  <div class="screenshot-card">
-    <h3>AI Model Review</h3>
-    <a href="/screenshot/ai_model3.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/ai_model3.png" alt="AI Model Review">
-    </a>
-  </div>
-
-  <div class="screenshot-card">
-    <h3>AI Node Verification</h3>
-    <a href="/screenshot/ai_model4.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/ai_model4.png" alt="AI Node Verification">
     </a>
   </div>
 </div>

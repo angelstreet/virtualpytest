@@ -14,7 +14,7 @@ import {
   RadioGroup,
   Radio,
 } from '@mui/material';
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 
 import { UseVerificationEditorType } from '../../../hooks/verification/useVerificationEditor';
 import { useR2Url } from '../../../hooks/storage/useR2Url';
@@ -79,8 +79,32 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
   const processedCapturedReferenceImage = capturedReferenceImage || '';
 
   // Use R2Url hook to handle signed URLs for private bucket reference images
-  const { url: signedSelectedReferenceImage } = useR2Url(selectedReferenceImage || null);
-  const processedSelectedReferenceImage = signedSelectedReferenceImage || '';
+  const { url: r2ReferenceUrl, loading: r2Loading } = useR2Url(selectedReferenceImage || null);
+  
+  // Debug: log URL transformation
+  console.log('[@component:VerificationCapture] Reference URL debug:', {
+    inputUrl: selectedReferenceImage,
+    r2ReferenceUrl,
+    r2Loading,
+  });
+  
+  // Process the reference URL with proper handling for signed vs public URLs
+  // Same pattern as Navigation_NavigationNode.tsx for consistency
+  const processedSelectedReferenceImage = useMemo(() => {
+    if (!r2ReferenceUrl) return '';
+    
+    // For signed URLs, do NOT append cache-busting params as it invalidates the signature
+    if (r2ReferenceUrl.includes('X-Amz-Signature')) {
+      console.log('[@component:VerificationCapture] Using signed URL for reference image:', r2ReferenceUrl.substring(0, 100) + '...');
+      return r2ReferenceUrl;
+    }
+    
+    // Public URL - add cache-busting
+    const baseUrl = r2ReferenceUrl.split('?')[0];
+    const timestamp = Date.now();
+    console.log('[@component:VerificationCapture] Using public URL with cache-busting for reference image:', baseUrl);
+    return `${baseUrl}?v=${timestamp}`;
+  }, [r2ReferenceUrl]);
 
   return (
     <Box>

@@ -121,9 +121,9 @@
   </tr>
   <tr>
     <td align="center" width="250">
-      <b>Test Report</b>
-      <a href="../../frontend/public/screenshot/test_report_3.png" target="_blank">
-        <img src="../../frontend/public/screenshot/test_report_3.png" width="240" alt="Test Report Detail 2">
+      <b>Heatmap</b>
+      <a href="../../frontend/public/screenshot/heatmap_1.png" target="_blank">
+        <img src="../../frontend/public/screenshot/heatmap_1.png" width="240" alt="Heatmap">
       </a>
     </td>
     <td align="center" width="250">
@@ -156,26 +156,6 @@
       <b>Live Monitoring</b>
       <a href="../../frontend/public/screenshot/monitoring_1.png" target="_blank">
         <img src="../../frontend/public/screenshot/monitoring_1.png" width="240" alt="Live Monitoring">
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <b>Heatmap</b>
-      <a href="../../frontend/public/screenshot/heatmap_1.png" target="_blank">
-        <img src="../../frontend/public/screenshot/heatmap_1.png" width="240" alt="Heatmap">
-      </a>
-    </td>
-    <td align="center" width="250">
-      <b>Heatmap Details</b>
-      <a href="../../frontend/public/screenshot/heatmap_2.png" target="_blank">
-        <img src="../../frontend/public/screenshot/heatmap_2.png" width="240" alt="Heatmap Details">
-      </a>
-    </td>
-    <td align="center" width="250">
-      <b>Heatmap Report</b>
-      <a href="../../frontend/public/screenshot/heatmap_report.png" target="_blank">
-        <img src="../../frontend/public/screenshot/heatmap_report.png" width="240" alt="Heatmap Report">
       </a>
     </td>
   </tr>
@@ -238,26 +218,6 @@
         <img src="../../frontend/public/screenshot/ai_model1.png" width="240" alt="AI Model Generation">
       </a>
     </td>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <b>AI Model Progression</b>
-      <a href="../../frontend/public/screenshot/ai_model2.png" target="_blank">
-        <img src="../../frontend/public/screenshot/ai_model2.png" width="240" alt="AI Model Progression">
-      </a>
-    </td>
-    <td align="center" width="250">
-      <b>AI Model Review</b>
-      <a href="../../frontend/public/screenshot/ai_model3.png" target="_blank">
-        <img src="../../frontend/public/screenshot/ai_model3.png" width="240" alt="AI Model Review">
-      </a>
-    </td>
-    <td align="center" width="250">
-     <b>AI Node Verification</b>
-      <a href="../../frontend/public/screenshot/ai_model4.png" target="_blank">
-        <img src="../../frontend/public/screenshot/ai_model4.png" width="240" alt="AI Node Verification">
-      </a>
     </td>
   </tr>
 </table>
