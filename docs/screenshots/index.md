@@ -57,15 +57,15 @@
 
   <div class="screenshot-card">
     <h3>Device Control</h3>
-    <a href="/screenshot/rec.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/rec.png" alt="Device Control">
+    <a href="/screenshot/device_control.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/device_control.png" alt="Device Control">
     </a>
   </div>
 
   <div class="screenshot-card">
     <h3>Mobile Dump</h3>
-    <a href="/screenshot/rec_mobile_dump.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/rec_mobile_dump.png" alt="Mobile Dump">
+    <a href="/screenshot/mobile_dump.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/mobile_dump.png" alt="Mobile Dump">
     </a>
   </div>
 

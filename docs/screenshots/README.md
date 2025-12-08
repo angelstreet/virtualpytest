@@ -8,14 +8,14 @@
     </td>
     <td align="center" width="250">
       <b>Device Control</b>
-      <a href="../../frontend/public/screenshot/rec.png" target="_blank">
-        <img src="../../frontend/public/screenshot/rec.png" width="240" alt="Device Control">
+      <a href="../../frontend/public/screenshot/device_control.png" target="_blank">
+        <img src="../../frontend/public/screenshot/device_control.png" width="240" alt="Device Control">
       </a>
     </td>
     <td align="center" width="250">
       <b>Mobile Dump</b>
-      <a href="../../frontend/public/screenshot/rec_mobile_dump.png" target="_blank">
-        <img src="../../frontend/public/screenshot/rec_mobile_dump.png" width="240" alt="Mobile Dump">
+      <a href="../../frontend/public/screenshot/mobile_dump.png" target="_blank">
+        <img src="../../frontend/public/screenshot/mobile_dump.png" width="240" alt="Mobile Dump">
       </a>
     </td>
   </tr>

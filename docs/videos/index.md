@@ -101,10 +101,10 @@
 <div class="video-grid">
 
 <div class="video-card">
-  <h3>Device Control & Testing</h3>
+  <h3>Device Control</h3>
   <div class="video-wrapper">
     <iframe 
-      src="https://www.youtube.com/embed/"  
+      src="https://www.youtube.com/embed/BsXrSLI0kJg"  
       frameborder="0" 
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
       allowfullscreen>
