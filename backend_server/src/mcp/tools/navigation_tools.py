@@ -298,8 +298,10 @@ class NavigationTools:
             if current_status == 'completed':
                 print(f"[@MCP:poll_navigation] Navigation completed successfully after {elapsed}s")
                 result = status.get('result', {})
-                message = result.get('message', f'Navigation to {target_label} completed')
-                return {"content": [{"type": "text", "text": f"✅ {message}"}], "isError": False}
+                
+                # Format detailed navigation summary
+                formatted_result = self._format_navigation_result(result, target_label)
+                return {"content": [{"type": "text", "text": formatted_result}], "isError": False}
             
             elif current_status == 'error':
                 print(f"[@MCP:poll_navigation] Navigation failed after {elapsed}s")
@@ -313,6 +315,79 @@ class NavigationTools:
         
         print(f"[@MCP:poll_navigation] Navigation timed out after {max_wait}s")
         return {"content": [{"type": "text", "text": f"⏱️ Navigation timed out after {max_wait}s"}], "isError": True}
+    
+    def _format_navigation_result(self, result: Dict[str, Any], target_label: str) -> str:
+        """
+        Format navigation result with detailed step information
+        
+        Args:
+            result: Navigation execution result from backend
+            target_label: Target node label for reference
+            
+        Returns:
+            Formatted string with navigation summary
+        """
+        message = result.get('message', f'Navigation to {target_label} completed')
+        already_at_target = result.get('already_at_target', False)
+        
+        # Case 1: Already at target - simple message
+        if already_at_target:
+            return f"✅ {message}"
+        
+        # Case 2: Navigation with steps - detailed summary
+        navigation_path = result.get('navigation_path', [])
+        transitions_executed = result.get('transitions_executed', 0)
+        actions_executed = result.get('actions_executed', 0)
+        execution_time = result.get('execution_time', 0)
+        
+        # Build detailed output
+        output = f"✅ {message}\n"
+        output += f"📊 Summary: {transitions_executed} transitions, {actions_executed} actions, {execution_time:.1f}s\n"
+        
+        # Show navigation path if available
+        if navigation_path and len(navigation_path) > 0:
+            output += f"\n🗺️  Navigation Path ({len(navigation_path)} steps):\n"
+            for i, step in enumerate(navigation_path):
+                step_num = i + 1
+                from_node = step.get('from_node_label', 'unknown')
+                to_node = step.get('to_node_label', 'unknown')
+                
+                # Get action summary for this step
+                actions = step.get('actions', [])
+                action_summary = self._format_step_actions(actions)
+                
+                output += f"  {step_num}. {from_node} → {to_node}"
+                if action_summary:
+                    output += f" ({action_summary})"
+                output += "\n"
+        
+        return output
+    
+    def _format_step_actions(self, actions: list) -> str:
+        """Format actions for a single navigation step"""
+        if not actions:
+            return "no actions"
+        
+        if len(actions) == 1:
+            action = actions[0]
+            cmd = action.get('command', 'unknown')
+            
+            # Format based on command type
+            if cmd == 'click_element_by_id':
+                element_id = action.get('params', {}).get('element_id', '')
+                return f"click {element_id}" if element_id else "click"
+            elif cmd == 'press_key':
+                key = action.get('params', {}).get('key', '')
+                return f"press {key}" if key else "press key"
+            elif cmd == 'launch_app':
+                return "launch app"
+            elif cmd == 'tap_coordinates':
+                return "tap"
+            else:
+                return cmd
+        else:
+            # Multiple actions - just show count
+            return f"{len(actions)} actions"
     
     def preview_userinterface(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

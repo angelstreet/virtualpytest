@@ -120,6 +120,12 @@ skills:
   - save_node_screenshot  # MUST call this if node has no screenshot!
   
   # MOBILE-SPECIFIC: Device Actions (swipe, tap, etc)
+  # ACTION SELECTION PRIORITY (use analyze_screen_for_action):
+  #   1. click_element_by_id (resource_id) - Most reliable
+  #   2. click_element (text) - Second best if text is unique
+  #   3. xpath - Third choice
+  #   4. tap_coordinates - LAST RESORT ONLY when no text/id available!
+  # NEVER use tap_coordinates if text/id is visible in dump_ui_elements!
   - execute_device_action
   - list_actions
   
