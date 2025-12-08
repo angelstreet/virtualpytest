@@ -171,9 +171,9 @@ const AgentChat: React.FC = () => {
   // Track if we've processed URL params
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
   
-  // Selected agent - will be set from API (looks for agent with default: true)
-  // Fallback to 'ai-assistant' for initial render
-  const [selectedAgentId, setSelectedAgentId] = useState<string>('ai-assistant');
+// Selected agent - will be set from API (looks for agent with default: true)
+// Start empty to avoid MUI out-of-range while agents load
+const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   
   // Available agents for dropdown (selectable only) + all agents for nickname lookup
   const [availableAgents, setAvailableAgents] = useState<any[]>([]);
@@ -341,10 +341,12 @@ const AgentChat: React.FC = () => {
     setNavigationContext,
   } = useAgentChat();
   
-  // Sync selected agent with hook
-  useEffect(() => {
+// Sync selected agent with hook once we have a real value
+useEffect(() => {
+  if (selectedAgentId) {
     setAgentId(selectedAgentId);
-  }, [selectedAgentId, setAgentId]);
+  }
+}, [selectedAgentId, setAgentId]);
   
   // Sync navigation context with hook (for 2-step workflow)
   useEffect(() => {
@@ -1494,7 +1496,7 @@ const AgentChat: React.FC = () => {
           {/* Agent Selector */}
           <FormControl size="small" sx={{ minWidth: 180 }} disabled={agentsLoading || agentsError !== null}>
             <Select
-              value={selectedAgentId}
+              value={availableAgents.length ? selectedAgentId : ''}
               onChange={(e) => setSelectedAgentId(e.target.value)}
               sx={{
                 height: 32,
