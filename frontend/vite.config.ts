@@ -196,14 +196,11 @@ export default defineConfig({
           }
         : undefined // Let Vite generate self-signed certificates
       : undefined, // No HTTPS
-    // HMR configuration for proxied environments
-    // When accessed through dev.virtualpytest.com, use standard HTTPS port (443)
-    // Vite will auto-detect the hostname from the browser
+    // HMR configuration for proxied environments (dev.virtualpytest.com)
+    // Always set clientPort: 443 because we're behind nginx HTTPS proxy
+    // Vite HMR auto-detects hostname from browser location
     hmr: {
-      // Set clientPort to 443 for HTTPS proxied access (dev.virtualpytest.com)
-      // This tells Vite HMR to connect to wss://dev.virtualpytest.com:443 instead of localhost:5073
-      clientPort: shouldUseHttps ? 443 : undefined,
-      // Auto-detect host from browser location - works for both localhost and proxied domains
+      clientPort: 443,
     },
     // Configure how the dev server handles routing
     fs: {
