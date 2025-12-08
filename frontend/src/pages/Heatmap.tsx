@@ -18,7 +18,6 @@ import {
 import React, { useState, useRef } from 'react';
 
 import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSection';
-import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { HeatMapHistory, HeatMapHistoryRef } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
@@ -52,86 +51,10 @@ const HeatmapContent: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [filter, setFilter] = useState<'ALL' | 'OK' | 'KO'>('ALL');
   
-  // Freeze modal state
-  const [freezeModalOpen, setFreezeModalOpen] = useState(false);
-  const [freezeModalData, setFreezeModalData] = useState<{
-    hostName: string;
-    deviceId: string;
-    thumbnailUrls: string[];
-    freezeDiffs: number[];
-  } | null>(null);
-  
   // Stream modal state
   const [streamModalOpen, setStreamModalOpen] = useState(false);
   const [streamModalHost, setStreamModalHost] = useState<Host | null>(null);
   const [streamModalDevice, setStreamModalDevice] = useState<Device | null>(null);
-
-  // Handle freeze click from analysis table
-  const handleFreezeClick = (deviceData: any) => {
-    if (!deviceData?.analysis_json?.freeze) return;
-
-    const analysisJson = deviceData.analysis_json;
-    const r2Images = analysisJson.r2_images;
-
-    // Prefer R2 thumbnails when present
-    let thumbnailUrls: string[] = r2Images?.thumbnail_urls || [];
-
-    // If no R2 thumbnails, derive URLs from freeze_comparisons and last_3_thumbnails using host base
-    if (thumbnailUrls.length === 0) {
-      const imageUrl = deviceData.image_url || '';
-      let hostStreamBase = '';
-      try {
-        const u = new URL(imageUrl);
-        const streamIndex = u.pathname.indexOf('/stream');
-        if (streamIndex !== -1) {
-          hostStreamBase = `${u.origin}${u.pathname.substring(0, streamIndex + '/stream'.length)}`;
-        } else {
-          hostStreamBase = u.origin;
-        }
-      } catch (e) {
-        console.warn('[@Heatmap] Could not parse image_url for freeze thumbnails:', e);
-      }
-
-      const convertPath = (p?: string) => {
-        if (!p) return null;
-        if (p.startsWith('http://') || p.startsWith('https://')) return p;
-        if (hostStreamBase && p.includes('/stream/')) {
-          const afterStream = p.split('/stream/')[1];
-          if (afterStream) return `${hostStreamBase}/${afterStream.replace(/^\/+/, '')}`;
-        }
-        return null;
-      };
-
-      const derivedFromComparisons = Array.isArray(analysisJson.freeze_comparisons)
-        ? analysisJson.freeze_comparisons.flatMap((comp: any) => {
-            const paths = [
-              comp.current_thumbnail_path,
-              comp.previous_thumbnail_path
-            ];
-            return paths.map(convertPath).filter(Boolean) as string[];
-          })
-        : [];
-
-      const derivedFromLast3 = Array.isArray(analysisJson.last_3_thumbnails)
-        ? analysisJson.last_3_thumbnails.map(convertPath).filter(Boolean) as string[]
-        : [];
-
-      thumbnailUrls = Array.from(new Set([...derivedFromComparisons, ...derivedFromLast3]));
-    }
-
-    if (thumbnailUrls.length === 0) {
-      console.warn('[@Heatmap] No thumbnail URLs available for freeze - images not uploaded yet');
-      return;
-    }
-
-    setFreezeModalData({
-      hostName: deviceData.host_name || '',
-      deviceId: deviceData.device_id || '',
-      thumbnailUrls,
-      freezeDiffs: analysisJson.freeze_diffs || []
-    });
-    setFreezeModalOpen(true);
-  };
 
   // Handle overlay click to open stream modal
   const handleOverlayClick = (deviceData: any) => {
@@ -291,7 +214,6 @@ const HeatmapContent: React.FC = () => {
           images={getFilteredDevices(analysisData?.devices || [], filter)}
           analysisExpanded={analysisExpanded}
           onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
-          onFreezeClick={handleFreezeClick}
         />
       </Box>
 
@@ -299,15 +221,7 @@ const HeatmapContent: React.FC = () => {
       <HeatMapHistory ref={historyRef} />
 
       {/* Freeze Modal */}
-      <HeatMapFreezeModal
-        freezeModalOpen={freezeModalOpen}
-        hostName={freezeModalData?.hostName || ''}
-        deviceId={freezeModalData?.deviceId || ''}
-        thumbnailUrls={freezeModalData?.thumbnailUrls || []}
-        freezeDiffs={freezeModalData?.freezeDiffs || []}
-        timestamp={analysisData?.timestamp}
-        onClose={() => setFreezeModalOpen(false)}
-      />
+      {/* Freeze modal removed (freeze click disabled) */}
 
       {/* Stream Modal */}
       {streamModalHost && streamModalDevice && (
