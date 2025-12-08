@@ -1,5 +1,7 @@
 import { Box, Typography } from '@mui/material';
-import React from 'react';
+import React, { useMemo } from 'react';
+
+import { useR2Url } from '../../hooks/storage/useR2Url';
 
 interface VerificationImageComparisonThumbnailsProps {
   sourceUrl: string;
@@ -74,10 +76,24 @@ export const VerificationImageComparisonThumbnails: React.FC<
     }
   };
 
+  // Use R2Url hook for reference images from private bucket
+  const { url: r2ReferenceUrl } = useR2Url(referenceUrl || null);
+  
+  // Process reference URL with proper handling for signed vs public URLs
+  const processedReferenceUrl = useMemo(() => {
+    if (!r2ReferenceUrl) return '';
+    
+    // For signed URLs, do NOT append cache-busting params as it invalidates the signature
+    if (r2ReferenceUrl.includes('X-Amz-Signature')) {
+      return r2ReferenceUrl;
+    }
+    
+    // Public URL - use the standard processing
+    return getCacheBustedUrl(processImageUrl(r2ReferenceUrl));
+  }, [r2ReferenceUrl, processImageUrl, getCacheBustedUrl]);
+
   const processedSourceUrl = processImageUrl(sourceUrl);
-  const processedReferenceUrl = processImageUrl(referenceUrl);
   const cacheBustedSourceUrl = getCacheBustedUrl(processedSourceUrl);
-  const cacheBustedReferenceUrl = getCacheBustedUrl(processedReferenceUrl);
   const cssFilter = getCSSFilter(imageFilter);
 
   // Debug logging for filters
@@ -168,8 +184,8 @@ export const VerificationImageComparisonThumbnails: React.FC<
             }}
           >
             <img
-              key={cacheBustedReferenceUrl}
-              src={cacheBustedReferenceUrl}
+              key={processedReferenceUrl}
+              src={processedReferenceUrl}
               alt="Reference"
               style={{
                 maxWidth: '100%',

@@ -6,8 +6,9 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import React from 'react';
+import React, { useMemo } from 'react';
 
+import { useR2Url } from '../../hooks/storage/useR2Url';
 import { StyledDialog } from '../common/StyledDialog';
 
 interface VerificationImageComparisonDialogProps {
@@ -65,11 +66,25 @@ export const VerificationImageComparisonDialog: React.FC<
     }
   };
 
+  // Use R2Url hook for reference images from private bucket
+  const { url: r2ReferenceUrl } = useR2Url(referenceUrl || null);
+  
+  // Process reference URL with proper handling for signed vs public URLs
+  const finalReferenceUrl = useMemo(() => {
+    if (!r2ReferenceUrl) return '';
+    
+    // For signed URLs, do NOT append cache-busting params as it invalidates the signature
+    if (r2ReferenceUrl.includes('X-Amz-Signature')) {
+      return r2ReferenceUrl;
+    }
+    
+    // Public URL - use the standard processing
+    return getCacheBustedUrl(processImageUrl(r2ReferenceUrl));
+  }, [r2ReferenceUrl, processImageUrl, getCacheBustedUrl]);
+
   const processedSourceUrl = processImageUrl(sourceUrl);
-  const processedReferenceUrl = processImageUrl(referenceUrl);
   const processedOverlayUrl = overlayUrl ? processImageUrl(overlayUrl) : '';
   const cacheBustedSourceUrl = getCacheBustedUrl(processedSourceUrl);
-  const cacheBustedReferenceUrl = getCacheBustedUrl(processedReferenceUrl);
   const cacheBustedOverlayUrl = overlayUrl ? getCacheBustedUrl(processedOverlayUrl) : '';
   const cssFilter = getCSSFilter(imageFilter);
 
@@ -211,8 +226,8 @@ export const VerificationImageComparisonDialog: React.FC<
               }}
             >
               <img
-                key={cacheBustedReferenceUrl}
-                src={cacheBustedReferenceUrl}
+                key={finalReferenceUrl}
+                src={finalReferenceUrl}
                 alt="Reference"
                 style={{
                   maxWidth: '100%',
