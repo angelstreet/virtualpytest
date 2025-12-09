@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 
 import { NODE_TYPE_COLORS, UI_BADGE_COLORS } from '../../config/validationColors';
@@ -181,39 +182,85 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
     }
   };
 
-  const closeModal = () => {
+  const closeModal = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     setIsScreenshotModalOpen(false);
   };
 
-  return (
+  // Screenshot modal component rendered outside React Flow
+  const screenshotModal = isScreenshotModalOpen && screenshotUrl ? (
     <div
       style={{
-        background: isRootNode ? rootNodeStyle.background : getNodeColor(data.type),
-        border: isCurrentPosition
-          ? currentPositionStyle.border // Blue border for current position (highest priority)
-          : `1px solid ${nodeColors.border}`, // Use validation colors for border (includes verification results)
-        borderRadius: '8px',
-        padding: '12px',
-        minWidth: '200px',
-        maxWidth: '200px',
-        minHeight: '180px',
-        fontSize: '12px',
-        color: '#333',
-        boxShadow: 'none !important', // Remove all shadows
-        WebkitBoxShadow: 'none !important',
-        MozBoxShadow: 'none !important',
-        filter: 'none !important',
-        WebkitFilter: 'none !important',
-        position: 'relative',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
         display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: getZIndex('SCREENSHOT_MODAL'),
         cursor: 'pointer',
-        opacity: 1,
-        animation: isCurrentPosition ? currentPositionStyle.animation : 'none',
+        padding: '20px',
       }}
-      className={nodeColors.className || ''}
+      onClick={closeModal}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      title="Click anywhere to close"
     >
+      {/* Full-size screenshot */}
+      <img
+        src={screenshotUrl}
+        alt={`Screenshot of ${data.label}`}
+        style={{
+          width: 'auto',
+          height: 'auto',
+          maxWidth: '95vw',
+          maxHeight: '95vh',
+          objectFit: 'contain',
+          borderRadius: '8px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+          display: 'block',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  ) : null;
+
+  return (
+    <>
+      <div
+        style={{
+          background: isRootNode ? rootNodeStyle.background : getNodeColor(data.type),
+          border: isCurrentPosition
+            ? currentPositionStyle.border // Blue border for current position (highest priority)
+            : `1px solid ${nodeColors.border}`, // Use validation colors for border (includes verification results)
+          borderRadius: '8px',
+          padding: '12px',
+          minWidth: '200px',
+          maxWidth: '200px',
+          minHeight: '180px',
+          fontSize: '12px',
+          color: '#333',
+          boxShadow: 'none !important', // Remove all shadows
+          WebkitBoxShadow: 'none !important',
+          MozBoxShadow: 'none !important',
+          filter: 'none !important',
+          WebkitFilter: 'none !important',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          cursor: 'pointer',
+          opacity: 1,
+          animation: isCurrentPosition ? currentPositionStyle.animation : 'none',
+        }}
+        className={nodeColors.className || ''}
+      >
       {/* Current Position Indicator */}
       {isCurrentPosition && (
         <div
@@ -540,45 +587,10 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
           </div>
         )}
       </div>
-
-      {/* Screenshot Modal */}
-      {isScreenshotModalOpen && screenshotUrl && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.95)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: getZIndex('SCREENSHOT_MODAL'),
-            cursor: 'pointer',
-            padding: '20px',
-          }}
-          onClick={closeModal}
-          title="Click to close"
-        >
-          {/* Full-size screenshot */}
-          <img
-            src={screenshotUrl}
-            alt={`Screenshot of ${data.label}`}
-            style={{
-              width: 'auto',
-              height: 'auto',
-              maxWidth: '95vw',
-              maxHeight: '95vh',
-              objectFit: 'contain',
-              borderRadius: '8px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
-              display: 'block',
-              pointerEvents: 'none',
-            }}
-          />
-        </div>
-      )}
     </div>
+
+    {/* Render modal outside React Flow using Portal */}
+    {screenshotModal && createPortal(screenshotModal, document.body)}
+  </>
   );
 };

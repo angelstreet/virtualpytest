@@ -13,7 +13,7 @@ metadata:
   selectable: true  # Shown in UI dropdown
   version: 1.0.0
   author: system
-  description: "System monitoring, health checks, and incident detection"
+  description: "System monitoring"
   tags:
     - monitoring
     - health-check
