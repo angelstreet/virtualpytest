@@ -562,21 +562,24 @@ useEffect(() => {
               {event.tool_params ? JSON.stringify(event.tool_params, null, 2) : '{}'}
             </Box>
             
-            <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>
-              {hasError ? 'Error Details' : 'Result'}
-            </Typography>
-            <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: hasError ? 'error.main' : 'text.primary', maxHeight: 300 }}>
-              {hasError && errorMessage
-                ? errorMessage
-                : event.tool_result === undefined || event.tool_result === null 
-                  ? <Typography variant="caption" color={hasError ? 'error.main' : 'text.disabled'} sx={{ fontStyle: 'italic' }}>
-                      {hasError ? errorMessage || 'No error details provided' : 'No result data'}
-                    </Typography>
-                  : typeof event.tool_result === 'string' 
-                    ? event.tool_result 
-                    : JSON.stringify(event.tool_result, null, 2)
-              }
-            </Box>
+            {/* Only show Result section when there's no error (error already shown in alert above) */}
+            {!hasError && (
+              <>
+                <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>
+                  Result
+                </Typography>
+                <Box component="pre" sx={{ m: 0, fontSize: '0.7rem', overflow: 'auto', color: 'text.primary', maxHeight: 300 }}>
+                  {event.tool_result === undefined || event.tool_result === null 
+                    ? <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
+                        No result data
+                      </Typography>
+                    : typeof event.tool_result === 'string' 
+                      ? event.tool_result 
+                      : JSON.stringify(event.tool_result, null, 2)
+                  }
+                </Box>
+              </>
+            )}
           </Paper>
         </AccordionDetails>
       </Accordion>
