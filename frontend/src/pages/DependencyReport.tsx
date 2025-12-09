@@ -380,19 +380,27 @@ const DependencyReport: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell colSpan={4} sx={{ p: 0 }}>
+                            <TableCell colSpan={4} sx={{ p: 0, border: 0 }}>
                               <Collapse
                                 in={expandedRows.has(`script-node-${script.script_result_id}`)}
                               >
-                                <Box sx={{ p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                                <Box sx={{ pl: 7, pr: 2, py: 1, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
                                   <Table
                                     size="small"
                                     sx={{
                                       '& .MuiTableRow-root:hover': {
                                         backgroundColor: 'transparent !important',
                                       },
+                                      tableLayout: 'fixed',
                                     }}
                                   >
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Node</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      </TableRow>
+                                    </TableHead>
                                     <TableBody>
                                       {script.nodes.map((node) => (
                                         <TableRow
@@ -403,7 +411,7 @@ const DependencyReport: React.FC = () => {
                                             },
                                           }}
                                         >
-                                          <TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>
                                             <Box
                                               sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                                             >
@@ -414,8 +422,8 @@ const DependencyReport: React.FC = () => {
                                               {node.node_name}
                                             </Box>
                                           </TableCell>
-                                          <TableCell>{node.execution_count}</TableCell>
-                                          <TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>{node.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>
                                             <Chip
                                               label={`${node.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(node.success_rate)}
@@ -528,19 +536,27 @@ const DependencyReport: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell colSpan={4} sx={{ p: 0 }}>
+                            <TableCell colSpan={4} sx={{ p: 0, border: 0 }}>
                               <Collapse
                                 in={expandedRows.has(`script-edge-${script.script_result_id}`)}
                               >
-                                <Box sx={{ p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                                <Box sx={{ pl: 7, pr: 2, py: 1, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
                                   <Table
                                     size="small"
                                     sx={{
                                       '& .MuiTableRow-root:hover': {
                                         backgroundColor: 'transparent !important',
                                       },
+                                      tableLayout: 'fixed',
                                     }}
                                   >
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Edge</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      </TableRow>
+                                    </TableHead>
                                     <TableBody>
                                       {script.edges.map((edge) => (
                                         <TableRow
@@ -551,7 +567,7 @@ const DependencyReport: React.FC = () => {
                                             },
                                           }}
                                         >
-                                          <TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>
                                             <Box
                                               sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                                             >
@@ -559,8 +575,8 @@ const DependencyReport: React.FC = () => {
                                               {edge.edge_name}
                                             </Box>
                                           </TableCell>
-                                          <TableCell>{edge.execution_count}</TableCell>
-                                          <TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>{edge.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>
                                             <Chip
                                               label={`${edge.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(edge.success_rate)}
@@ -685,17 +701,25 @@ const DependencyReport: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell colSpan={5} sx={{ p: 0 }}>
+                            <TableCell colSpan={5} sx={{ p: 0, border: 0 }}>
                               <Collapse in={expandedRows.has(`node-script-${node.node_id}`)}>
-                                <Box sx={{ p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                                <Box sx={{ pl: 7, pr: 2, py: 1, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
                                   <Table
                                     size="small"
                                     sx={{
                                       '& .MuiTableRow-root:hover': {
                                         backgroundColor: 'transparent !important',
                                       },
+                                      tableLayout: 'fixed',
                                     }}
                                   >
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Script</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      </TableRow>
+                                    </TableHead>
                                     <TableBody>
                                       {node.scripts.map((script) => (
                                         <TableRow
@@ -706,9 +730,9 @@ const DependencyReport: React.FC = () => {
                                             },
                                           }}
                                         >
-                                          <TableCell>{script.script_name}</TableCell>
-                                          <TableCell>{script.execution_count}</TableCell>
-                                          <TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>{script.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>
                                             <Chip
                                               label={`${script.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(script.success_rate)}
@@ -833,17 +857,25 @@ const DependencyReport: React.FC = () => {
                             </TableCell>
                           </TableRow>
                           <TableRow>
-                            <TableCell colSpan={5} sx={{ p: 0 }}>
+                            <TableCell colSpan={5} sx={{ p: 0, border: 0 }}>
                               <Collapse in={expandedRows.has(`edge-script-${edge.edge_id}`)}>
-                                <Box sx={{ p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                                <Box sx={{ pl: 7, pr: 2, py: 1, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
                                   <Table
                                     size="small"
                                     sx={{
                                       '& .MuiTableRow-root:hover': {
                                         backgroundColor: 'transparent !important',
                                       },
+                                      tableLayout: 'fixed',
                                     }}
                                   >
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Script</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      </TableRow>
+                                    </TableHead>
                                     <TableBody>
                                       {edge.scripts.map((script) => (
                                         <TableRow
@@ -854,9 +886,9 @@ const DependencyReport: React.FC = () => {
                                             },
                                           }}
                                         >
-                                          <TableCell>{script.script_name}</TableCell>
-                                          <TableCell>{script.execution_count}</TableCell>
-                                          <TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>{script.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5 }}>
                                             <Chip
                                               label={`${script.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(script.success_rate)}

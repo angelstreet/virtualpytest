@@ -57,128 +57,16 @@ import {
   ThumbDown,
 } from '@mui/icons-material';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import { useAgentChat, type AgentEvent, type Conversation } from '../hooks/aiagent';
+import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 import { useAIContext } from '../contexts/AIContext';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { APP_CONFIG } from '../config/constants';
+import { AGENT_CHAT_PALETTE as PALETTE, AGENT_CHAT_LAYOUT, AGENT_COLORS } from '../constants/agentChatTheme';
+import { getInitials, mergeToolEvents, groupConversationsByTime } from '../utils/agentChatUtils';
+import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming';
 
-// --- Constants & Configuration ---
-
-const PALETTE = {
-  background: '#1a1a1a',
-  surface: '#242424',
-  inputBg: '#2a2a2a',
-  sidebarBg: '#1e1e1e',
-  textPrimary: '#f0f0f0',
-  textSecondary: '#9a9a9a',
-  textMuted: '#666666',
-  accent: '#d4a574',
-  accentHover: '#c49464',
-  agentBubble: '#262626',
-  agentBorder: '#333333',
-  userBubble: '#3a3a3a',
-  userBorder: '#4a4a4a',
-  borderColor: '#383838',
-  hoverBg: '#2a2a2a',
-  cardShadow: '0 2px 8px rgba(0,0,0,0.3)',
-};
-
-const SIDEBAR_WIDTH = 240;
-const RIGHT_PANEL_WIDTH = 320;
-
-// Agent color palette (used for UI display of agent badges/avatars)
-const AGENT_COLORS: Record<string, string> = {
-  'ai-assistant': PALETTE.accent,
-  'qa-web-manager': '#4fc3f7',
-  'qa-mobile-manager': '#81c784', 
-  'qa-stb-manager': '#ba68c8',
-  'monitoring-manager': '#ffb74d',
-  'qa-manager': '#607d8b',
-  'explorer': '#81c784',
-  'builder': '#ffb74d',
-  'executor': '#e57373',
-  'analyst': '#ba68c8',
-  'maintainer': '#4fc3f7',
-};
-
-const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
-
-// Merge tool_call events with their corresponding tool_result/error events by sequence order
-// Events come in order: tool_call → tool_result/error → tool_call → tool_result/error → ...
-const mergeToolEvents = (events: AgentEvent[]): AgentEvent[] => {
-  const merged: AgentEvent[] = [];
-  let pendingToolCall: AgentEvent | null = null;
-  
-  for (const event of events) {
-    if (event.type === 'tool_call') {
-      // If there was a previous tool call without result, add it as-is
-      if (pendingToolCall) {
-        merged.push(pendingToolCall);
-      }
-      pendingToolCall = { ...event };
-    } else if (event.type === 'tool_result' && pendingToolCall) {
-      // Link result to the pending tool call
-      merged.push({
-        ...pendingToolCall,
-        tool_result: event.tool_result,
-        success: event.success,
-      });
-      pendingToolCall = null;
-    } else if (event.type === 'error' && pendingToolCall) {
-      // Link error to the pending tool call - mark as failure
-      const errorContent = event.content || event.error || 'Tool error';
-      merged.push({
-        ...pendingToolCall,
-        tool_result: errorContent,
-        success: false,
-        error: errorContent,
-      });
-      pendingToolCall = null;
-    }
-  }
-  
-  // Don't forget the last pending call if exists
-  if (pendingToolCall) {
-    merged.push(pendingToolCall);
-  }
-  
-  return merged;
-};
-
-// Group conversations by time period
-const groupConversationsByTime = (conversations: Conversation[]) => {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-  const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const thisMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-  const groups: { label: string; items: Conversation[] }[] = [
-    { label: 'Today', items: [] },
-    { label: 'Yesterday', items: [] },
-    { label: 'This Week', items: [] },
-    { label: 'This Month', items: [] },
-    { label: 'Older', items: [] },
-  ];
-
-  conversations.forEach(conv => {
-    const date = new Date(conv.updatedAt);
-    if (date >= today) {
-      groups[0].items.push(conv);
-    } else if (date >= yesterday) {
-      groups[1].items.push(conv);
-    } else if (date >= thisWeek) {
-      groups[2].items.push(conv);
-    } else if (date >= thisMonth) {
-      groups[3].items.push(conv);
-    } else {
-      groups[4].items.push(conv);
-    }
-  });
-
-  return groups.filter(g => g.items.length > 0);
-};
+const { sidebarWidth: SIDEBAR_WIDTH, rightPanelWidth: RIGHT_PANEL_WIDTH } = AGENT_CHAT_LAYOUT;
 
 // --- Components ---
 
@@ -396,9 +284,8 @@ useEffect(() => {
   const lastMessageCount = useRef(0);
   const lastToolEventCount = useRef(0);
   
-  // Track tool execution start times to delay showing animations
-  const toolExecutionStartTimes = useRef<Record<string, number>>({});
-  const [, forceUpdate] = useState({});
+  // Tool execution timing hook (5-second delay for animations)
+  const { shouldShowExecutingAnimation } = useToolExecutionTiming();
 
   // Track if user has scrolled up manually
   const handleScroll = () => {
@@ -486,23 +373,9 @@ useEffect(() => {
     const hasError = event.success === false;
     const isExecuting = event.tool_result === undefined && event.success === undefined;
     
-    // Track execution time and only show animation after 5 seconds
+    // Use hook to determine if we should show executing animation (5-second delay)
     const toolKey = `${event.tool_name}-${idx}`;
-    if (isExecuting) {
-      if (!toolExecutionStartTimes.current[toolKey]) {
-        toolExecutionStartTimes.current[toolKey] = Date.now();
-        // Schedule a re-render after 5 seconds to show the animation
-        setTimeout(() => forceUpdate({}), 5000);
-      }
-    } else {
-      // Clean up when tool completes
-      delete toolExecutionStartTimes.current[toolKey];
-    }
-    
-    const executionDuration = toolExecutionStartTimes.current[toolKey] 
-      ? Date.now() - toolExecutionStartTimes.current[toolKey]
-      : 0;
-    const showExecutingAnimation = isExecuting && executionDuration >= 5000;
+    const showExecutingAnimation = shouldShowExecutingAnimation(toolKey, isExecuting);
     
     let errorMessage = '';
     
