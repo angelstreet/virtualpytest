@@ -395,6 +395,10 @@ useEffect(() => {
   const isUserScrolledUp = useRef(false);
   const lastMessageCount = useRef(0);
   const lastToolEventCount = useRef(0);
+  
+  // Track tool execution start times to delay showing animations
+  const toolExecutionStartTimes = useRef<Record<string, number>>({});
+  const [, forceUpdate] = useState({});
 
   // Track if user has scrolled up manually
   const handleScroll = () => {
@@ -481,6 +485,25 @@ useEffect(() => {
     // Extract error information from multiple possible sources
     const hasError = event.success === false;
     const isExecuting = event.tool_result === undefined && event.success === undefined;
+    
+    // Track execution time and only show animation after 5 seconds
+    const toolKey = `${event.tool_name}-${idx}`;
+    if (isExecuting) {
+      if (!toolExecutionStartTimes.current[toolKey]) {
+        toolExecutionStartTimes.current[toolKey] = Date.now();
+        // Schedule a re-render after 5 seconds to show the animation
+        setTimeout(() => forceUpdate({}), 5000);
+      }
+    } else {
+      // Clean up when tool completes
+      delete toolExecutionStartTimes.current[toolKey];
+    }
+    
+    const executionDuration = toolExecutionStartTimes.current[toolKey] 
+      ? Date.now() - toolExecutionStartTimes.current[toolKey]
+      : 0;
+    const showExecutingAnimation = isExecuting && executionDuration >= 5000;
+    
     let errorMessage = '';
     
     if (hasError) {
@@ -509,11 +532,11 @@ useEffect(() => {
         key={`${event.tool_name}-${idx}-${event.success ?? 'pending'}-${event.tool_result ? 'done' : 'waiting'}`} 
         disableGutters 
         elevation={0}
-        defaultExpanded={hasError || isExecuting} // Auto-expand errors and executing tools
+        defaultExpanded={hasError || showExecutingAnimation} // Auto-expand errors and executing tools (after delay)
         sx={{ 
-          bgcolor: isExecuting ? 'rgba(212, 165, 116, 0.05)' : 'transparent',
-          border: isExecuting ? '1px solid' : 'none',
-          borderColor: isExecuting ? `${PALETTE.accent}30` : 'transparent',
+          bgcolor: showExecutingAnimation ? 'rgba(212, 165, 116, 0.05)' : 'transparent',
+          border: showExecutingAnimation ? '1px solid' : 'none',
+          borderColor: showExecutingAnimation ? `${PALETTE.accent}30` : 'transparent',
           '&:before': { display: 'none' },
           mb: 0.5,
           borderRadius: 1,
@@ -521,7 +544,7 @@ useEffect(() => {
         }}
       >
         <AccordionSummary
-          expandIcon={<ExpandIcon sx={{ fontSize: 14, color: hasError ? 'error.main' : isExecuting ? PALETTE.accent : 'text.disabled' }} />}
+          expandIcon={<ExpandIcon sx={{ fontSize: 14, color: hasError ? 'error.main' : showExecutingAnimation ? PALETTE.accent : 'text.disabled' }} />}
           sx={{ 
             minHeight: 24, 
             p: 0, 
@@ -536,13 +559,13 @@ useEffect(() => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
             <ConsoleIcon sx={{ 
               fontSize: 12, 
-              color: hasError ? 'error.main' : isExecuting ? PALETTE.accent : 'text.disabled',
+              color: hasError ? 'error.main' : showExecutingAnimation ? PALETTE.accent : 'text.disabled',
             }} />
             <Typography variant="caption" sx={{ 
               fontFamily: 'monospace', 
-              color: hasError ? 'error.main' : isExecuting ? PALETTE.accent : 'text.secondary', 
+              color: hasError ? 'error.main' : showExecutingAnimation ? PALETTE.accent : 'text.secondary', 
               flex: 1, 
-              fontWeight: hasError ? 600 : isExecuting ? 500 : 400 
+              fontWeight: hasError ? 600 : showExecutingAnimation ? 500 : 400 
             }}>
               {event.tool_name}
             </Typography>
@@ -570,7 +593,7 @@ useEffect(() => {
                 <CopyIcon sx={{ fontSize: 11 }} />
               </IconButton>
             </Tooltip>
-            {isExecuting ? (
+            {showExecutingAnimation ? (
               <Box sx={{ 
                 width: 12, 
                 height: 12, 
@@ -584,7 +607,7 @@ useEffect(() => {
                   '100%': { transform: 'rotate(360deg)' },
                 },
               }} />
-            ) : hasError ? 
+            ) : isExecuting ? null : hasError ? 
               <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
               <SuccessIcon sx={{ fontSize: 12, color: 'success.main' }} />
             }
@@ -616,7 +639,7 @@ useEffect(() => {
               bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.50',
               borderColor: hasError 
                 ? 'error.main' 
-                : isExecuting 
+                : showExecutingAnimation 
                   ? `${PALETTE.accent}40`
                   : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
               borderRadius: 2
@@ -646,7 +669,7 @@ useEffect(() => {
               </>
             )}
             
-            {isExecuting && (
+            {showExecutingAnimation && (
               <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
