@@ -537,11 +537,6 @@ useEffect(() => {
             <ConsoleIcon sx={{ 
               fontSize: 12, 
               color: hasError ? 'error.main' : isExecuting ? PALETTE.accent : 'text.disabled',
-              animation: isExecuting ? 'spin 2s linear infinite' : 'none',
-              '@keyframes spin': {
-                '0%': { transform: 'rotate(0deg)' },
-                '100%': { transform: 'rotate(360deg)' },
-              },
             }} />
             <Typography variant="caption" sx={{ 
               fontFamily: 'monospace', 
@@ -635,49 +630,6 @@ useEffect(() => {
             </Alert>
           )}
           
-          {isExecuting && (
-            <Alert 
-              severity="info" 
-              sx={{ 
-                mb: 1.5, 
-                fontSize: '0.75rem',
-                bgcolor: `${PALETTE.accent}10`,
-                border: '1px solid',
-                borderColor: `${PALETTE.accent}30`,
-                '& .MuiAlert-message': { fontSize: '0.75rem' },
-                '& .MuiAlert-icon': { color: PALETTE.accent },
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 600, flex: 1 }}>
-                  Tool executing...
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                  {[0, 1, 2].map((i) => (
-                    <Box 
-                      key={i}
-                      sx={{ 
-                        width: 4, 
-                        height: 4, 
-                        borderRadius: '50%', 
-                        bgcolor: PALETTE.accent,
-                        animation: 'bounce 1.4s ease-in-out infinite',
-                        animationDelay: `${i * 0.16}s`,
-                        '@keyframes bounce': {
-                          '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
-                          '40%': { transform: 'scale(1)', opacity: 1 },
-                        },
-                      }} 
-                    />
-                  ))}
-                </Box>
-              </Box>
-              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
-                This may take a while for long-running operations
-              </Typography>
-            </Alert>
-          )}
-          
           <Paper 
             variant="outlined" 
             sx={{ 
@@ -716,38 +668,34 @@ useEffect(() => {
             )}
             
             {isExecuting && (
-              <>
-                <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>
-                  Status
-                </Typography>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1, 
+                p: 1.5, 
+                mt: 1.5,
+                bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
+                borderRadius: 1,
+                border: '1px dashed',
+                borderColor: PALETTE.accent,
+              }}>
                 <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 1, 
-                  p: 1.5, 
-                  bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
-                  borderRadius: 1,
-                  border: '1px dashed',
-                  borderColor: PALETTE.accent,
-                }}>
-                  <Box sx={{ 
-                    width: 16, 
-                    height: 16, 
-                    borderRadius: '50%',
-                    border: '2px solid',
-                    borderColor: `${PALETTE.accent}40`,
-                    borderTopColor: PALETTE.accent,
-                    animation: 'spin 1s linear infinite',
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' },
-                    },
-                  }} />
-                  <Typography variant="caption" sx={{ color: PALETTE.accent, fontWeight: 500 }}>
-                    Waiting for response...
-                  </Typography>
-                </Box>
-              </>
+                  width: 16, 
+                  height: 16, 
+                  borderRadius: '50%',
+                  border: '2px solid',
+                  borderColor: `${PALETTE.accent}40`,
+                  borderTopColor: PALETTE.accent,
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
+                }} />
+                <Typography variant="caption" sx={{ color: PALETTE.accent, fontWeight: 500 }}>
+                  Waiting for response...
+                </Typography>
+              </Box>
             )}
           </Paper>
         </AccordionDetails>

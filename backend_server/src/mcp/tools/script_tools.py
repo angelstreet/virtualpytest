@@ -129,9 +129,10 @@ class ScriptTools:
             # POLL for completion - SAME pattern as frontend (useScript.ts lines 269-279)
             return self._poll_script_completion(task_id, host_name, script_name)
         
-        # Check for errors
-        if not result.get('success'):
-            error_msg = result.get('stderr') or result.get('error') or 'Script execution failed'
+        # Check for errors - use exit_code since 'success' is not returned by script executor
+        exit_code = result.get('exit_code', 0)
+        if exit_code != 0:
+            error_msg = result.get('stderr') or result.get('error') or f'Script execution failed with exit code {exit_code}'
             return {"content": [{"type": "text", "text": f"❌ Script failed: {error_msg}"}], "isError": True}
         
         # Sync result - return directly (useScript.ts lines 283-300)
@@ -147,7 +148,7 @@ class ScriptTools:
         
         # Format response
         response_text = f"✅ Script '{script_name}' completed\n"
-        response_text += f"Exit code: {result.get('exit_code', 0)}\n"
+        response_text += f"Exit code: {exit_code}\n"
         if script_success is not None:
             response_text += f"Test result: {'PASSED' if script_success else 'FAILED'}\n"
         if result.get('report_url'):
@@ -155,7 +156,7 @@ class ScriptTools:
         
         return {
             "content": [{"type": "text", "text": response_text}],
-            "isError": not result.get('success', False),
+            "isError": False,  # exit_code 0 = tool execution successful
             "result": result
         }
     
@@ -188,10 +189,14 @@ class ScriptTools:
                     task_result = task.get('result', {})
                     
                     # Extract results - SAME as frontend (useScript.ts lines 181-189)
-                    success = task_result.get('success', False)
+                    # Determine success: exit_code 0 = process ran successfully
+                    # Note: script_success indicates test pass/fail, NOT tool execution success
                     exit_code = task_result.get('exit_code', 0)
                     script_success = task_result.get('script_success')
                     report_url = task_result.get('report_url', '')
+                    
+                    # Tool execution is successful if process exited cleanly (exit_code 0)
+                    is_tool_error = exit_code != 0
                     
                     response_text = f"✅ Script '{script_name}' completed\n"
                     response_text += f"Exit code: {exit_code}\n"
@@ -202,7 +207,7 @@ class ScriptTools:
                     
                     return {
                         "content": [{"type": "text", "text": response_text}],
-                        "isError": not success,
+                        "isError": is_tool_error,
                         "result": task_result
                     }
                 
