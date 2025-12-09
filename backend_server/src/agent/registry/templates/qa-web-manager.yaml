@@ -50,17 +50,11 @@ event_pools:
 subagents: []  # Sherlock works alone with all its skills
 
 skills:
-  - list_requirements
-  - get_requirement
-  - get_coverage_summary
-  - get_uncovered_requirements
   - list_userinterfaces
   - get_userinterface_complete
   - list_nodes
   - list_edges
   - preview_userinterface
-  - list_testcases
-  - load_testcase
   - take_control
   - release_control
   - navigate_to_node

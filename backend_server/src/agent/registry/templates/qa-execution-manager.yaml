@@ -1,0 +1,69 @@
+# Agent Configuration: QA Execution Manager
+# Version: 1.0.0
+# Author: system
+# 
+# Dedicated manager for executing testcases and scripts
+#
+---
+metadata:
+  id: qa-execution-manager
+  name: QA Execution Manager
+  nickname: Runner
+  selectable: true
+  version: 1.0.0
+  author: system
+  description: "Testcase & Script Execution"
+  tags:
+    - qa
+    - execution
+  suggestions:
+    - "Run testcase"
+    - "List testcases"
+
+triggers:
+  - type: schedule.regression_run
+    priority: normal
+
+event_pools:
+  - shared.executions
+  - own.qa-execution-tasks
+
+subagents: []
+
+skills:
+  - list_testcases
+  - load_testcase
+  - execute_testcase
+  - get_execution_status
+  - get_device_info
+  - get_compatible_hosts
+  - list_requirements
+  - get_requirement
+  - get_coverage_summary
+  - get_uncovered_requirements
+
+permissions:
+  devices:
+    - read
+    - take_control
+  
+  database:
+    - read
+    - write.testcases
+    - write.results
+    - write.execution_results
+  
+  external:
+    - jira
+    - slack
+
+config:
+  max_parallel_tasks: 8
+  approval_required_for:
+    - delete_testcase
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 3600
+  budget_limit_usd: 50.00
+  platform_filter: all
+
