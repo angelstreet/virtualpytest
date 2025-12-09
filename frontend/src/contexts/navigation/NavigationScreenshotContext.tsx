@@ -61,7 +61,7 @@ export const NavigationScreenshotProvider: React.FC<NavigationScreenshotProvider
   }, [nodes]);
 
   // Use batch hook to fetch all URLs at once
-  const { urls, loading, error, refresh: batchRefresh, urlMap: batchUrlMap } = useR2UrlsBatch(
+  const { loading, error, refresh: batchRefresh, urlMap: batchUrlMap } = useR2UrlsBatch(
     screenshotPaths.paths,
     3600, // 1 hour expiry
     true // auto-refresh enabled

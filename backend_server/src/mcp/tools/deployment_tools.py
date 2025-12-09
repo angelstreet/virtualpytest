@@ -1,8 +1,8 @@
 """Deployment tools for scheduled script execution management"""
 
 from typing import Dict, Any
-from backend_server.src.mcp.api.mcp_api_client import MCPAPIClient
-from backend_server.src.mcp.utils.mcp_formatter import MCPFormatter
+from ..utils.api_client import MCPAPIClient
+from ..utils.mcp_formatter import MCPFormatter
 
 
 class DeploymentTools:
