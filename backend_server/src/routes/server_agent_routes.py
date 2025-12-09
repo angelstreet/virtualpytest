@@ -598,5 +598,17 @@ def register_agent_socketio_handlers(socketio):
                     'content': '🛑 Stopping...'
                 }, room=session_id, namespace='/agent')
     
+    @socketio.on('clear_session', namespace='/agent')
+    def handle_clear_session(data):
+        """Clear session messages for conversation isolation (preserves tool context)"""
+        session_id = data.get('session_id')
+        if session_id:
+            session_mgr = get_session_manager()
+            session = session_mgr.get_session(session_id)
+            if session:
+                session.messages = []  # Clear AI history only
+                # Keep session.context (host, device, tree_id) for tool optimization
+                logger.info(f"Cleared messages for session: {session_id}")
+    
     logger.info("SocketIO handlers registered for /agent namespace")
 

@@ -237,7 +237,13 @@ export const useAgentChat = () => {
 
   // --- Conversation Management ---
 
+  // Clear backend session for conversation isolation
+  const clearBackendSession = useCallback(() => {
+    socketRef.current?.emit('clear_session', { session_id: session?.id });
+  }, [session?.id]);
+
   const createNewConversation = useCallback(() => {
+    clearBackendSession(); // Fresh backend session
     const newConvo: Conversation = {
       id: generateId(),
       title: 'New Chat',
@@ -247,37 +253,34 @@ export const useAgentChat = () => {
     };
     setConversations(prev => [newConvo, ...prev]);
     setActiveConversationId(newConvo.id);
-    activeConversationIdRef.current = newConvo.id; // Immediately update ref
+    activeConversationIdRef.current = newConvo.id;
     setCurrentEvents([]);
     return newConvo.id;
-  }, []); // initializeSession is called on mount, not needed here
+  }, [clearBackendSession]);
 
   const switchConversation = useCallback((conversationId: string) => {
     setActiveConversationId(conversationId);
     activeConversationIdRef.current = conversationId;
-    // Don't clear currentEvents or isProcessing - they belong to the pending conversation
-    // The UI will only show processing state when viewing the pending conversation
   }, []);
 
   const deleteConversation = useCallback((conversationId: string) => {
+    clearBackendSession(); // Fresh start after delete
     setConversations(prev => {
       const filtered = prev.filter(c => c.id !== conversationId);
-      // If deleting active, switch to most recent
       if (conversationId === activeConversationId && filtered.length > 0) {
         setActiveConversationId(filtered[0].id);
-        activeConversationIdRef.current = filtered[0].id; // Update ref
+        activeConversationIdRef.current = filtered[0].id;
       } else if (filtered.length === 0) {
         setActiveConversationId(null);
-        activeConversationIdRef.current = null; // Update ref
+        activeConversationIdRef.current = null;
       }
-      // Clean up localStorage if empty
       if (filtered.length === 0) {
         localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
         localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
       }
       return filtered;
     });
-  }, [activeConversationId]);
+  }, [activeConversationId, clearBackendSession]);
 
   // --- Socket Connection ---
 
@@ -703,6 +706,7 @@ export const useAgentChat = () => {
   }, [session?.id]);
 
   const clearHistory = useCallback(() => {
+    clearBackendSession(); // Fresh backend session
     setConversations([]);
     setActiveConversationId(null);
     activeConversationIdRef.current = null;
@@ -712,7 +716,7 @@ export const useAgentChat = () => {
     setCurrentEvents([]);
     localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
     localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
-  }, []);
+  }, [clearBackendSession]);
 
   // Cleanup socket and timeout on unmount
   useEffect(() => {
