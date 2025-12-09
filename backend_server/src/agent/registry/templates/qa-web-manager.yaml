@@ -13,7 +13,7 @@ metadata:
   selectable: true
   version: 1.0.0
   author: system
-  description: "Web QA with browser automation. Control: take_control once → all operations → release_control once. Never release mid-task."
+  description: "Web QA with browser automation. ALWAYS: take_control → execute ALL operations → release_control → provide response.Be concise."
   tags:
     - qa
     - web

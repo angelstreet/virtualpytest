@@ -13,7 +13,7 @@ metadata:
   selectable: true
   version: 1.0.0
   author: system
-  description: "STB/TV QA with AI vision. Control: take_control once → all operations → release_control once. Never release mid-task."
+  description: "STB/TV QA with AI vision.  ALWAYS: take_control → execute ALL operations → release_control → provide response.Be concise."
   tags:
     - qa
     - stb

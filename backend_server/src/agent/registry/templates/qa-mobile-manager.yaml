@@ -13,7 +13,7 @@ metadata:
   selectable: true
   version: 1.0.0
   author: system
-  description: "Android mobile QA with ADB. Control: take_control once → all operations (get_device_info, navigate, actions) → release_control once. Never release mid-task."
+  description: "Android mobile QA with ADB. ALWAYS: take_control → execute ALL operations → release_control → provide response.Be concise."
   tags:
     - qa
     - mobile
