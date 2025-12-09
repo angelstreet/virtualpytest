@@ -6,6 +6,7 @@ Handles success/error responses, categorizes errors, and formats content.
 """
 
 import json
+import re
 from typing import Dict, Any, List
 from enum import Enum
 
@@ -23,6 +24,47 @@ class ErrorCategory(Enum):
 
 class MCPFormatter:
     """Utility for formatting responses in MCP protocol format"""
+    
+    @staticmethod
+    def clean_text(text: str) -> str:
+        """
+        Clean text by removing/replacing problematic Unicode characters
+        
+        Removes:
+        - Emoji modifiers (U+FE0F)
+        - Box drawing characters (U+2500-U+257F)
+        - Arrows and special symbols that appear as escape sequences
+        
+        Args:
+            text: Raw text with Unicode characters
+            
+        Returns:
+            Cleaned text with problematic characters removed
+        """
+        if not isinstance(text, str):
+            return text
+        
+        # Remove emoji variation selectors (U+FE0F)
+        text = text.replace('\uFE0F', '')
+        
+        # Replace box drawing characters with simple equivalents
+        text = re.sub(r'[\u2500-\u257F]', '-', text)  # Box drawing → '-'
+        
+        # Replace arrows with simple text equivalents
+        text = text.replace('\u2192', '->')  # → 
+        text = text.replace('\u2190', '<-')  # ←
+        text = text.replace('\u2191', '^')   # ↑
+        text = text.replace('\u2193', 'v')   # ↓
+        
+        # Remove other common emoji/special characters used in logs
+        text = text.replace('\u25B6', '>')   # ▶ (play button)
+        text = text.replace('\u2705', '[OK]')  # ✅
+        text = text.replace('\u274C', '[FAIL]')  # ❌
+        text = text.replace('\u26A0', '[WARN]')  # ⚠
+        text = text.replace('\u23F1', '[TIME]')  # ⏱
+        text = text.replace('\u1F4F8', '[PHOTO]')  # 📸
+        
+        return text
     
     @staticmethod
     def format_success(data: Any) -> Dict[str, Any]:
@@ -43,6 +85,9 @@ class MCPFormatter:
             text = json.dumps(clean_data, indent=2)
         else:
             text = str(data)
+        
+        # Clean Unicode special characters
+        text = MCPFormatter.clean_text(text)
         
         return {
             "content": [
@@ -89,6 +134,9 @@ class MCPFormatter:
         Returns:
             MCP-formatted error response with content array and isError: True
         """
+        # Clean Unicode special characters from error message
+        error_msg = MCPFormatter.clean_text(error_msg)
+        
         return {
             "content": [
                 {
