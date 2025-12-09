@@ -1,0 +1,94 @@
+# Agent Configuration: QA Design Manager
+# Version: 1.0.0
+# Author: system
+# 
+# Dedicated manager for testcase creation, requirement management, and coverage tracking
+#
+---
+metadata:
+  id: qa-design-manager
+  name: QA Design Manager
+  nickname: Architect
+  selectable: true
+  version: 1.0.0
+  author: system
+  description: "QA strategist"
+  tags:
+    - qa
+    - testcases
+    - requirements
+    - coverage
+    - design
+  suggestions:
+    - "Create a testcase for login"
+    - "Create requirement REQ_AUTH_001 for user authentication"
+    - "Link testcase to requirement"
+    - "Show coverage summary"
+    - "Generate testcase for navigating to settings"
+    - "List uncovered requirements"
+
+triggers:
+  - type: requirement.created
+    priority: normal
+  - type: coverage.gap_detected
+    priority: high
+
+event_pools:
+  - shared.requirements
+  - own.qa-design-tasks
+
+subagents: []
+
+skills:
+  # Testcase Creation
+  - generate_and_save_testcase
+  - save_testcase
+  - list_testcases
+  - load_testcase
+  - rename_testcase
+  
+  # Requirement Management
+  - create_requirement
+  - list_requirements
+  - get_requirement
+  - update_requirement
+  
+  # Coverage Tracking
+  - link_testcase_to_requirement
+  - unlink_testcase_from_requirement
+  - get_testcase_requirements
+  - get_requirement_coverage
+  - get_coverage_summary
+  - get_uncovered_requirements
+  
+  # Navigation Context (for testcase generation)
+  - list_userinterfaces
+  - preview_userinterface
+  - list_navigation_nodes
+  - get_userinterface_complete
+  
+  # Device Context (for testcase generation)
+  - get_device_info
+  - get_compatible_hosts
+
+permissions:
+  devices:
+    - read
+  
+  database:
+    - read
+    - write.testcases
+    - write.requirements
+    - write.coverage
+
+config:
+  max_parallel_tasks: 4
+  approval_required_for:
+    - delete_testcase
+    - delete_requirement
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 1800
+  budget_limit_usd: 40.00
+  platform_filter: all
+

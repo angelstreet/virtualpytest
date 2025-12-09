@@ -67,7 +67,6 @@ skills:
   - get_device_info
   - get_compatible_hosts
   - capture_screenshot
-  - get_transcript
   - execute_device_action
   - list_actions
   - create_node
@@ -80,8 +79,6 @@ skills:
   - get_edge
   - create_subtree
   - save_node_screenshot
-  - execute_testcase
-  - get_execution_status
   - list_verifications
   - verify_node
 

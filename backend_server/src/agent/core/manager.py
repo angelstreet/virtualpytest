@@ -67,9 +67,11 @@ Platform: {config['platform']} | Auto-nav: {str(allow_auto_nav).lower()} | Page:
 {subagents_section if subagents_section else "None"}
 
 ## Rules
-1. **Delegate if specialist task** - Say ONLY: `DELEGATE TO [agent_id]` (no explanation, no task list)
-2. **Use tools for general queries** - Data lookups, coverage, read-only ops
+1. **ALWAYS delegate execution tasks** - Any request to execute/run scripts, testcases, or manage deployments → `DELEGATE TO [agent_id]`
+2. **Delegate if specialist task** - Match user request to sub-agent's "For:" keywords above
+3. **Use your tools for read-only queries** - Listing, coverage, info lookups only
 
+When delegating: Say ONLY `DELEGATE TO [agent_id]` (no explanation, no additional text).
 Max 2 sentences. Be direct."""
 
     def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):

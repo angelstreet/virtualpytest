@@ -61,9 +61,32 @@ subagents:
     delegate_for:
       - testcase_execution
       - script_execution
+      - execute_script
+      - run_script
+      - script
       - deployment_management
+      - deployment
+      - create_deployment
       - scheduled_testing
       - test_runs
+      - execute
+      - run_testcase
+      - run
+  
+  - id: qa-design-manager
+    version: ">=1.0.0"
+    delegate_for:
+      - testcase_creation
+      - create_testcase
+      - generate_testcase
+      - requirement_creation
+      - create_requirement
+      - requirement_management
+      - requirements
+      - coverage
+      - coverage_tracking
+      - link_testcase
+      - design
   
   - id: monitoring-manager
     version: ">=1.0.0"

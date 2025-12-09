@@ -8,20 +8,21 @@
 metadata:
   id: qa-execution-manager
   name: QA Execution Manager
-  nickname: Angry Panda
+  nickname: Scout
   selectable: true
   version: 1.0.0
   author: system
-  description: "Run Testcase and Script"
+  description: "Execution specialist - runs testcases, executes scripts, manages deployments"
   tags:
     - qa
     - execution
     - deployments
+    - scripts
   suggestions:
     - "Run testcase TC_AUTH_01"
-    - "List all deployments"
+    - "Execute validation script on mobile"
     - "Create deployment for daily validation"
-    - "Execute script validation.py"
+    - "Execute script validation.py with userinterface google_tv"
 
 triggers:
   - type: schedule.regression_run
@@ -56,12 +57,6 @@ skills:
   # Device Management
   - get_device_info
   - get_compatible_hosts
-  
-  # Requirements Coverage
-  - list_requirements
-  - get_requirement
-  - get_coverage_summary
-  - get_uncovered_requirements
 
 permissions:
   devices:

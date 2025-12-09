@@ -74,8 +74,6 @@ skills:
   - get_edge
   - create_subtree
   - save_node_screenshot
-  - execute_testcase
-  - get_execution_status
   - execute_device_action
   - list_verifications
   - verify_node
