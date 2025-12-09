@@ -170,9 +170,23 @@ class ActionTools:
             # POLL for completion - SAME pattern as frontend (useAction.ts line 200-246)
             return self._poll_action_completion(execution_id, device_id, host_name, team_id)
         
-        # Sync result - return directly
+        # Sync result - strip verbose fields and return concise response
         print(f"[@MCP:execute_device_action] Sync execution completed")
-        return self.formatter.format_api_response(result)
+        passed = result.get('passed_count', 0)
+        total = result.get('total_count', 0)
+        failed = result.get('failed_count', 0)
+        execution_time = result.get('execution_time_ms', 0)
+        
+        concise_result = {
+            'success': result.get('success', False),
+            'message': f"✅ {passed}/{total} passed ({execution_time}ms)" if passed == total else f"❌ {passed}/{total} passed, {failed} failed",
+            'passed_count': passed,
+            'total_count': total,
+            'failed_count': failed,
+            'execution_time_ms': execution_time
+        }
+        
+        return {"content": [{"type": "text", "text": json.dumps(concise_result)}], "isError": failed > 0}
     
     def _poll_action_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 180) -> Dict[str, Any]:
         """
@@ -204,25 +218,31 @@ class ActionTools:
                 passed = result.get('passed_count', 0)
                 total = result.get('total_count', 0)
                 failed = result.get('failed_count', 0)
+                execution_time = result.get('execution_time_ms', 0)
+                
+                # Build concise result (strip verbose logs/screenshots)
+                concise_result = {
+                    'passed_count': passed,
+                    'total_count': total,
+                    'failed_count': failed,
+                    'execution_time_ms': execution_time
+                }
                 
                 # Check if any actions failed
                 if failed > 0 or passed < total:
-                    message = f"Action execution failed: {passed}/{total} passed, {failed} failed"
-                    print(f"[@MCP:poll_action] ❌ {message}")
-                    # Include detailed error if available
+                    message = f"❌ {passed}/{total} passed, {failed} failed"
+                    print(f"[@MCP:poll_action] {message}")
                     error_details = result.get('error', '') or result.get('message', '')
                     if error_details:
-                        message += f"\nDetails: {error_details}"
+                        concise_result['error'] = error_details[:200]  # Truncate error
                     return {
-                        "content": [{"type": "text", "text": json.dumps({"success": False, "message": message, "result": result})}],
-                        "isError": True,
-                        "success": False,
-                        "result": result
+                        "content": [{"type": "text", "text": json.dumps({"success": False, "message": message, **concise_result})}],
+                        "isError": True
                     }
                 
-                message = f"Action execution completed: {passed}/{total} passed"
-                print(f"[@MCP:poll_action] ✅ {message}")
-                return {"content": [{"type": "text", "text": json.dumps({"success": True, "message": message, "result": result})}], "isError": False}
+                message = f"✅ {passed}/{total} passed ({execution_time}ms)"
+                print(f"[@MCP:poll_action] {message}")
+                return {"content": [{"type": "text", "text": json.dumps({"success": True, "message": message, **concise_result})}], "isError": False}
             
             elif current_status == 'error':
                 print(f"[@MCP:poll_action] Action execution failed after {elapsed}s")
