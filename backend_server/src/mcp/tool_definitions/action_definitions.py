@@ -50,7 +50,7 @@ PREREQUISITES:
 2. For navigation: call take_control() once before any operations
 
 MOBILE COMMANDS (android_mobile/android_tv):
-- click_element(text="Search") - Click by visible text only. Tap coordinates as last resort
+- click_element(element_id="Search") - Click by text, resource_id, or content_desc (searches all)
 - press_key(key="BACK") - Press hardware key
 - swipe_up, swipe_down, swipe_left, swipe_right - Swipe gestures
 - launch_app(package="com.example.app") - Launch application
@@ -66,8 +66,8 @@ WAIT TIMES (in params):
 - launch_app: 8000ms, click_element: 2000ms, press_key: 1500ms, input_text: 1000ms
 
 Examples:
-  # Mobile click (text, coordinates as last resort)
-  {"command": "click_element", "params": {"text": "Search", "wait_time": 2000}}
+  # Mobile click by text/id/desc (searches content_desc, resource_id, text)
+  {"command": "click_element", "params": {"element_id": "Shop", "wait_time": 2000}}
   
   # Web click by ID
   {"command": "click_element_by_id", "params": {"element_id": "login-btn", "wait_time": 2000}}

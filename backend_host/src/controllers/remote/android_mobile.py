@@ -1039,8 +1039,12 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 return self.close_app(package) if package else False
             
             elif command == 'click_element':
-                element_id = params.get('element_id')
-                return self.click_element(element_id) if element_id else False
+                # Support both 'element_id' (frontend) and 'text' (MCP/docs) for backward compatibility
+                element_id = params.get('element_id') or params.get('text')
+                if not element_id:
+                    print(f"Remote[{self.device_type.upper()}]: ERROR - click_element requires 'element_id' or 'text' parameter")
+                    return False
+                return self.click_element(element_id)
             
             elif command == 'tap_coordinates':
                 x, y = params.get('x'), params.get('y')
