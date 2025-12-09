@@ -375,11 +375,10 @@ Max 2 sentences after data. Be direct."""
                 delegate_to_check = self._parse_delegation(response_text)
                 if delegate_to_check:
                     info = self._get_subagent_info(delegate_to_check)
-                    # Format: "Handing off to **Scout** (QA Mobile Manager)"
-                    desc_part = f" ({info['description']})" if info['description'] else ""
+                    # Format: "→ Scout"
                     display_text = re.sub(
                         r'DELEGATE\s+TO\s+[\w-]+',
-                        f'Handing off to **{info["nickname"]}**{desc_part}',
+                        f'Delegate to {info["nickname"]}',
                         response_text,
                         flags=re.IGNORECASE
                     )
@@ -447,9 +446,9 @@ Max 2 sentences after data. Be direct."""
         session.active_agent = delegate_to
         
         print(f"[AGENT DEBUG] {self.nickname} yielding AGENT_DELEGATED")
-        yield AgentEvent(type=EventType.AGENT_DELEGATED, agent=self.nickname, content=f"Delegating to {delegated_manager.nickname}...")
+        yield AgentEvent(type=EventType.AGENT_DELEGATED, agent=self.nickname, content=f"→ {delegated_manager.nickname}")
         print(f"[AGENT DEBUG] {self.nickname} yielding AGENT_STARTED for {delegated_manager.nickname}")
-        yield AgentEvent(type=EventType.AGENT_STARTED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} taking over...")
+        yield AgentEvent(type=EventType.AGENT_STARTED, agent=delegated_manager.nickname, content="")
         
         # Run delegated manager with original message (pass _is_delegated=True)
         print(f"[AGENT DEBUG] {self.nickname} calling {delegated_manager.nickname}.process_message()")
