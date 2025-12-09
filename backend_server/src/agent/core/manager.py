@@ -276,12 +276,15 @@ Be efficient. Data, not explanations."""
         print(f"[AGENT DEBUG] {self.nickname} yielding THINKING event")
         yield AgentEvent(type=EventType.THINKING, agent=self.nickname, content="Analyzing...")
         
-        # Simple prompt - Claude decides based on tools
-        prompt = f"""User: {message}
-
-Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
+        # Include full conversation history for context (allows reviewing past executions)
+        # Convert session messages to Claude API format (strip agent/timestamp metadata)
+        turn_messages = []
+        for msg in session.messages:
+            turn_messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
         
-        turn_messages = [{"role": "user", "content": prompt}]
         tools = self.tool_bridge.get_tool_definitions(self.tool_names)
         
         if "session_id" not in session.context:
@@ -319,11 +322,21 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
                     if LANGFUSE_ENABLED:
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
                     yield AgentEvent(type=EventType.TOOL_RESULT, agent=self.nickname, content="Success", tool_name=tool_use.name, tool_result=result, success=True)
+                    
+                    # Save tool result to session history (for future context)
+                    tool_result_text = f"🔧 Tool: {tool_use.name}\nResult: {str(result)}"
+                    session.add_message("assistant", tool_result_text, agent=self.nickname)
+                    
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": str(result)}]})
                 except Exception as e:
                     if LANGFUSE_ENABLED:
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, str(e), False, session.id)
                     yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Tool error: {e}", error=str(e))
+                    
+                    # Save tool error to session history (for future context)
+                    tool_error_text = f"🔧 Tool: {tool_use.name}\nError: {str(e)}"
+                    session.add_message("assistant", tool_error_text, agent=self.nickname)
+                    
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": f"Error: {e}", "is_error": True}]})
             else:
                 response_text = text_content
@@ -346,6 +359,10 @@ Use your tools if you have them. Otherwise say: DELEGATE TO [agent_id]"""
                     print(f"[AGENT DEBUG] {self.nickname} yielding MESSAGE: {response_text[:100]}...")
                     yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=response_text, metrics=metrics)
                 break
+        
+        # Save assistant response to session history (for future context)
+        if response_text:
+            session.add_message("assistant", response_text, agent=self.nickname)
         
         # Check for delegation request (use original response_text for parsing)
         delegate_identifier = self._parse_delegation(response_text)

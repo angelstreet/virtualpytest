@@ -470,6 +470,30 @@ useEffect(() => {
             <Typography variant="caption" sx={{ fontFamily: 'monospace', color: hasError ? 'error.main' : 'text.secondary', flex: 1, fontWeight: hasError ? 600 : 400 }}>
               {event.tool_name}
             </Typography>
+            <Tooltip title="Copy tool name and result">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const resultText = hasError && errorMessage
+                    ? errorMessage
+                    : event.tool_result === undefined || event.tool_result === null
+                      ? (hasError ? errorMessage || 'No error details provided' : 'No result data')
+                      : typeof event.tool_result === 'string'
+                        ? event.tool_result
+                        : JSON.stringify(event.tool_result, null, 2);
+                  const fullText = `Tool: ${event.tool_name}\n\nResult:\n${resultText}`;
+                  navigator.clipboard.writeText(fullText);
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0.4,
+                  '&:hover': { opacity: 1, color: PALETTE.accent },
+                }}
+              >
+                <CopyIcon sx={{ fontSize: 11 }} />
+              </IconButton>
+            </Tooltip>
             {hasError ? 
               <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
               <SuccessIcon sx={{ fontSize: 12, color: 'success.main' }} />

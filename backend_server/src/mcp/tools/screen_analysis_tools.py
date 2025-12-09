@@ -53,9 +53,19 @@ class ScreenAnalysisTools:
         intent = params.get('intent', '')
         platform = params.get('platform', 'web')
         
+        # Parse elements if they come as a JSON string
+        if isinstance(elements, str):
+            try:
+                elements = json.loads(elements)
+            except json.JSONDecodeError as e:
+                return self.formatter.format_error(f"Invalid elements JSON: {str(e)}")
+        
         # Validate
         if not elements:
             return self.formatter.format_error("No elements provided. Call dump_ui_elements first.")
+        
+        if not isinstance(elements, list):
+            return self.formatter.format_error(f"Elements must be a list, got {type(elements).__name__}")
         
         if platform not in ['mobile', 'web']:
             return self.formatter.format_error(f"Invalid platform: {platform}. Use 'mobile' or 'web'.")
@@ -158,9 +168,19 @@ class ScreenAnalysisTools:
         node_label = params.get('node_label', '')
         platform = params.get('platform', 'web')
         
+        # Parse elements if they come as a JSON string
+        if isinstance(elements, str):
+            try:
+                elements = json.loads(elements)
+            except json.JSONDecodeError as e:
+                return self.formatter.format_error(f"Invalid elements JSON: {str(e)}")
+        
         # Validate
         if not elements:
             return self.formatter.format_error("No elements provided. Call dump_ui_elements first.")
+        
+        if not isinstance(elements, list):
+            return self.formatter.format_error(f"Elements must be a list, got {type(elements).__name__}")
         
         if not node_label:
             return self.formatter.format_error("node_label is required (e.g., 'home', 'login')")

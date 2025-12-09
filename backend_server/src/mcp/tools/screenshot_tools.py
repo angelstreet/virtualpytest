@@ -66,5 +66,5 @@ class ScreenshotTools:
         if include_ui_dump:
             response_text += "\nNote: UI dump not supported via AV endpoint. Use dump_ui_elements tool separately if needed."
         
-        return self.formatter.format_text_response(response_text)
+        return self.formatter.format_success(response_text)
 
