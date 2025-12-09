@@ -738,6 +738,31 @@ def get_cloudflare_utils() -> CloudflareUtils:
     """Get the singleton instance of CloudflareUtils."""
     return CloudflareUtils()
 
+def convert_to_signed_url(url: str) -> str:
+    """
+    Convert R2 URL to signed URL. Simple utility like frontend's getR2Url.
+    
+    Args:
+        url: R2 URL or path (e.g., 'https://pub-xxx.r2.dev/path/file.html' or 'path/file.html')
+    
+    Returns:
+        Signed URL (returns original on error)
+    """
+    if not url or not ('r2.dev' in url or 'r2.cloudflarestorage.com' in url):
+        return url
+    
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        r2_path = parsed.path.lstrip('/')
+        
+        uploader = get_cloudflare_utils()
+        result = uploader.generate_presigned_url(r2_path, expires_in=MAX_R2_PRESIGN_EXPIRY)
+        return result['url'] if result.get('success') else url
+    except Exception as e:
+        logger.warning(f"Failed to convert to signed URL: {e}")
+        return url
+
 # Utility functions for common upload patterns
 
 def upload_reference_image(local_path: str, userinterface_name: str, image_name: str) -> Dict:

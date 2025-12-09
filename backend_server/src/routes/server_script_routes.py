@@ -515,6 +515,11 @@ def task_complete():
                 'error': 'task_id required'
             }), 400
         
+        # Convert report URL to signed URL
+        if result.get('report_url'):
+            from shared.src.lib.utils.cloudflare_utils import convert_to_signed_url
+            result['report_url'] = convert_to_signed_url(result['report_url'])
+        
         # Update task in manager
         from  backend_server.src.lib.utils.task_manager import task_manager
         

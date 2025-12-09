@@ -12,7 +12,6 @@ import {
 import React from 'react';
 
 import { StyledDialog } from '../common/StyledDialog';
-import { extractR2Path, getR2Url, isCloudflareR2Url } from '../../utils/infrastructure/cloudflareUtils';
 
 interface ValidationResultsClientProps {
   open: boolean;
@@ -35,31 +34,10 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
   duration,
   reportUrl,
 }) => {
-  const handleOpenReport = async () => {
-    if (!reportUrl) return;
-
-    try {
-      const isHttpUrl = /^https?:\/\//i.test(reportUrl);
-
-      // Non-R2 HTTP links can be opened directly
-      if (isHttpUrl && !isCloudflareR2Url(reportUrl)) {
-        window.open(reportUrl, '_blank');
-        return;
-      }
-
-      // Normalize to R2 path for signing
-      let path = reportUrl;
-      if (isCloudflareR2Url(reportUrl)) {
-        const extracted = extractR2Path(reportUrl);
-        if (extracted) {
-          path = extracted;
-        }
-      }
-
-      const signedUrl = await getR2Url(path);
-      window.open(signedUrl, '_blank');
-    } catch (error) {
-      console.error('[@ValidationResultsClient] Failed to open validation report:', error);
+  // Backend returns signed URL - just open directly
+  const handleOpenReport = () => {
+    if (reportUrl) {
+      window.open(reportUrl, '_blank');
     }
   };
 
