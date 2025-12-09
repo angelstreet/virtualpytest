@@ -335,8 +335,61 @@ Update system prompt to emphasize: "Just use take_control + navigate_to_node. No
 
 Ensure agent has CRUD tools: `create_node`, `create_edge`, `execute_edge`, etc.
 
+### Agent returning empty responses
+
+**Cause:** Context overload (too many tools + conversation history)
+
+**Symptoms:**
+```
+[AGENT DEBUG] Scout EMPTY RESPONSE:
+  - stop_reason: end_turn
+  - input_tokens: 13452
+  - output_tokens: 3
+  - content blocks: []
+```
+
+**Root Causes:**
+1. **Too many tools**: Agent has >20 tools or >6k tool tokens
+2. **History bloat**: Delegated agent receiving parent's conversation history
+3. **Combined overload**: Tools + history exceed model's practical limit
+
+**Solutions:**
+
+1. **Reduce tool count** (target: <20 tools per agent)
+   ```yaml
+   # BAD: 28 tools
+   skills:
+     - take_control
+     - navigate_to_node
+     - dump_ui_elements
+     - analyze_screen_for_action
+     - ... (24 more tools)
+   
+   # GOOD: Split into specialized agents
+   # Or remove redundant tools
+   ```
+
+2. **Verify delegation context** (check manager.py)
+   ```python
+   # Should see this behavior:
+   if _is_delegated:
+       # Delegated agents get clean slate
+       turn_messages = [{"role": "user", "content": message}]
+   else:
+       # Root agents get full history
+       turn_messages = session.messages
+   ```
+
+3. **Split complex agents**
+   - Create focused sub-agents for specific tasks
+   - Each with <15 tools
+   - Example: Split "exploration" and "execution" into separate agents
+
+**Example Issue:**
+Scout had 28 tools (~10k tokens). When also receiving full conversation history from Atlas (3-4k tokens), total context exceeded model's practical limits, causing empty responses despite being under 200k technical limit.
+
 ---
 
-*Document Version: 5.0*  
+*Document Version: 5.1*  
 *Last Updated: December 2024*  
-*Changelog: Added autonomous exploration section, removed human-approval tools, cleaned up architecture*
+*Changelog: Added memory management section, context overload troubleshooting, delegation clean-slate behavior*

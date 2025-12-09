@@ -120,7 +120,72 @@ User: "go to home on horizon_android_mobile"
 
 ---
 
-## 5. Tool Simplicity
+## 5. Memory & Context Management
+
+### Conversation History
+
+**Root agents** (Atlas) receive full conversation history:
+- Can review past interactions
+- Has context of entire chat session
+- Useful for analyzing trends or referencing earlier discussions
+
+**Delegated agents** (Scout, Sherlock, Watcher) receive clean slate:
+- Only get the current user request
+- No parent agent's internal chatter (thinking, tool calls)
+- Prevents token bloat and context overload
+
+### Why This Design?
+
+```
+User: "Explore google_tv mobile app"
+          ↓
+┌─────────────────────────────────────────────┐
+│ Atlas (Root Agent)                           │
+│ Input: Full session history (~2k tokens)    │
+│ - User's previous questions                 │
+│ - Atlas's previous responses                │
+│ - Current request                           │
+│                                             │
+│ Decision: DELEGATE TO qa-mobile-manager     │
+└─────────────────────────────────────────────┘
+          ↓
+┌─────────────────────────────────────────────┐
+│ Scout (Delegated Agent)                      │
+│ Input: Clean slate (~100 tokens)            │
+│ - Just the user's request                   │
+│ - NO Atlas's thinking/tool calls            │
+│                                             │
+│ Executes: take_control → navigate_to_node  │
+└─────────────────────────────────────────────┘
+```
+
+**Benefits:**
+- **Efficiency**: Delegated agents stay lean (no unnecessary token bloat)
+- **Focus**: Specialist agents see only what they need
+- **Performance**: Reduces risk of empty responses from context overload
+- **Cost**: Lower token usage per delegation
+
+**Implementation:**
+```python
+# In manager.py process_message()
+if _is_delegated:
+    # Delegated: Clean slate
+    turn_messages = [{"role": "user", "content": message}]
+else:
+    # Root: Full history
+    turn_messages = session.messages
+```
+
+### Tool Count Limits
+
+Agents with **>20 tools** or **>6k tool tokens** may overwhelm Claude:
+- **Symptoms**: Empty responses, `stop_reason: end_turn`, minimal output
+- **Solution**: Split into specialized sub-agents or reduce tool count
+- **Example**: Scout has 28 tools (~10k tokens) - consider refactoring if issues occur
+
+---
+
+## 6. Tool Simplicity
 
 **`navigate_to_node` is self-sufficient:**
 
@@ -143,7 +208,7 @@ That's it. The tools handle everything internally.
 
 ---
 
-## 6. Platform-Specific Skills
+## 7. Platform-Specific Skills
 
 ### Scout (Mobile)
 
@@ -243,7 +308,7 @@ skills:
 
 ---
 
-## 7. Chat Bubble Rules
+## 8. Chat Bubble Rules
 
 | Agent | Chat Bubble |
 |-------|-------------|
@@ -257,7 +322,7 @@ skills:
 
 ---
 
-## 8. YAML Structure
+## 9. YAML Structure
 
 ### Atlas (Orchestrator)
 
@@ -323,7 +388,7 @@ subagents: []  # No sub-agents - all skills included
 
 ---
 
-## 9. File Structure
+## 10. File Structure
 
 ```
 backend_server/src/agent/
@@ -350,6 +415,6 @@ YAML is the single source of truth for all agent definitions.
 
 ---
 
-*Document Version: 5.0*  
+*Document Version: 5.1*  
 *Last Updated: December 2024*  
-*Changelog: Removed human-approval exploration tools, added autonomous CRUD tools, deleted dead Python agent code*
+*Changelog: Added memory & context management section, tool count limits, delegation clean-slate behavior*
