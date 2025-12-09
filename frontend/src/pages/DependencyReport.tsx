@@ -2,6 +2,7 @@ import {
   Clear as ClearIcon,
   ExpandLess,
   ExpandMore,
+  Memory as ModelIcon,
   PlayArrow as ActionIcon,
   Search as SearchIcon,
   Verified as VerificationIcon,
@@ -14,9 +15,13 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  FormControl,
   IconButton,
   InputAdornment,
+  MenuItem,
   Paper,
+  Select,
+  SelectChangeEvent,
   Tab,
   Table,
   TableBody,
@@ -37,12 +42,19 @@ import {
   type NodeScriptDependency,
   type EdgeScriptDependency,
 } from '../hooks/pages/useDependency';
+import { useUserInterface } from '../hooks/pages/useUserInterface';
 
 const DependencyReport: React.FC = () => {
   const { loadDependencyData, loading, error, setError } = useDependency();
+  const { getAllUserInterfaces } = useUserInterface();
 
   const [activeTab, setActiveTab] = useState(0);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // User interface selection state
+  const [userInterfaces, setUserInterfaces] = useState<any[]>([]);
+  const [selectedUserInterface, setSelectedUserInterface] = useState<string>('');
+  const [loadingInterfaces, setLoadingInterfaces] = useState(true);
 
   // Data states
   const [scriptNodeDependencies, setScriptNodeDependencies] = useState<ScriptNodeDependency[]>([]);
@@ -67,11 +79,38 @@ const DependencyReport: React.FC = () => {
     setExpandedRows(newExpanded);
   };
 
-  // Load data on component mount
+  // Load user interfaces on mount
   useEffect(() => {
+    const loadInterfaces = async () => {
+      try {
+        setLoadingInterfaces(true);
+        const interfaces = await getAllUserInterfaces();
+        setUserInterfaces(interfaces);
+      } catch (err) {
+        console.error('[@component:DependencyReport] Error loading user interfaces:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load user interfaces');
+      } finally {
+        setLoadingInterfaces(false);
+      }
+    };
+
+    loadInterfaces();
+  }, [getAllUserInterfaces, setError]);
+
+  // Load dependency data when user interface is selected
+  useEffect(() => {
+    if (!selectedUserInterface) {
+      // Clear data when no interface selected
+      setScriptNodeDependencies([]);
+      setScriptEdgeDependencies([]);
+      setNodeScriptDependencies([]);
+      setEdgeScriptDependencies([]);
+      return;
+    }
+
     const loadData = async () => {
       try {
-        const dependencyData = await loadDependencyData();
+        const dependencyData = await loadDependencyData(selectedUserInterface);
         setScriptNodeDependencies(dependencyData.scriptNodeDependencies);
         setScriptEdgeDependencies(dependencyData.scriptEdgeDependencies);
         setNodeScriptDependencies(dependencyData.nodeScriptDependencies);
@@ -83,7 +122,12 @@ const DependencyReport: React.FC = () => {
     };
 
     loadData();
-  }, [loadDependencyData]);
+  }, [selectedUserInterface, loadDependencyData]);
+
+  // Handle user interface selection change
+  const handleUserInterfaceChange = (event: SelectChangeEvent) => {
+    setSelectedUserInterface(event.target.value);
+  };
 
   // Filter functions
   const filteredScriptNodeDependencies = scriptNodeDependencies.filter(
@@ -172,18 +216,73 @@ const DependencyReport: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
+      <Box sx={{ mb: 1 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
           Dependency Report
         </Typography>
+
+        {/* User Interface Selector */}
+        <FormControl size="small" sx={{ minWidth: 250, zIndex: 9999, position: 'relative' }}>
+          <Select
+            value={selectedUserInterface}
+            onChange={handleUserInterfaceChange}
+            disabled={loadingInterfaces || userInterfaces.length === 0}
+            displayEmpty
+            renderValue={(value) => {
+              if (!value) {
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontStyle: 'italic', opacity: 0.6 }}>
+                    <ModelIcon fontSize="small" />
+                    Select user interface...
+                  </Box>
+                );
+              }
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ModelIcon fontSize="small" />
+                  {value}
+                </Box>
+              );
+            }}
+          >
+            <MenuItem value="">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontStyle: 'italic', opacity: 0.6 }}>
+                <ModelIcon fontSize="small" />
+                Select a user interface...
+              </Box>
+            </MenuItem>
+            {userInterfaces.map((ui) => (
+              <MenuItem key={ui.id} value={ui.name}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ModelIcon fontSize="small" />
+                  {ui.name}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
+      {/* Show empty state when no interface selected */}
+      {!selectedUserInterface ? (
+        <Card>
+          <CardContent sx={{ py: 6, textAlign: 'center' }}>
+            <ModelIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 1 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Select User Interface to Analyze
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Choose a user interface from the dropdown above to view dependency analysis between scripts, nodes, and edges.
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : (
       <Card>
         <CardContent>
           <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
@@ -783,6 +882,7 @@ const DependencyReport: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      )}
     </Box>
   );
 };

@@ -12,6 +12,39 @@ import { useUserInterface } from './useUserInterface';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 // =====================================================
+// CACHE CONFIGURATION (5 minute TTL)
+// =====================================================
+
+const DEPENDENCY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface CachedDependencyData {
+  data: DependencyData;
+  timestamp: number;
+}
+
+// Cache per userinterface_name
+const dependencyCache = new Map<string, CachedDependencyData>();
+
+function getCachedDependencyData(userinterfaceName: string): DependencyData | null {
+  const cached = dependencyCache.get(userinterfaceName);
+  if (cached && (Date.now() - cached.timestamp) < DEPENDENCY_CACHE_TTL) {
+    console.log(
+      `[@hook:useDependency] Cache HIT for ${userinterfaceName} (age: ${((Date.now() - cached.timestamp) / 1000).toFixed(0)}s)`
+    );
+    return cached.data;
+  }
+  if (cached) {
+    dependencyCache.delete(userinterfaceName); // Remove expired
+  }
+  return null;
+}
+
+function setCachedDependencyData(userinterfaceName: string, data: DependencyData) {
+  dependencyCache.set(userinterfaceName, { data, timestamp: Date.now() });
+  console.log(`[@hook:useDependency] Cached dependency data for ${userinterfaceName} (TTL: 5min)`);
+}
+
+// =====================================================
 // DEPENDENCY INTERFACES
 // =====================================================
 
@@ -150,11 +183,20 @@ export const useDependency = () => {
     [loadTreeData]
   );
 
-  // Main function to load all dependency data
-  const loadDependencyData = useCallback(async (): Promise<DependencyData> => {
+  // Main function to load all dependency data, filtered by userinterface name
+  const loadDependencyData = useCallback(async (userinterfaceName?: string): Promise<DependencyData> => {
     try {
       setLoading(true);
       setError(null);
+
+      // Check cache first if filtering by userinterface
+      if (userinterfaceName) {
+        const cachedData = getCachedDependencyData(userinterfaceName);
+        if (cachedData) {
+          setLoading(false);
+          return cachedData;
+        }
+      }
 
       // Load script results, execution results, and user interfaces
       const [scriptResults, executionResults, userInterfaces] = await Promise.all([
@@ -163,22 +205,42 @@ export const useDependency = () => {
         getAllUserInterfaces(),
       ]);
 
+      // Filter by userinterface if specified
+      const filteredScriptResults = userinterfaceName
+        ? scriptResults.filter((s) => s.userinterface_name === userinterfaceName)
+        : scriptResults;
+      
+      // Get tree IDs for the selected userinterface to filter execution results
+      const selectedUI = userinterfaceName
+        ? userInterfaces.find((ui) => ui.name === userinterfaceName)
+        : null;
+      
+      const treeIdsForInterface = new Set<string>();
+      if (selectedUI?.root_tree?.id) {
+        treeIdsForInterface.add(selectedUI.root_tree.id);
+      }
+      
+      const filteredExecutionResults = userinterfaceName
+        ? executionResults.filter((e) => treeIdsForInterface.has(e.tree_id))
+        : executionResults;
+
       console.log(`[@hook:useDependency] Loaded data:`, {
-        scriptResults: scriptResults.length,
-        executionResults: executionResults.length,
-        userInterfaces: userInterfaces.length
+        scriptResults: filteredScriptResults.length,
+        executionResults: filteredExecutionResults.length,
+        userInterfaces: userInterfaces.length,
+        filter: userinterfaceName || 'all'
       });
 
       // Debug: Check execution result types
-      const executionTypes = executionResults.reduce((acc, exec) => {
+      const executionTypes = filteredExecutionResults.reduce((acc, exec) => {
         acc[exec.execution_type] = (acc[exec.execution_type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
       console.log(`[@hook:useDependency] Execution types:`, executionTypes);
 
       // Debug: Check node/edge presence
-      const withNodeId = executionResults.filter(exec => exec.node_id).length;
-      const withEdgeId = executionResults.filter(exec => exec.edge_id).length;
+      const withNodeId = filteredExecutionResults.filter(exec => exec.node_id).length;
+      const withEdgeId = filteredExecutionResults.filter(exec => exec.edge_id).length;
       console.log(`[@hook:useDependency] Executions with node_id: ${withNodeId}, with edge_id: ${withEdgeId}`);
 
       // Create mapping from tree_id to userinterface_name
@@ -205,8 +267,8 @@ export const useDependency = () => {
       >();
 
       // Group by script name
-      scriptResults.forEach((script) => {
-        const nodeExecutions = executionResults.filter(
+      filteredScriptResults.forEach((script) => {
+        const nodeExecutions = filteredExecutionResults.filter(
           (exec) =>
             exec.script_result_id === script.id &&
             exec.execution_type === 'verification' &&
@@ -287,8 +349,8 @@ export const useDependency = () => {
       >();
 
       // Group by script name
-      scriptResults.forEach((script) => {
-        const edgeExecutions = executionResults.filter(
+      filteredScriptResults.forEach((script) => {
+        const edgeExecutions = filteredExecutionResults.filter(
           (exec) =>
             exec.script_result_id === script.id &&
             exec.execution_type === 'action' &&
@@ -374,7 +436,7 @@ export const useDependency = () => {
       // First, collect all unique nodes and their basic info
       const nodePromises = new Map<string, Promise<string>>();
       
-      executionResults
+      filteredExecutionResults
         .filter((exec) => exec.execution_type === 'verification' && exec.node_id)
         .forEach((exec) => {
           if (!nodeMap.has(exec.node_id!)) {
@@ -393,7 +455,7 @@ export const useDependency = () => {
             });
           }
 
-          const scriptInfo = scriptResults.find((s) => s.id === exec.script_result_id);
+          const scriptInfo = filteredScriptResults.find((s) => s.id === exec.script_result_id);
           if (scriptInfo) {
             nodeMap.get(exec.node_id!)!.script_executions.push({
               script_result_id: exec.script_result_id!,
@@ -491,7 +553,7 @@ export const useDependency = () => {
       // First, collect all unique edges and their basic info
       const edgePromises = new Map<string, Promise<string>>();
       
-      executionResults
+      filteredExecutionResults
         .filter((exec) => exec.execution_type === 'action' && exec.edge_id)
         .forEach((exec) => {
           if (!edgeMap.has(exec.edge_id!)) {
@@ -510,7 +572,7 @@ export const useDependency = () => {
             });
           }
 
-          const scriptInfo = scriptResults.find((s) => s.id === exec.script_result_id);
+          const scriptInfo = filteredScriptResults.find((s) => s.id === exec.script_result_id);
           if (scriptInfo) {
             edgeMap.get(exec.edge_id!)!.script_executions.push({
               script_result_id: exec.script_result_id!,
@@ -587,12 +649,19 @@ export const useDependency = () => {
         },
       );
 
-      return {
+      const result: DependencyData = {
         scriptNodeDependencies: scriptNodeDeps,
         scriptEdgeDependencies: scriptEdgeDeps,
         nodeScriptDependencies: nodeScriptDeps,
         edgeScriptDependencies: edgeScriptDeps,
       };
+
+      // Cache the result if filtering by userinterface
+      if (userinterfaceName) {
+        setCachedDependencyData(userinterfaceName, result);
+      }
+
+      return result;
     } catch (err) {
       console.error('[@hook:useDependency] Error loading dependency data:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load dependency data';
