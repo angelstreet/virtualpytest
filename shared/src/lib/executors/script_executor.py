@@ -182,9 +182,9 @@ class ScriptExecutionContext:
                 })
                 path_to_index[path] = idx
             
-            # Upload all files at once
+            # Upload all files at once with signed URLs for report assets
             if file_mappings:
-                upload_result = uploader.upload_files(file_mappings)
+                upload_result = uploader.upload_files(file_mappings, for_report_assets=True)
                 
                 # Build updated paths list maintaining original order
                 updated_paths = [None] * len(self.screenshot_paths)

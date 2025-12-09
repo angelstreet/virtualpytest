@@ -756,6 +756,12 @@ def convert_to_signed_url(url: str) -> str:
         parsed = urlparse(url)
         r2_path = parsed.path.lstrip('/')
         
+        # Strip bucket name prefix if present (bucket is 'virtualpytest')
+        # URL paths like 'virtualpytest/script-reports/...' should become 'script-reports/...'
+        bucket_name = 'virtualpytest'
+        if r2_path.startswith(f'{bucket_name}/'):
+            r2_path = r2_path[len(bucket_name) + 1:]
+        
         uploader = get_cloudflare_utils()
         result = uploader.generate_presigned_url(r2_path, expires_in=MAX_R2_PRESIGN_EXPIRY)
         return result['url'] if result.get('success') else url
