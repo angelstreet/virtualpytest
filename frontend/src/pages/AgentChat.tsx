@@ -383,11 +383,48 @@ useEffect(() => {
   // Only show processing state if viewing the conversation that's being processed
   const showProcessing = isProcessing && activeConversationId === pendingConversationId;
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  // Reset scroll state when conversation changes
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, currentEvents]);
+    isUserScrolledUp.current = false;
+    lastMessageCount.current = 0;
+    lastToolEventCount.current = 0;
+  }, [activeConversationId]);
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isUserScrolledUp = useRef(false);
+  const lastMessageCount = useRef(0);
+  const lastToolEventCount = useRef(0);
+
+  // Track if user has scrolled up manually
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    isUserScrolledUp.current = !isAtBottom;
+  };
+
+  // Only scroll on actual new content (new messages or completed tool calls)
+  useEffect(() => {
+    // Count completed tool events (those with results)
+    const completedToolCount = currentEvents.filter(e => 
+      e.type === 'tool_call' && (e.tool_result !== undefined || e.success !== undefined)
+    ).length;
+    
+    const hasNewMessage = messages.length > lastMessageCount.current;
+    const hasNewToolResult = completedToolCount > lastToolEventCount.current;
+    
+    // Only scroll if user hasn't scrolled up AND there's actual new content
+    if (!isUserScrolledUp.current && (hasNewMessage || hasNewToolResult)) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Update tracking refs
+    lastMessageCount.current = messages.length;
+    lastToolEventCount.current = completedToolCount;
+  }, [messages.length, currentEvents]);
   
   // Handle URL params from command bar (prompt & agent)
   useEffect(() => {
@@ -912,24 +949,27 @@ useEffect(() => {
   const renderChatContent = () => (
     <>
       {/* Chat Stream */}
-      <Box sx={{ 
-        flex: 1, 
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        px: 2,
-        py: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-        scrollbarWidth: 'thin',
-        scrollbarColor: isDarkMode ? `${PALETTE.borderColor} transparent` : '#c1c1c1 transparent',
-        '&::-webkit-scrollbar': { width: 6 },
-        '&::-webkit-scrollbar-track': { background: 'transparent' },
-        '&::-webkit-scrollbar-thumb': {
-          background: isDarkMode ? PALETTE.borderColor : '#c1c1c1',
-          borderRadius: 3,
-        },
-      }}>
+      <Box 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        sx={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          px: 2,
+          py: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          scrollbarWidth: 'thin',
+          scrollbarColor: isDarkMode ? `${PALETTE.borderColor} transparent` : '#c1c1c1 transparent',
+          '&::-webkit-scrollbar': { width: 6 },
+          '&::-webkit-scrollbar-track': { background: 'transparent' },
+          '&::-webkit-scrollbar-thumb': {
+            background: isDarkMode ? PALETTE.borderColor : '#c1c1c1',
+            borderRadius: 3,
+          },
+        }}>
         <Box sx={{ width: '100%' }}>
           
           {agentsLoading && (
