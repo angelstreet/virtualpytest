@@ -39,175 +39,34 @@ Example:
         },
         {
             "name": "execute_device_action",
-            "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
+            "description": """Execute actions on device (ADB, web, remote)
 
-⚠️ SELECTOR PRIORITY - CRITICAL FOR RELIABLE AUTOMATION:
-Always prefer semantic selectors over coordinates. Use tap_coordinates ONLY as last resort!
+⚠️ SELECTOR PRIORITY (use tap_coordinates ONLY as last resort!):
+MOBILE: click_element(text) > click_element_by_id > tap_coordinates
+WEB: click_element_by_id > click_element(text) > tap_coordinates
 
-MOBILE (android_mobile/android_tv):
-  1. click_element with text - PREFERRED (e.g., {"command": "click_element", "params": {"text": "Search"}})
-  2. click_element_by_id - if resource-id available
-  3. tap_coordinates - LAST RESORT ONLY when text/id not available
+PREREQUISITES:
+1. host_name REQUIRED - use get_compatible_hosts() first
+2. For navigation: call take_control() once before any operations
 
-WEB (host_vnc/web):
-  1. click_element_by_id - PREFERRED (e.g., {"command": "click_element_by_id", "params": {"element_id": "login-btn"}})
-  2. click_element with text - fallback
-  3. tap_coordinates - LAST RESORT ONLY
+COMMANDS:
+- MOBILE: click_element(text="Search"), press_key(key="BACK"), swipe_up, launch_app, input_text
+- WEB: click_element_by_id(element_id="btn"), input_text(selector="#field", text="...")
 
-WHY: Text/ID selectors are resilient to screen size changes and UI updates. Coordinates break easily.
+WAIT TIMES (in params):
+- launch_app: 8000ms, click_element: 2000ms, press_key: 1500ms, input_text: 1000ms
 
-CRITICAL PREREQUISITES:
-1. **host_name is REQUIRED**: Use get_compatible_hosts(userinterface_name='...') to find the host
-2. If working with navigation tree: Call take_control(tree_id='...') ONCE FIRST
-3. RULE: Always take_control BEFORE any navigation-related device operations
-
-Example workflow:
-  # Step 1: Get host
-  hosts = get_compatible_hosts(userinterface_name='google_tv')
+Examples:
+  # Mobile click (PREFERRED)
+  {"command": "click_element", "params": {"text": "Search", "wait_time": 2000}}
   
-  # Step 2: Execute action
-  execute_device_action(
-    host_name=hosts['recommended_host'],  # ← REQUIRED!
-    device_id=hosts['recommended_device'],
-    actions=[...]
-  )
-
-Executes direct device commands including:
-- Launch apps (launch_app)
-- UI interactions (swipe, click, type)
-- Key presses (press_key)
-- And more...
-
-Returns execution_id for async operations - polls automatically until completion.
-
-ELEMENT SELECTION (selector MUST be unique on page):
-
-1. #id (always unique) - PREFERRED
-2. //xpath (e.g., //button[@name='login'])
-3. [attr] or .class (verify uniqueness first)
-4. plain text (fallback, slower, AVOID if text appears multiple times)
-
-UNIQUENESS-FIRST PATTERN (Critical for Reliable Automation):
-The AI exploration system demonstrates best practice - ALWAYS verify uniqueness:
-
-1. dump_ui_elements() BEFORE any click action
-2. Call analyze_screen_for_action(elements, intent, platform) to get best selector
-3. Use returned action params in create_edge
-
-Example workflow:
-```
-elements = dump_ui_elements(device_id='device1')
-action = analyze_screen_for_action(
-  elements=elements['elements'],
-  intent='search field',
-  platform='web'
-)
-# Returns: {command: 'click_element_by_id', params: {element_id: 'search-field'}, unique: true}
-
-create_edge(actions=[{command: action['command'], params: action['action_params']}])
-```
-
-Platform-Specific Priority (shared/src/selector_scoring.py):
-- Mobile: ID (resource_id) > CONTENT_DESC > XPATH > TEXT
-- Web: ID (#id) > XPATH > TEXT
-
-This pattern prevents ambiguous clicks and ensures automation reliability.
-Without analyze_screen_for_action, you risk clicking the WRONG element.
-
-DEVICE-SPECIFIC COMMANDS & PARAMETERS:
-
-MOBILE/ADB (android_mobile/android_tv):
-- Commands: launch_app, swipe_up, click_element (preferred - text-based), input_text, press_key
-- IMPORTANT: Use click_element with 'text' param, NOT click_element_by_id
-- input_text: Sends text to focused element (no selector needed)
-- Example: {"command": "click_element", "params": {"text": "Settings", "wait_time": 1000}}
-
-WEB (host_vnc/web):
-- Commands: click_element, click_element_by_id, input_text, navigate_to_url
-- CRITICAL: Web uses DIFFERENT parameter names:
-  • click_element_by_id: Use 'element_id' NOT 'text'
-  • input_text: Use 'selector' NOT 'element_text'
-- Example: {"command": "input_text", "params": {"selector": "#search-field", "text": "Hello", "wait_time": 1000}}
-
-INPUT PATTERN (both platforms):
-1. Click field to focus
-2. Then input text with appropriate params
-See examples below for correct syntax per platform.
-
-CRITICAL - ACTION WAIT TIMES:
-Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
-
-CORRECT: {"command": "launch_app", "params": {"package": "...", "wait_time": 8000}}
-WRONG: {"command": "launch_app", "params": {"package": "..."}, "delay": 8000}
-
-Standard Wait Times (milliseconds) - INSIDE params:
-- launch_app:     8000  (app initialization)
-- click_element:  2000  (screen transition) - PREFERRED
-- tap_coordinates: 2000  (screen taps) -  LAST RESORT ONLY
-- press_key (BACK): 1500  (back navigation)
-- press_key (other): 1000  (key response)
-- type_text:      1000  (input processing)
-- video playback: 5000  (player initialization)
-
-Common Examples:
-
-Launch App:
-  execute_device_action({
-    "device_id": "device1",
-    "actions": [{
-      "command": "launch_app",
-      "params": {"package": "com.netflix.mediaclient", "wait_time": 8000}
-    }]
-  })
-
-Swipe:
-  execute_device_action({
-    "actions": [{"command": "swipe_up", "params": {"wait_time": 1000}}]
-  })
-
-Click Element - MOBILE (PREFERRED - Use text):
-  execute_device_action({
-    "actions": [{
-      "command": "click_element",
-      "params": {"text": "Home", "wait_time": 2000}
-    }]
-  })
-
-Click Element - WEB ONLY (Use ID when available):
-  execute_device_action({
-    "actions": [{
-      "command": "click_element_by_id",
-      "params": {"element_id": "customer_login_link", "wait_time": 2000}
-    }]
-  })
-
-Type Text:
+  # Web click by ID
+  {"command": "click_element_by_id", "params": {"element_id": "login-btn", "wait_time": 2000}}
   
-  WEB (host_vnc/web):
-  execute_device_action({
-    "actions": [
-      {"command": "click_element_by_id", "params": {"element_id": "search-field", "wait_time": 500}},
-      {"command": "input_text", "params": {"selector": "#search-field", "text": "Hello", "wait_time": 1000}}
-    ]
-  })
-  
-  MOBILE (android_mobile/android_tv):
-  execute_device_action({
-    "actions": [
-      {"command": "click_element", "params": {"text": "Search", "wait_time": 500}},
-      {"command": "input_text", "params": {"text": "Hello", "wait_time": 1000}}
-    ]
-  })
+  # Press key
+  {"command": "press_key", "params": {"key": "BACK", "wait_time": 1500}}
 
-Press Key:
-  execute_device_action({
-    "actions": [{
-      "command": "press_key",
-      "params": {"key": "BACK", "wait_time": 1500}
-    }]
-  })
-
-If you're unsure about available commands, call list_actions() first.""",
+Use list_actions() to see all available commands.""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
