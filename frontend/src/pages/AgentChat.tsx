@@ -480,6 +480,7 @@ useEffect(() => {
   const renderToolActivity = (event: AgentEvent, idx: number) => {
     // Extract error information from multiple possible sources
     const hasError = event.success === false;
+    const isExecuting = event.tool_result === undefined && event.success === undefined;
     let errorMessage = '';
     
     if (hasError) {
@@ -508,16 +509,19 @@ useEffect(() => {
         key={`${event.tool_name}-${idx}-${event.success ?? 'pending'}-${event.tool_result ? 'done' : 'waiting'}`} 
         disableGutters 
         elevation={0}
-        defaultExpanded={hasError} // Auto-expand errors
+        defaultExpanded={hasError || isExecuting} // Auto-expand errors and executing tools
         sx={{ 
-          bgcolor: 'transparent',
-          border: 'none',
+          bgcolor: isExecuting ? 'rgba(212, 165, 116, 0.05)' : 'transparent',
+          border: isExecuting ? '1px solid' : 'none',
+          borderColor: isExecuting ? `${PALETTE.accent}30` : 'transparent',
           '&:before': { display: 'none' },
-          mb: 0.5
+          mb: 0.5,
+          borderRadius: 1,
+          transition: 'all 0.3s',
         }}
       >
         <AccordionSummary
-          expandIcon={<ExpandIcon sx={{ fontSize: 14, color: hasError ? 'error.main' : 'text.disabled' }} />}
+          expandIcon={<ExpandIcon sx={{ fontSize: 14, color: hasError ? 'error.main' : isExecuting ? PALETTE.accent : 'text.disabled' }} />}
           sx={{ 
             minHeight: 24, 
             p: 0, 
@@ -530,10 +534,44 @@ useEffect(() => {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-            <ConsoleIcon sx={{ fontSize: 12, color: hasError ? 'error.main' : 'text.disabled' }} />
-            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: hasError ? 'error.main' : 'text.secondary', flex: 1, fontWeight: hasError ? 600 : 400 }}>
+            <ConsoleIcon sx={{ 
+              fontSize: 12, 
+              color: hasError ? 'error.main' : isExecuting ? PALETTE.accent : 'text.disabled',
+              animation: isExecuting ? 'spin 2s linear infinite' : 'none',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' },
+              },
+            }} />
+            <Typography variant="caption" sx={{ 
+              fontFamily: 'monospace', 
+              color: hasError ? 'error.main' : isExecuting ? PALETTE.accent : 'text.secondary', 
+              flex: 1, 
+              fontWeight: hasError ? 600 : isExecuting ? 500 : 400 
+            }}>
               {event.tool_name}
             </Typography>
+            {isExecuting && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                {[0, 1, 2].map((i) => (
+                  <Box 
+                    key={i}
+                    sx={{ 
+                      width: 3, 
+                      height: 3, 
+                      borderRadius: '50%', 
+                      bgcolor: PALETTE.accent,
+                      animation: 'bounce 1.4s ease-in-out infinite',
+                      animationDelay: `${i * 0.16}s`,
+                      '@keyframes bounce': {
+                        '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
+                        '40%': { transform: 'scale(1)', opacity: 1 },
+                      },
+                    }} 
+                  />
+                ))}
+              </Box>
+            )}
             <Tooltip title="Copy tool name and result">
               <IconButton
                 size="small"
@@ -542,7 +580,7 @@ useEffect(() => {
                   const resultText = hasError && errorMessage
                     ? errorMessage
                     : event.tool_result === undefined || event.tool_result === null
-                      ? (hasError ? errorMessage || 'No error details provided' : 'No result data')
+                      ? (hasError ? errorMessage || 'No error details provided' : 'Executing...')
                       : typeof event.tool_result === 'string'
                         ? event.tool_result
                         : JSON.stringify(event.tool_result, null, 2);
@@ -558,7 +596,21 @@ useEffect(() => {
                 <CopyIcon sx={{ fontSize: 11 }} />
               </IconButton>
             </Tooltip>
-            {hasError ? 
+            {isExecuting ? (
+              <Box sx={{ 
+                width: 12, 
+                height: 12, 
+                borderRadius: '50%',
+                border: '2px solid',
+                borderColor: `${PALETTE.accent}40`,
+                borderTopColor: PALETTE.accent,
+                animation: 'spin 1s linear infinite',
+                '@keyframes spin': {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' },
+                },
+              }} />
+            ) : hasError ? 
               <ErrorIcon sx={{ fontSize: 12, color: 'error.main' }} /> : 
               <SuccessIcon sx={{ fontSize: 12, color: 'success.main' }} />
             }
@@ -583,6 +635,49 @@ useEffect(() => {
             </Alert>
           )}
           
+          {isExecuting && (
+            <Alert 
+              severity="info" 
+              sx={{ 
+                mb: 1.5, 
+                fontSize: '0.75rem',
+                bgcolor: `${PALETTE.accent}10`,
+                border: '1px solid',
+                borderColor: `${PALETTE.accent}30`,
+                '& .MuiAlert-message': { fontSize: '0.75rem' },
+                '& .MuiAlert-icon': { color: PALETTE.accent },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, flex: 1 }}>
+                  Tool executing...
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                  {[0, 1, 2].map((i) => (
+                    <Box 
+                      key={i}
+                      sx={{ 
+                        width: 4, 
+                        height: 4, 
+                        borderRadius: '50%', 
+                        bgcolor: PALETTE.accent,
+                        animation: 'bounce 1.4s ease-in-out infinite',
+                        animationDelay: `${i * 0.16}s`,
+                        '@keyframes bounce': {
+                          '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
+                          '40%': { transform: 'scale(1)', opacity: 1 },
+                        },
+                      }} 
+                    />
+                  ))}
+                </Box>
+              </Box>
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
+                This may take a while for long-running operations
+              </Typography>
+            </Alert>
+          )}
+          
           <Paper 
             variant="outlined" 
             sx={{ 
@@ -590,7 +685,9 @@ useEffect(() => {
               bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.50',
               borderColor: hasError 
                 ? 'error.main' 
-                : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
+                : isExecuting 
+                  ? `${PALETTE.accent}40`
+                  : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
               borderRadius: 2
             }}
           >
@@ -600,7 +697,7 @@ useEffect(() => {
             </Box>
             
             {/* Only show Result section when there's no error (error already shown in alert above) */}
-            {!hasError && (
+            {!hasError && !isExecuting && (
               <>
                 <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>
                   Result
@@ -614,6 +711,41 @@ useEffect(() => {
                       ? event.tool_result 
                       : JSON.stringify(event.tool_result, null, 2)
                   }
+                </Box>
+              </>
+            )}
+            
+            {isExecuting && (
+              <>
+                <Typography variant="caption" display="block" color="text.secondary" gutterBottom sx={{ mt: 1.5 }}>
+                  Status
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1, 
+                  p: 1.5, 
+                  bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
+                  borderRadius: 1,
+                  border: '1px dashed',
+                  borderColor: PALETTE.accent,
+                }}>
+                  <Box sx={{ 
+                    width: 16, 
+                    height: 16, 
+                    borderRadius: '50%',
+                    border: '2px solid',
+                    borderColor: `${PALETTE.accent}40`,
+                    borderTopColor: PALETTE.accent,
+                    animation: 'spin 1s linear infinite',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
+                  }} />
+                  <Typography variant="caption" sx={{ color: PALETTE.accent, fontWeight: 500 }}>
+                    Waiting for response...
+                  </Typography>
                 </Box>
               </>
             )}
