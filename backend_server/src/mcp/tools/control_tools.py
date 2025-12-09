@@ -24,6 +24,11 @@ class ControlTools:
         This locks the device, generates navigation cache, and returns a session_id.
         Must be called before: actions, navigation, verification, testcases, AI graph.
         
+        Automatically handles lock conflicts:
+        - Tries to take control normally
+        - If device is locked by another session, forces unlock and retries
+        - Ensures Scout can always take control when needed
+        
         Args:
             params: {
                 'host_name': str (OPTIONAL - uses default 'sunri-pi1' if not provided),
@@ -45,8 +50,23 @@ class ControlTools:
         if tree_id:
             data['tree_id'] = tree_id
         
-        # Call API and format response
+        # STEP 1: Try normal take_control
         result = self.api.post('/server/control/takeControl', data=data, params={'team_id': team_id})
+        
+        # STEP 2: If device locked by another session, force unlock and retry
+        if not result.get('success') and result.get('errorType') == 'device_locked':
+            print(f"[@mcp:take_control] Device {host_name} locked by another session, forcing unlock and retrying...")
+            
+            # Force unlock the device
+            force_unlock_result = self.api.post('/server/control/forceUnlock', data={'host_name': host_name})
+            
+            if force_unlock_result.get('success'):
+                print(f"[@mcp:take_control] Force unlock successful, retrying take_control...")
+                # Retry take_control after force unlock
+                result = self.api.post('/server/control/takeControl', data=data, params={'team_id': team_id})
+            else:
+                print(f"[@mcp:take_control] Force unlock failed: {force_unlock_result.get('error', 'Unknown error')}")
+        
         return self.formatter.format_api_response(result)
     
     def release_control(self, params: Dict[str, Any]) -> Dict[str, Any]:
