@@ -36,8 +36,8 @@ def log_execution_history(
     This enables success_rate calculations in the leaderboard.
     """
     try:
-        from shared.src.lib.supabase_client import get_supabase
-        supabase = get_supabase()
+        from shared.src.lib.utils.supabase_utils import get_supabase_client
+        supabase = get_supabase_client()
         if not supabase:
             logger.warning("Supabase not available for execution logging")
             return None

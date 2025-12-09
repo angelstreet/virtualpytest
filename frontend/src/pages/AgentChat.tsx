@@ -1067,10 +1067,27 @@ useEffect(() => {
                           </Accordion>
                         );
                       })()}
-                      {/* Show actual response - ONLY message/result events */}
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
-                        {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
-                      </Typography>
+                      {/* Show error events if present */}
+                      {msg.events.some(e => e.type === 'error') && (
+                        <Alert 
+                          severity="error" 
+                          sx={{ 
+                            mb: 1.5,
+                            '& .MuiAlert-message': { fontSize: '0.85rem' }
+                          }}
+                        >
+                          {msg.events
+                            .filter(e => e.type === 'error')
+                            .map(e => e.content || 'An error occurred')
+                            .join('\n')}
+                        </Alert>
+                      )}
+                      {/* Show actual response - message/result events */}
+                      {msg.events.filter(e => e.type === 'message' || e.type === 'result').length > 0 && (
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
+                          {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
+                        </Typography>
+                      )}
                     </Box>
                   ) : (
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, justifyContent: 'space-between' }}>

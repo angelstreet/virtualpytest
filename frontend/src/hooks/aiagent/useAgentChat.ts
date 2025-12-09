@@ -325,14 +325,28 @@ export const useAgentChat = () => {
         const messageResultEvents = eventsToSave.filter(e => 
           e.type === 'message' || e.type === 'result' || e.type === 'agent_delegated'
         );
-        if (messageResultEvents.length === 0 && eventsToSave.filter(e => e.type === 'tool_call').length === 0) {
-          return; // Nothing meaningful to save
+        const errorEvents = eventsToSave.filter(e => e.type === 'error');
+        const toolCallEvents = eventsToSave.filter(e => e.type === 'tool_call');
+        
+        // Nothing meaningful to save - no messages, errors, or tools
+        if (messageResultEvents.length === 0 && errorEvents.length === 0 && toolCallEvents.length === 0) {
+          return;
         }
         
-        const accumulatedContent = messageResultEvents
-          .map(e => e.content)
-          .filter(Boolean)
-          .join('\n\n');
+        // Build content: prioritize error messages if present
+        let accumulatedContent = '';
+        if (errorEvents.length > 0) {
+          // Extract error content from error events (content has the human-readable message)
+          accumulatedContent = errorEvents
+            .map(e => e.content || 'An error occurred')
+            .filter(Boolean)
+            .join('\n\n');
+        } else {
+          accumulatedContent = messageResultEvents
+            .map(e => e.content)
+            .filter(Boolean)
+            .join('\n\n');
+        }
         
         const newMessage: Message = {
           id: `${Date.now()}-${Math.random()}`,

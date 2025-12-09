@@ -290,8 +290,12 @@ Be efficient. Data, not explanations."""
         # Estimate token count from tools (rough: 4 chars = 1 token)
         tools_chars = sum(len(str(t)) for t in tools)
         estimated_tool_tokens = tools_chars // 4
-        if estimated_tool_tokens > 8000:
-            print(f"[AGENT WARNING] {self.nickname} has {len(tools)} tools with ~{estimated_tool_tokens:,} estimated tokens - may hit context limits")
+        
+        # Warn about tool overload - models struggle with too many tools
+        if len(tools) > 20 or estimated_tool_tokens > 6000:
+            print(f"[AGENT WARNING] {self.nickname} has {len(tools)} tools (~{estimated_tool_tokens:,} tokens)")
+            print(f"[AGENT WARNING] Models often produce empty responses when overwhelmed by tools.")
+            print(f"[AGENT WARNING] Consider reducing tools or splitting into specialized sub-agents.")
         
         if "session_id" not in session.context:
             session.set_context("session_id", session.id)
@@ -347,20 +351,31 @@ Be efficient. Data, not explanations."""
             else:
                 response_text = text_content
                 
-                # Check for empty response - likely token limit issue
+                # Check for empty response - diagnose why
                 if not response_text or not response_text.strip():
                     input_tokens = metrics.get('input_tokens', 0)
                     output_tokens = metrics.get('output_tokens', 0)
+                    stop_reason = getattr(response, 'stop_reason', 'unknown')
                     
-                    # Detect token limit issue: high input, very low output
-                    if input_tokens > 10000 and output_tokens < 100:
-                        error_msg = f"⚠️ Agent returned empty response - likely token limit exceeded (input: {input_tokens:,} tokens, output: {output_tokens} tokens). Try simplifying the request or reducing context."
-                        print(f"[AGENT DEBUG] {self.nickname} TOKEN LIMIT ERROR: input={input_tokens}, output={output_tokens}")
-                        yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=error_msg, error="token_limit_exceeded", metrics=metrics)
-                    else:
-                        error_msg = f"⚠️ Agent returned empty response (input: {input_tokens:,} tokens, output: {output_tokens} tokens). This may indicate an issue with the request."
-                        print(f"[AGENT DEBUG] {self.nickname} EMPTY RESPONSE ERROR: input={input_tokens}, output={output_tokens}")
-                        yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=error_msg, error="empty_response", metrics=metrics)
+                    # Log detailed diagnostics
+                    print(f"[AGENT DEBUG] {self.nickname} EMPTY RESPONSE:")
+                    print(f"  - stop_reason: {stop_reason}")
+                    print(f"  - input_tokens: {input_tokens}")
+                    print(f"  - output_tokens: {output_tokens}")
+                    print(f"  - content blocks: {[b.type for b in response.content]}")
+                    
+                    # Build diagnostic error message
+                    error_msg = f"⚠️ Agent returned empty response (stop_reason: {stop_reason}, input: {input_tokens:,}, output: {output_tokens})."
+                    
+                    if stop_reason == "max_tokens":
+                        error_msg += " Model hit output token limit mid-response."
+                    elif stop_reason == "end_turn" and output_tokens < 10:
+                        # Model chose to end turn immediately - likely overwhelmed by context
+                        error_msg += f" Model ended turn with minimal output. This usually means the request is too complex or has too many tools ({len(tools)} tools). Try reducing tools or simplifying."
+                    elif input_tokens > 50000:
+                        error_msg += " Very high input tokens - consider reducing context or tool count."
+                    
+                    yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=error_msg, error="empty_response", metrics=metrics)
                     break
                 
                 # Check if this is a delegation response - if so, rewrite to show Nickname (Name)
