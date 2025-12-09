@@ -213,7 +213,12 @@ class ActionTools:
                     error_details = result.get('error', '') or result.get('message', '')
                     if error_details:
                         message += f"\nDetails: {error_details}"
-                    return {"content": [{"type": "text", "text": json.dumps({"success": False, "message": message, "result": result})}], "isError": False}
+                    return {
+                        "content": [{"type": "text", "text": json.dumps({"success": False, "message": message, "result": result})}],
+                        "isError": True,
+                        "success": False,
+                        "result": result
+                    }
                 
                 message = f"Action execution completed: {passed}/{total} passed"
                 print(f"[@MCP:poll_action] ✅ {message}")
