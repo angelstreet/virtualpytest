@@ -17,15 +17,13 @@ tests:
       Explore google_tv. FOR EACH SCREEN:
       1. Navigate there (or stay if home)
       2. dump_ui_elements → see clickable elements
-      3. analyze_screen_for_action → get best selector (ID > text > coordinates)
+      3. analyze_screen_for_action → get best selector
       4. Create/update node
       5. Create/update edge using selector from step 3
       6. analyze_screen_for_verification → find unique identifier
       7. update_node with verification
       8. get_node → check if screenshot exists
       9. save_node_screenshot if missing
-      
-      PRIORITY: Use text "Search" instead of tap(500,300)!
     expected:
       contains:
         - "node"
@@ -51,7 +49,7 @@ tests:
     prompt: |
       Explore google_tv:
       1. Create nodes for each screen
-      2. Create edges using text selectors (NOT coordinates)
+      2. Create edges using best selectors from analyze_screen_for_action
       3. Test each edge: get_edge → execute_device_action → verify arrival
       4. If edge fails, update it with correct selector
     expected:
@@ -79,11 +77,10 @@ tests:
     name: Use Optimal Selectors
     description: Agent uses analyze_screen_for_action to get best selectors
     prompt: |
-      Explore google_tv. IMPORTANT: 
+      Explore google_tv:
       - Call dump_ui_elements first
       - Then analyze_screen_for_action to get best selector
-      - Priority: ID > text > xpath > coordinates (LAST RESORT)
-      - NEVER use tap_coordinates if text is visible!
+      - Use the recommended selector in create_edge
     expected:
       tools_called:
         - dump_ui_elements
@@ -136,7 +133,7 @@ tests:
     prompt: |
       Build a complete navigation model for google_tv. For EACH screen:
       1. Create node
-      2. Create edge with text-based selectors (use analyze_screen_for_action, only use coordinates as a last resort)
+      2. Create edge with selectors from analyze_screen_for_action
       3. Test edge by executing it
       4. Add verification using analyze_screen_for_verification
       5. Save screenshot with save_node_screenshot
@@ -181,7 +178,7 @@ tests:
     prompt: |
       Explore google_tv completely:
       - Create nodes: home, search, library, settings (minimum)
-      - Create bidirectional edges with text-based selectors
+      - Create bidirectional edges using analyze_screen_for_action
       - Add verifications to each node
       - Save screenshots for all nodes
     expected:
@@ -234,7 +231,6 @@ tests:
       2. If fails, call dump_ui_elements to see current screen
       3. Call analyze_screen_for_action to find correct selector
       4. Update edge with update_edge using new selector
-      5. Prefer text-based selectors over coordinates!
     expected:
       contains:
         - "edge"
@@ -259,8 +255,7 @@ tests:
     name: Simple Natural Prompt
     description: Agent understands simple human-like prompt
     prompt: |
-      Explore google_tv. Create nodes, edges (prefer text selectors over coordinates), 
-      verifications, and screenshots for each screen.
+      Explore google_tv. Create nodes, edges, verifications, and screenshots for each screen.
     expected:
       contains:
         - "node"

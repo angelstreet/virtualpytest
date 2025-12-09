@@ -41,6 +41,21 @@ Example:
             "name": "execute_device_action",
             "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
 
+⚠️ SELECTOR PRIORITY - CRITICAL FOR RELIABLE AUTOMATION:
+Always prefer semantic selectors over coordinates. Use tap_coordinates ONLY as last resort!
+
+MOBILE (android_mobile/android_tv):
+  1. click_element with text - PREFERRED (e.g., {"command": "click_element", "params": {"text": "Search"}})
+  2. click_element_by_id - if resource-id available
+  3. tap_coordinates - LAST RESORT ONLY when text/id not available
+
+WEB (host_vnc/web):
+  1. click_element_by_id - PREFERRED (e.g., {"command": "click_element_by_id", "params": {"element_id": "login-btn"}})
+  2. click_element with text - fallback
+  3. tap_coordinates - LAST RESORT ONLY
+
+WHY: Text/ID selectors are resilient to screen size changes and UI updates. Coordinates break easily.
+
 CRITICAL PREREQUISITES:
 1. **host_name is REQUIRED**: Use get_compatible_hosts(userinterface_name='...') to find the host
 2. If working with navigation tree: Call take_control(tree_id='...') ONCE FIRST
@@ -127,8 +142,8 @@ WRONG: {"command": "launch_app", "params": {"package": "..."}, "delay": 8000}
 
 Standard Wait Times (milliseconds) - INSIDE params:
 - launch_app:     8000  (app initialization)
-- click_element:  2000  (screen transition)
-- tap_coordinates: 2000  (screen taps)
+- click_element:  2000  (screen transition) - PREFERRED
+- tap_coordinates: 2000  (screen taps) -  LAST RESORT ONLY
 - press_key (BACK): 1500  (back navigation)
 - press_key (other): 1000  (key response)
 - type_text:      1000  (input processing)
