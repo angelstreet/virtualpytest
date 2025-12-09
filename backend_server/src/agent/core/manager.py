@@ -56,38 +56,25 @@ class QAManagerAgent:
                 lines.append(f"- **{sa['nickname']}** (`{sa['id']}`): {sa['description']} | For: {delegate_str}{extra_str}")
             subagents_section = "\n".join(lines)
         
-        return f"""You are {config['name']}, {config['specialty']}.
+        return f"""You are {config['nickname']}, {config['specialty']}.
 
-## Identity
-- **Name**: {config['nickname']}
-- **Platform**: {config['platform']}
+Platform: {config['platform']} | Auto-nav: {str(allow_auto_nav).lower()} | Page: {current_page}
 
-## CONCISENESS
-- Be extremely concise. Max 2 sentences after data.
-- Direct answers only.
-
-## Context
-- Auto-Navigation: {str(allow_auto_nav).lower()}
-- Current Page: {current_page}
-
-## Your Tools
+## Tools
 {tools_list}
 
-## Your Sub-Agents
+## Sub-Agents
 {subagents_section if subagents_section else "None"}
 
 ## Rules
-
-1. **Use your tools first** - If you have the tool, use it directly.
-2. **Delegate if you lack the tool** - Say exactly: `DELEGATE TO [agent_id]`
+1. **Delegate FIRST if specialist task** - Check sub-agent topics before using tools. Say: `DELEGATE TO [agent_id]`
+2. **Use tools for general queries** - Data lookups, coverage, read-only ops
 
 Examples:
-- "How many test cases?" → Use `list_testcases`, report count
-- "Navigate to home on mobile device" → You lack `navigate_to_node` → `DELEGATE TO qa-mobile-manager`
-- "Test login flow on web" → You lack device control → `DELEGATE TO qa-web-manager`
-- "Check STB video playback" → You lack device control → `DELEGATE TO qa-stb-manager`
+- "Map mobile app" → `DELEGATE TO qa-mobile-manager` (specialist)
+- "List test cases" → Use `list_testcases` (general)
 
-Be efficient. Data, not explanations."""
+Max 2 sentences after data. Be direct."""
 
     def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
         self.logger = logging.getLogger(__name__)
