@@ -395,10 +395,10 @@ const DependencyReport: React.FC = () => {
                                     }}
                                   >
                                     <TableHead>
-                                      <TableRow>
-                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Node</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500 }}>Node</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Success Rate</TableCell>
                                       </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -422,8 +422,8 @@ const DependencyReport: React.FC = () => {
                                               {node.node_name}
                                             </Box>
                                           </TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>{node.execution_count}</TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>{node.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>
                                             <Chip
                                               label={`${node.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(node.success_rate)}
@@ -551,10 +551,10 @@ const DependencyReport: React.FC = () => {
                                     }}
                                   >
                                     <TableHead>
-                                      <TableRow>
-                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Edge</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500 }}>Edge</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Success Rate</TableCell>
                                       </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -575,8 +575,8 @@ const DependencyReport: React.FC = () => {
                                               {edge.edge_name}
                                             </Box>
                                           </TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>{edge.execution_count}</TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>{edge.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>
                                             <Chip
                                               label={`${edge.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(edge.success_rate)}
@@ -714,10 +714,10 @@ const DependencyReport: React.FC = () => {
                                     }}
                                   >
                                     <TableHead>
-                                      <TableRow>
-                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Script</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500 }}>Script</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Success Rate</TableCell>
                                       </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -731,8 +731,8 @@ const DependencyReport: React.FC = () => {
                                           }}
                                         >
                                           <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>{script.execution_count}</TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>{script.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>
                                             <Chip
                                               label={`${script.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(script.success_rate)}
@@ -870,10 +870,10 @@ const DependencyReport: React.FC = () => {
                                     }}
                                   >
                                     <TableHead>
-                                      <TableRow>
-                                        <TableCell width="40%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Script</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Executions</TableCell>
-                                        <TableCell width="30%" sx={{ py: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>Success Rate</TableCell>
+                                      <TableRow sx={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}>
+                                        <TableCell width="40%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500 }}>Script</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Executions</TableCell>
+                                        <TableCell width="30%" sx={{ py: 0.5, color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.75rem', fontWeight: 500, textAlign: 'center' }}>Success Rate</TableCell>
                                       </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -887,8 +887,8 @@ const DependencyReport: React.FC = () => {
                                           }}
                                         >
                                           <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>{script.execution_count}</TableCell>
-                                          <TableCell sx={{ py: 0.5 }}>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>{script.execution_count}</TableCell>
+                                          <TableCell sx={{ py: 0.5, textAlign: 'center' }}>
                                             <Chip
                                               label={`${script.success_rate.toFixed(1)}%`}
                                               color={getSuccessRateColor(script.success_rate)}
