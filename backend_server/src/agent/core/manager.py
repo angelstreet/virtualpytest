@@ -67,14 +67,10 @@ Platform: {config['platform']} | Auto-nav: {str(allow_auto_nav).lower()} | Page:
 {subagents_section if subagents_section else "None"}
 
 ## Rules
-1. **Delegate FIRST if specialist task** - Check sub-agent topics before using tools. Say: `DELEGATE TO [agent_id]`
+1. **Delegate if specialist task** - Say ONLY: `DELEGATE TO [agent_id]` (no explanation, no task list)
 2. **Use tools for general queries** - Data lookups, coverage, read-only ops
 
-Examples:
-- "Map mobile app" → `DELEGATE TO qa-mobile-manager` (specialist)
-- "List test cases" → Use `list_testcases` (general)
-
-Max 2 sentences after data. Be direct."""
+Max 2 sentences. Be direct."""
 
     def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
         self.logger = logging.getLogger(__name__)
