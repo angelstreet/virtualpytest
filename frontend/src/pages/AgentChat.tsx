@@ -104,19 +104,46 @@ const AGENT_COLORS: Record<string, string> = {
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2);
 
-// Merge tool_call events with their corresponding tool_result events
+// Merge tool_call events with their corresponding tool_result/error events by sequence order
+// Events come in order: tool_call → tool_result/error → tool_call → tool_result/error → ...
 const mergeToolEvents = (events: AgentEvent[]): AgentEvent[] => {
-  const toolCalls = events.filter(e => e.type === 'tool_call');
-  const toolResults = events.filter(e => e.type === 'tool_result');
+  const merged: AgentEvent[] = [];
+  let pendingToolCall: AgentEvent | null = null;
   
-  return toolCalls.map(call => {
-    const result = toolResults.find(r => r.tool_name === call.tool_name);
-    return {
-      ...call,
-      tool_result: result?.tool_result ?? call.tool_result,
-      success: result?.success ?? call.success,
-    };
-  });
+  for (const event of events) {
+    if (event.type === 'tool_call') {
+      // If there was a previous tool call without result, add it as-is
+      if (pendingToolCall) {
+        merged.push(pendingToolCall);
+      }
+      pendingToolCall = { ...event };
+    } else if (event.type === 'tool_result' && pendingToolCall) {
+      // Link result to the pending tool call
+      merged.push({
+        ...pendingToolCall,
+        tool_result: event.tool_result,
+        success: event.success,
+      });
+      pendingToolCall = null;
+    } else if (event.type === 'error' && pendingToolCall) {
+      // Link error to the pending tool call - mark as failure
+      const errorContent = event.content || event.error || 'Tool error';
+      merged.push({
+        ...pendingToolCall,
+        tool_result: errorContent,
+        success: false,
+        error: errorContent,
+      });
+      pendingToolCall = null;
+    }
+  }
+  
+  // Don't forget the last pending call if exists
+  if (pendingToolCall) {
+    merged.push(pendingToolCall);
+  }
+  
+  return merged;
 };
 
 // Group conversations by time period
@@ -1067,21 +1094,7 @@ useEffect(() => {
                           </Accordion>
                         );
                       })()}
-                      {/* Show error events if present */}
-                      {msg.events.some(e => e.type === 'error') && (
-                        <Alert 
-                          severity="error" 
-                          sx={{ 
-                            mb: 1.5,
-                            '& .MuiAlert-message': { fontSize: '0.85rem' }
-                          }}
-                        >
-                          {msg.events
-                            .filter(e => e.type === 'error')
-                            .map(e => e.content || 'An error occurred')
-                            .join('\n')}
-                        </Alert>
-                      )}
+                      {/* Errors now shown inline with their tool calls via mergeToolEvents */}
                       {/* Show actual response - message/result events */}
                       {msg.events.filter(e => e.type === 'message' || e.type === 'result').length > 0 && (
                         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>

@@ -60,29 +60,17 @@ event_pools:
 subagents: []  # Monitoring manager works independently
 
 skills:
-  - list_devices
+  # Device & Host Management
+  - list_hosts
   - get_device_info
-  - get_device_status
-  - check_device_health
-  - ping_device
-  - list_services
-  - get_service_status
-  - check_service_health
-  - restart_service
-  - get_host_info
   - get_compatible_hosts
-  - check_host_resources
-  - get_system_metrics
+  
+  # Service & Logs Management
+  - list_services
   - view_logs
-  - get_error_logs
-  - analyze_logs
-  - create_alert
-  - list_alerts
-  - acknowledge_alert
-  - resolve_alert
-  - query_metrics
+  
+  # Execution Status
   - get_execution_status
-  - check_database_health
 
 permissions:
   devices:
