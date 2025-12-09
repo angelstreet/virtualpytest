@@ -20,10 +20,8 @@ metadata:
     - android
     - adb
   suggestions:
-    - "Test app on Android Pixel 5"
-    - "Validate touch gestures on mobile"
-    - "Check app crash handling"
-    - "Test offline mode behavior"
+    - "Dump UI elements on mobile"
+    - "Go to home screen on mobile"
 
 triggers:
   - type: alert.app_crash

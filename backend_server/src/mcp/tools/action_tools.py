@@ -15,6 +15,10 @@ from shared.src.lib.config.constants import APP_CONFIG
 class ActionTools:
     """Device action execution tools"""
     
+    # Commands blocked for mobile devices (android_mobile, android_tv)
+    # These are filtered from list_actions() and blocked in execute_device_action()
+    MOBILE_BLOCKED_COMMANDS = {'click_element_by_id', 'swipe'}
+    
     def __init__(self, api_client: MCPAPIClient):
         self.api = api_client
         self.formatter = MCPFormatter()
@@ -64,6 +68,10 @@ class ActionTools:
         device_action_types = result.get('device_action_types', {})
         device_model = result.get('device_model', 'unknown')
         
+        # Filter out blocked commands for mobile devices
+        if device_model in ['android_mobile', 'android_tv']:
+            device_action_types = self._filter_mobile_actions(device_action_types)
+        
         if not device_action_types:
             return {"content": [{"type": "text", "text": f"No actions available for {device_model} device"}], "isError": False}
         
@@ -99,6 +107,18 @@ class ActionTools:
             "device_action_types": device_action_types  # Include full data for programmatic use
         }
     
+    def _filter_mobile_actions(self, device_action_types: Dict[str, Any]) -> Dict[str, Any]:
+        """Filter out blocked commands for mobile devices"""
+        filtered = {}
+        for category, actions in device_action_types.items():
+            filtered_actions = [
+                action for action in actions
+                if action.get('command') not in self.MOBILE_BLOCKED_COMMANDS
+            ]
+            if filtered_actions:
+                filtered[category] = filtered_actions
+        return filtered
+    
     def execute_device_action(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute batch of actions on a device
@@ -110,9 +130,7 @@ class ActionTools:
         ⚠️ CRITICAL - COMMAND VALIDATION:
         - ALWAYS call list_actions() FIRST to get valid commands for your device
         - ONLY use commands returned by list_actions() - invalid commands will FAIL
-        - For android_mobile/android_tv: Use 'click_element' with text (NOT 'click_element_by_index')
         - For web: Use 'click_element' with text/selector
-        - Example: {"command": "click_element", "params": {"element_id": "Home Tab"}}
         
         Args:
             params: {
