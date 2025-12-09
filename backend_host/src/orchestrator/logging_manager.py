@@ -1,78 +1,110 @@
 """
 Logging Manager
-Handles log capture for all execution types
+Handles log capture for all execution types with context isolation
 """
 
 import io
 import sys
 import asyncio
 import inspect
+import threading
 from typing import Callable, Any, Dict
+from contextvars import ContextVar
+
+# Context variable for isolated log buffer (async-safe)
+_log_context: ContextVar[io.StringIO] = ContextVar('log_context', default=None)
 
 
-class Tee:
+class ContextualTee:
     """
-    Write to multiple streams simultaneously with immediate flushing.
-    Ensures logs appear in systemd journal while also being captured for API responses.
+    Write to terminal AND context-specific log buffer (if active).
+    Prevents log pollution from parallel executions.
     """
-    def __init__(self, *streams):
-        self.streams = streams
+    def __init__(self, original_stream, is_stdout=True):
+        self.original_stream = original_stream
+        self.is_stdout = is_stdout
     
     def write(self, data):
-        """Write data to all streams and flush immediately"""
-        for stream in self.streams:
+        """Write to original stream + context buffer if exists"""
+        # Always write to original (terminal/systemd)
+        try:
+            self.original_stream.write(data)
+            self.original_stream.flush()
+        except (IOError, OSError):
+            pass
+        
+        # Also write to context buffer if active (for this specific execution)
+        log_buffer = _log_context.get()
+        if log_buffer is not None:
             try:
-                stream.write(data)
-                stream.flush()  # Flush each write immediately for systemd
-            except (IOError, OSError) as e:
-                # Handle broken pipe or closed stream gracefully
+                log_buffer.write(data)
+            except (IOError, OSError):
                 pass
     
     def flush(self):
-        """Flush all streams"""
-        for stream in self.streams:
+        """Flush both streams"""
+        try:
+            self.original_stream.flush()
+        except (IOError, OSError):
+            pass
+        
+        log_buffer = _log_context.get()
+        if log_buffer:
             try:
-                stream.flush()
+                log_buffer.flush()
             except (IOError, OSError):
                 pass
 
 
+# Global contextual streams (installed once at module load)
+_contextual_stdout = None
+_contextual_stderr = None
+_original_stdout = sys.stdout
+_original_stderr = sys.stderr
+_install_lock = threading.Lock()
+
+
+def _ensure_contextual_streams_installed():
+    """Install contextual streams once (idempotent)"""
+    global _contextual_stdout, _contextual_stderr
+    
+    with _install_lock:
+        if _contextual_stdout is None:
+            _contextual_stdout = ContextualTee(_original_stdout, is_stdout=True)
+            _contextual_stderr = ContextualTee(_original_stderr, is_stdout=False)
+            sys.stdout = _contextual_stdout
+            sys.stderr = _contextual_stderr
+
+
 class LoggingManager:
-    """Manages log capture for execution operations"""
+    """Manages log capture with context isolation"""
     
     @staticmethod
     async def execute_with_logging(execution_fn: Callable, *args, **kwargs) -> Dict[str, Any]:
         """
-        Execute function and capture all stdout/stderr logs.
-        Supports both sync and async callables.
-        
-        Thread-safe: Works correctly in background threads by redirecting the global
-        sys.stdout/sys.stderr, which all threads share.
+        Execute function and capture ONLY its logs (context-isolated).
+        Parallel executions won't pollute each other's logs.
         
         Args:
             execution_fn: Function to execute (sync or async)
             *args, **kwargs: Arguments to pass to execution_fn
             
         Returns:
-            Dict with execution result + 'logs' field
+            Dict with execution result + 'logs' field (only this execution's logs)
         """
+        # Ensure contextual streams are installed
+        _ensure_contextual_streams_installed()
+        
+        # Create isolated log buffer for THIS execution only
         log_buffer = io.StringIO()
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
+        
+        # Set context variable (async-safe, won't affect other executions)
+        token = _log_context.set(log_buffer)
         
         try:
-            # Redirect stdout/stderr to BOTH terminal and buffer
-            # This works in threads because sys.stdout/sys.stderr are global
-            sys.stdout = Tee(old_stdout, log_buffer)
-            sys.stderr = Tee(old_stderr, log_buffer)
+            print(f"[@LoggingManager] Log capture started (context-isolated)", flush=True)
             
-            # Flush to ensure redirection is active
-            sys.stdout.flush()
-            sys.stderr.flush()
-            
-            print(f"[@LoggingManager] Log capture started (thread-safe)", flush=True)
-            
-            # Execute the function - handle both sync and async
+            # Execute the function
             if inspect.iscoroutinefunction(execution_fn) or asyncio.iscoroutine(execution_fn):
                 result = await execution_fn(*args, **kwargs)
             else:
@@ -84,20 +116,13 @@ class LoggingManager:
             if not isinstance(result, dict):
                 result = {'success': False, 'error': 'Invalid result type'}
             
-            # Flush before capturing logs
+            # Flush and capture logs from THIS execution only
             sys.stdout.flush()
             sys.stderr.flush()
-            
-            # Add logs to result
             result['logs'] = log_buffer.getvalue()
             
             return result
             
         finally:
-            # Always restore stdout/stderr
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-            # Final flush
-            sys.stdout.flush()
-            sys.stderr.flush()
-
+            # Reset context variable (cleanup)
+            _log_context.reset(token)

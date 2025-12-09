@@ -177,6 +177,10 @@ class ActionTools:
         failed = result.get('failed_count', 0)
         execution_time = result.get('execution_time_ms', 0)
         
+        # Extract concise logs (now clean after logging isolation fix)
+        logs = result.get('logs', '')
+        concise_logs = self._extract_execution_summary(logs) if logs else None
+        
         concise_result = {
             'success': result.get('success', False),
             'message': f"✅ {passed}/{total} passed ({execution_time}ms)" if passed == total else f"❌ {passed}/{total} passed, {failed} failed",
@@ -185,6 +189,9 @@ class ActionTools:
             'failed_count': failed,
             'execution_time_ms': execution_time
         }
+        
+        if concise_logs:
+            concise_result['execution_log'] = concise_logs
         
         return {"content": [{"type": "text", "text": json.dumps(concise_result)}], "isError": failed > 0}
     
@@ -220,6 +227,10 @@ class ActionTools:
                 failed = result.get('failed_count', 0)
                 execution_time = result.get('execution_time_ms', 0)
                 
+                # Extract concise logs (now clean after logging isolation fix)
+                logs = result.get('logs', '')
+                concise_logs = self._extract_execution_summary(logs) if logs else None
+                
                 # Build concise result (strip verbose logs/screenshots)
                 concise_result = {
                     'passed_count': passed,
@@ -227,6 +238,9 @@ class ActionTools:
                     'failed_count': failed,
                     'execution_time_ms': execution_time
                 }
+                
+                if concise_logs:
+                    concise_result['execution_log'] = concise_logs
                 
                 # Check if any actions failed
                 if failed > 0 or passed < total:
@@ -254,3 +268,30 @@ class ActionTools:
         
         print(f"[@MCP:poll_action] Action execution timed out after {max_wait}s")
         return {"content": [{"type": "text", "text": f"⏱️ Action execution timed out after {max_wait}s"}], "isError": True}
+    
+    def _extract_execution_summary(self, logs: str) -> str:
+        """Extract concise execution summary from logs (now clean after isolation fix)"""
+        if not logs:
+            return ""
+        
+        summary_lines = []
+        for line in logs.split('\n'):
+            # Keep key execution lines only
+            if any(keyword in line for keyword in [
+                'Executing command',
+                'executed successfully',
+                'Tapping at',
+                'Clicking',
+                'SUCCESS',
+                'FAILED',
+                'Batch completed',
+                '[@route:host',
+                'Element found'
+            ]):
+                # Clean up escape sequences
+                clean_line = line.replace('\\n', '\n').replace('\\u', '')
+                summary_lines.append(clean_line)
+                if len(summary_lines) >= 8:  # Limit to 8 lines
+                    break
+        
+        return '\n'.join(summary_lines) if summary_lines else logs[:500]  # Fallback: first 500 chars
