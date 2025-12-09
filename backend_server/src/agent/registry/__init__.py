@@ -11,8 +11,6 @@ This module provides agent configuration, versioning, and storage:
 from .config_schema import (
     AgentDefinition,
     AgentMetadata,
-    AgentGoal,
-    AgentGoalType,
     EventTrigger,
     SubAgentReference,
     AgentPermissions,
@@ -24,8 +22,6 @@ from .registry import AgentRegistry, get_agent_registry, reload_agents
 __all__ = [
     'AgentDefinition',
     'AgentMetadata',
-    'AgentGoal',
-    'AgentGoalType',
     'EventTrigger',
     'SubAgentReference',
     'AgentPermissions',

@@ -14,7 +14,7 @@ metadata:
   default: true
   version: 1.0.0
   author: system
-  description: General AI assistant
+  description: "General QA assistant. Routes to specialists (Scout/Sherlock/Watcher/Guardian) for platform-specific tasks."
   tags:
     - general
     - assistant
@@ -24,12 +24,6 @@ metadata:
     - "Show me device status"
     - "Get coverage summary"
     - "How many alerts are active?"
-
-goal:
-  type: on-demand
-  description: |
-    Help users with any QA-related task. Routes to specialist agents
-    when platform-specific expertise is needed.
 
 triggers:
   - type: chat.message
@@ -71,7 +65,6 @@ subagents:
       - alerting
 
 skills:
-  # Data Queries
   - list_testcases
   - list_userinterfaces
   - list_requirements
@@ -80,27 +73,17 @@ skills:
   - get_device_info
   - get_compatible_hosts
   - preview_userinterface
-  
-  # Host & Device
   - list_hosts
   - get_execution_status
-  
-  # UI Navigation (browser control)
   - get_available_pages
   - navigate_to_page
   - interact_with_element
   - highlight_element
   - show_toast
-  
-  # Nodes & Edges (read-only)
   - list_nodes
   - list_edges
   - list_navigation_nodes
-  
-  # Test Cases (read-only)
   - load_testcase
-  
-  # Verifications
   - list_verifications
 
 permissions:

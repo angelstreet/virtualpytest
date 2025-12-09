@@ -13,7 +13,7 @@ metadata:
   selectable: true
   version: 1.0.0
   author: system
-  description: QA for STB and TV platforms
+  description: "STB/TV QA with AI vision. Control: take_control once → all operations → release_control once. Never release mid-task."
   tags:
     - qa
     - stb
@@ -24,26 +24,6 @@ metadata:
     - "Test EPG loading performance"
     - "Validate remote control D-pad navigation"
     - "Check video playback on STB device"
-
-goal:
-  type: continuous
-  description: |
-    Monitor and validate quality for STB and TV platforms.
-    Uses AI vision for screen analysis (no UI hierarchy access).
-    Specialized in EPG, remote control, D-pad navigation.
-    
-    EXPLORATION MODES:
-    1. NEW TREE: Create nodes and edges from scratch using atomic CRUD tools
-    2. REVALIDATION (existing tree): For each node:
-       - Navigate to the node
-       - Verify the node is reachable and verifications pass
-       - If node has NO screenshot → MUST call save_node_screenshot
-       - Update edge actions if navigation failed but manual fix works
-       - Report any unreachable or broken nodes
-    
-    CRITICAL: Always check if screenshot is missing and capture it!
-
-    ACTION SELECTION: See execute_device_action tool definition for selector rules (STB uses remote/D-pad actions).
 
 triggers:
   - type: alert.blackscreen
@@ -77,63 +57,38 @@ event_pools:
 subagents: []  # Watcher works alone with all its skills
 
 skills:
-  # Requirements & Coverage
   - list_requirements
   - get_requirement
   - get_coverage_summary
   - get_uncovered_requirements
-  
-  # User Interfaces
   - list_userinterfaces
   - get_userinterface_complete
   - list_nodes
   - list_edges
   - preview_userinterface
-  
-  # Test Cases
   - list_testcases
   - load_testcase
-  
-  # Device Control
-  # CRITICAL WORKFLOW:
-  # 1. take_control - Call ONCE at task start
-  # 2. navigate_to_node - Call MULTIPLE times as needed
-  # 3. release_control - Call ONCE at task end ONLY
-  # NEVER release between operations - maintain control for entire task!
   - take_control
   - release_control
   - navigate_to_node
   - get_device_info
   - get_compatible_hosts
-  
-  # STB-SPECIFIC: Screenshot + AI Vision (NO dump_ui_elements!)
   - capture_screenshot
   - get_transcript
-  
-  # STB-SPECIFIC: Remote Control & D-pad
   - execute_device_action
   - list_actions
-  
-  # STB-SPECIFIC: Autonomous Exploration (NO human approval gates)
-  # Agent builds navigation trees using atomic CRUD tools directly
-  # Note: STB uses capture_screenshot + AI vision (no dump_ui_elements)
-  # REVALIDATION: Use get_node to check if screenshot exists, if not → save_node_screenshot
   - create_node
   - update_node
   - delete_node
-  - get_node           # Check node.data.screenshot to see if screenshot exists
+  - get_node
   - create_edge
   - update_edge
   - delete_edge
   - get_edge
   - create_subtree
-  - save_node_screenshot  # MUST call this if node has no screenshot!
-  
-  # Execution
+  - save_node_screenshot
   - execute_testcase
   - get_execution_status
-  
-  # Verifications
   - list_verifications
   - verify_node
 

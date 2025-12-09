@@ -11,12 +11,6 @@ from enum import Enum
 from datetime import datetime
 
 
-class AgentGoalType(str, Enum):
-    """Agent operational mode"""
-    CONTINUOUS = "continuous"  # Always running, monitoring events
-    ON_DEMAND = "on-demand"    # Activated only when triggered
-
-
 class EventTrigger(BaseModel):
     """Event that triggers agent activation"""
     type: str = Field(..., description="Event type (e.g., 'alert.blackscreen')")
@@ -102,16 +96,6 @@ class AgentConfig(BaseModel):
     )
 
 
-class AgentGoal(BaseModel):
-    """Agent primary goal/purpose"""
-    type: AgentGoalType = Field(..., description="continuous or on-demand")
-    description: str = Field(
-        ...,
-        min_length=10,
-        description="Detailed description of agent's purpose"
-    )
-
-
 class AgentMetadata(BaseModel):
     """Agent metadata and versioning"""
     id: str = Field(
@@ -160,7 +144,6 @@ class AgentDefinition(BaseModel):
     Can be serialized to/from YAML for portability.
     """
     metadata: AgentMetadata
-    goal: AgentGoal
     triggers: List[EventTrigger] = Field(
         default_factory=list,
         description="Events that activate this agent"
@@ -197,10 +180,6 @@ class AgentDefinition(BaseModel):
                     "author": "team-qa",
                     "description": "Continuous quality validation",
                     "tags": ["qa", "automation", "testing"]
-                },
-                "goal": {
-                    "type": "continuous",
-                    "description": "Maintain quality across all userinterfaces"
                 },
                 "triggers": [
                     {
