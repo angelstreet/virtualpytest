@@ -276,14 +276,20 @@ Be efficient. Data, not explanations."""
         print(f"[AGENT DEBUG] {self.nickname} yielding THINKING event")
         yield AgentEvent(type=EventType.THINKING, agent=self.nickname, content="Analyzing...")
         
-        # Include full conversation history for context (allows reviewing past executions)
-        # Convert session messages to Claude API format (strip agent/timestamp metadata)
+        # Build message history for Claude
+        # - If delegated: Only use current user message (avoid token bloat from parent agent's chatter)
+        # - If root: Include full session history for context
         turn_messages = []
-        for msg in session.messages:
-            turn_messages.append({
-                "role": msg["role"],
-                "content": msg["content"]
-            })
+        if _is_delegated:
+            # Delegated agent: just the user's request (clean slate)
+            turn_messages = [{"role": "user", "content": message}]
+        else:
+            # Root agent: include full conversation history for context
+            for msg in session.messages:
+                turn_messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
         
         tools = self.tool_bridge.get_tool_definitions(self.tool_names)
         
@@ -365,7 +371,7 @@ Be efficient. Data, not explanations."""
                     print(f"  - content blocks: {[b.type for b in response.content]}")
                     
                     # Build diagnostic error message
-                    error_msg = f"⚠️ Agent returned empty response (stop_reason: {stop_reason}, input: {input_tokens:,}, output: {output_tokens})."
+                    error_msg = f"Agent returned empty response (stop_reason: {stop_reason}, input: {input_tokens:,}, output: {output_tokens})."
                     
                     if stop_reason == "max_tokens":
                         error_msg += " Model hit output token limit mid-response."
