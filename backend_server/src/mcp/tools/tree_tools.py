@@ -713,7 +713,8 @@ class TreeTools:
                     'targetHandle': 'top-right-menu-target',     # Fixed: menu handle to top-right
                     'priority': params.get('priority', 'p3'),  # Default priority p3
                     'is_conditional': params.get('is_conditional', False),
-                    'is_conditional_primary': params.get('is_conditional_primary', False)
+                    'is_conditional_primary': params.get('is_conditional_primary', False),
+                    'enable_sibling_shortcuts': params.get('enable_sibling_shortcuts', False)  # Sibling shortcuts for bottom nav/tab bars
                 }
             }
             
@@ -882,7 +883,8 @@ class TreeTools:
                     'targetHandle': params.get('targetHandle', existing_data.get('targetHandle', 'top-right-menu-target')),
                     'priority': params.get('priority', existing_data.get('priority', 'p3')),
                     'is_conditional': params.get('is_conditional', existing_data.get('is_conditional', False)),
-                    'is_conditional_primary': params.get('is_conditional_primary', existing_data.get('is_conditional_primary', False))
+                    'is_conditional_primary': params.get('is_conditional_primary', existing_data.get('is_conditional_primary', False)),
+                    'enable_sibling_shortcuts': params.get('enable_sibling_shortcuts', existing_data.get('enable_sibling_shortcuts', False))  # Sibling shortcuts for bottom nav/tab bars
                 },
                 'final_wait_time': params.get('final_wait_time', existing_edge.get('final_wait_time') or 2000)  # ✅ Allow override, default to 2000 if missing
             }

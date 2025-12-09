@@ -221,7 +221,14 @@ Tips:
 - Device-specific format: Follow the examples above for your device type (Mobile/Web/Remote)
 - If error: "must be the node_id string... not database UUID" – switch to string IDs from list_navigation_nodes
 - For existing nodes: Always use list_navigation_nodes to get the correct string node_id
-- Subtrees: Create via create_subtree, then use the new tree_id for edges within it.""",
+- Subtrees: Create via create_subtree, then use the new tree_id for edges within it.
+
+SIBLING SHORTCUTS (Mobile/Web bottom nav bars, tab bars):
+- Set enable_sibling_shortcuts=true on parent→child edges to allow direct sibling-to-sibling navigation
+- Example: If home→shop, home→library, home→watchlist all have enable_sibling_shortcuts=true,
+  then shop↔library↔watchlist can navigate directly using the parent's actions
+- Use when: All siblings are always visible (bottom nav, tab bar, persistent menu)
+- Result: 3 edges become 9 navigation paths automatically""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -236,7 +243,8 @@ Tips:
                     "final_wait_time": {"type": "number", "description": "Wait time after edge execution in ms - default: 2000"},
                     "priority": {"type": "string", "description": "Edge priority: p1 (high), p2 (medium), p3 (low) - default: p3"},
                     "is_conditional": {"type": "boolean", "description": "Whether edge has conditions - default: false"},
-                    "is_conditional_primary": {"type": "boolean", "description": "If conditional, is this primary path - default: false"}
+                    "is_conditional_primary": {"type": "boolean", "description": "If conditional, is this primary path - default: false"},
+                    "enable_sibling_shortcuts": {"type": "boolean", "description": "Enable sibling shortcuts - siblings can navigate directly using this edge's actions (for bottom nav bars, tab bars where all items are always visible) - default: false"}
                 },
                 "required": ["tree_id", "source_node_id", "target_node_id", "source_label", "target_label"]
             }
@@ -251,14 +259,16 @@ Example:
   update_edge(
     tree_id="main_tree",
     edge_id="edge_home_settings",
-    action_sets=[...new actions...]
+    action_sets=[...new actions...],
+    enable_sibling_shortcuts=true  # Enable for bottom nav/tab bars
   )""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "tree_id": {"type": "string", "description": "Navigation tree ID"},
                     "edge_id": {"type": "string", "description": "Edge identifier to update"},
-                    "action_sets": {"type": "array", "description": "New action sets (replaces existing)"}
+                    "action_sets": {"type": "array", "description": "New action sets (replaces existing)"},
+                    "enable_sibling_shortcuts": {"type": "boolean", "description": "Enable sibling shortcuts - siblings can navigate directly using this edge's actions (for bottom nav bars, tab bars) - default: false"}
                 },
                 "required": ["tree_id", "edge_id", "action_sets"]
             }
