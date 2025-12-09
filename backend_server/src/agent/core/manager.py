@@ -325,20 +325,14 @@ Max 2 sentences. Be direct."""
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
                     yield AgentEvent(type=EventType.TOOL_RESULT, agent=self.nickname, content="Success", tool_name=tool_use.name, tool_result=result, success=True)
                     
-                    # Save tool result to session history (for future context)
-                    tool_result_text = f"🔧 Tool: {tool_use.name}\nResult: {str(result)}"
-                    session.add_message("assistant", tool_result_text, agent=self.nickname)
-                    
+                    # Tool results are part of turn_messages conversation - don't add to session
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": str(result)}]})
                 except Exception as e:
                     if LANGFUSE_ENABLED:
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, str(e), False, session.id)
                     yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Tool error: {e}", error=str(e))
                     
-                    # Save tool error to session history (for future context)
-                    tool_error_text = f"🔧 Tool: {tool_use.name}\nError: {str(e)}"
-                    session.add_message("assistant", tool_error_text, agent=self.nickname)
-                    
+                    # Tool errors are part of turn_messages conversation - don't add to session
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": f"Error: {e}", "is_error": True}]})
             else:
                 response_text = text_content
