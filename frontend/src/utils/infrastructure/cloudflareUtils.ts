@@ -49,6 +49,79 @@ if (publicUrlBase) {
 const signedUrlCache: Record<string, { url: string; expiresAt: Date }> = {};
 
 /**
+ * SessionStorage key for persisting signed URL cache
+ */
+const CACHE_STORAGE_KEY = 'vpt_signed_url_cache';
+
+/**
+ * Load signed URL cache from sessionStorage
+ */
+const loadCacheFromStorage = (): void => {
+  try {
+    const stored = sessionStorage.getItem(CACHE_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const now = new Date();
+      
+      let loadedCount = 0;
+      Object.entries(parsed).forEach(([path, entry]: [string, any]) => {
+        const expiresAt = new Date(entry.expiresAt);
+        
+        // Only load if not expired
+        if (expiresAt > now) {
+          signedUrlCache[path] = {
+            url: entry.url,
+            expiresAt: expiresAt,
+          };
+          loadedCount++;
+        }
+      });
+      
+      if (loadedCount > 0) {
+        console.log(`[@utils:cloudflareUtils] Loaded ${loadedCount} cached signed URLs from sessionStorage`);
+      }
+    }
+  } catch (error) {
+    console.warn('[@utils:cloudflareUtils] Failed to load cache from sessionStorage:', error);
+  }
+};
+
+/**
+ * Save signed URL cache to sessionStorage
+ */
+const saveCacheToStorage = (): void => {
+  try {
+    // Convert Date objects to ISO strings for JSON serialization
+    const serializable: Record<string, { url: string; expiresAt: string }> = {};
+    
+    Object.entries(signedUrlCache).forEach(([path, entry]) => {
+      serializable[path] = {
+        url: entry.url,
+        expiresAt: entry.expiresAt.toISOString(),
+      };
+    });
+    
+    sessionStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (error) {
+    console.warn('[@utils:cloudflareUtils] Failed to save cache to sessionStorage:', error);
+  }
+};
+
+/**
+ * Debounced cache save (prevents excessive writes)
+ */
+let saveCacheTimeout: NodeJS.Timeout | null = null;
+const scheduleCacheSave = (): void => {
+  if (saveCacheTimeout) {
+    clearTimeout(saveCacheTimeout);
+  }
+  saveCacheTimeout = setTimeout(saveCacheToStorage, 500); // Save 500ms after last update
+};
+
+// Load cache from sessionStorage on initialization
+loadCacheFromStorage();
+
+/**
  * Checks if a URL is a Cloudflare R2 URL
  * @param url - The URL to check
  * @returns True if the URL is a Cloudflare R2 URL
@@ -181,6 +254,7 @@ export const getR2Url = async (
           url,
           expiresAt: new Date(expires_at),
         };
+        scheduleCacheSave(); // Persist to sessionStorage
       }
       
       console.log(`[@utils:cloudflareUtils] Generated signed URL for ${path} (expires: ${expires_at})`);
@@ -279,6 +353,11 @@ export const getR2UrlsBatch = async (
             };
           }
         }
+        
+        // Persist cache to sessionStorage after batch update
+        if (SIGNED_URL_CONFIG.cacheEnabled && response.urls.length > 0) {
+          scheduleCacheSave();
+        }
 
         // Log failed URLs (no fallback in private mode)
         if (response.failed && response.failed.length > 0) {
@@ -311,5 +390,10 @@ export const getR2UrlsBatch = async (
  */
 export const clearSignedUrlCache = (): void => {
   Object.keys(signedUrlCache).forEach(key => delete signedUrlCache[key]);
-  console.log('[@utils:cloudflareUtils] Signed URL cache cleared');
+  try {
+    sessionStorage.removeItem(CACHE_STORAGE_KEY);
+  } catch (error) {
+    console.warn('[@utils:cloudflareUtils] Failed to clear sessionStorage cache:', error);
+  }
+  console.log('[@utils:cloudflareUtils] Signed URL cache cleared (memory + sessionStorage)');
 };

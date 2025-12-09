@@ -13,7 +13,7 @@ metadata:
   selectable: true  # Shown in UI dropdown
   version: 1.0.0
   author: system
-  description: "System monitoring, health checks, and incident detection. Generates alerts for anomalies."
+  description: "System monitoring, health checks, and incident detection"
   tags:
     - monitoring
     - health-check

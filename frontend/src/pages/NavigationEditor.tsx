@@ -49,6 +49,7 @@ import { UIActionNode } from '../components/navigation/Navigation_ActionNode';
 import { NodeEditDialog } from '../components/navigation/Navigation_NodeEditDialog';
 import { NodeGotoPanel } from '../components/navigation/Navigation_NodeGotoPanel';
 import { NodeSelectionPanel } from '../components/navigation/Navigation_NodeSelectionPanel';
+import { NavigationScreenshotProvider } from '../contexts/navigation/NavigationScreenshotContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useDeviceData } from '../contexts/device/DeviceDataContext';
 import { useHostManager } from '../contexts/index';
@@ -958,20 +959,21 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     });
 
     return (
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 64,
-          left: 0,
-          right: 0,
-          bottom: 32, // Leave space for shared Footer (minHeight 24 + py 8 = 32px)
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Header with NavigationEditorHeader component */}
-        <NavigationEditorHeader
+      <NavigationScreenshotProvider nodes={nodes}>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 64,
+            left: 0,
+            right: 0,
+            bottom: 32, // Leave space for shared Footer (minHeight 24 + py 8 = 32px)
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Header with NavigationEditorHeader component */}
+          <NavigationEditorHeader
           hasUnsavedChanges={hasUnsavedChanges}
           focusNodeId={focusNodeId}
           availableFocusNodes={availableFocusNodes}
@@ -1795,7 +1797,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           onConfirm={confirmDialogHandleConfirm}
           onCancel={confirmDialogHandleCancel}
         />
-      </Box>
+        </Box>
+      </NavigationScreenshotProvider>
     );
 };
 

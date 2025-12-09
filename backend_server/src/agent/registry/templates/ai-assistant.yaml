@@ -14,16 +14,15 @@ metadata:
   default: true
   version: 1.0.0
   author: system
-  description: "General QA assistant. Routes to specialists (Scout/Sherlock/Watcher/Guardian) for platform-specific tasks."
+  description: "General QA assistant"
   tags:
     - general
     - assistant
     - default
   suggestions:
     - "List all test cases"
-    - "Show me device status"
-    - "Get coverage summary"
-    - "How many alerts are active?"
+    - "Show me device available"
+    - "Go to device control page"
 
 triggers:
   - type: chat.message

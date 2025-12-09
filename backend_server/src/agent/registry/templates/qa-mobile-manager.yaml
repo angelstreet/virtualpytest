@@ -13,7 +13,7 @@ metadata:
   selectable: true
   version: 1.0.0
   author: system
-  description: "Android mobile QA with ADB. ALWAYS: take_control → execute ALL operations → release_control → provide response.Be concise."
+  description: "Android mobile QA"
   tags:
     - qa
     - mobile

@@ -3,10 +3,10 @@ import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 
 import { NODE_TYPE_COLORS, UI_BADGE_COLORS } from '../../config/validationColors';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import { useNodeScreenshot } from '../../contexts/navigation/NavigationScreenshotContext';
 
 import { useValidationColors } from '../../hooks/validation/useValidationColors';
 import { useMetrics } from '../../hooks/navigation/useMetrics';
-import { useR2Url } from '../../hooks/storage/useR2Url';
 import type { UINavigationNode as UINavigationNodeType, UINavigationEdge } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 
@@ -27,16 +27,15 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
   const metricsHook = useMetrics();
   const nodeMetrics = metricsHook.getNodeMetrics(id);
 
-  // Use R2 URL hook for screenshot (handles public/private mode automatically)
-  // The hook extracts path from full URL and generates signed URL if needed
-  const { url: r2ScreenshotUrl } = useR2Url(data.screenshot || null);
+  // Use batched screenshot context for efficient URL loading
+  const r2ScreenshotUrl = useNodeScreenshot(id);
 
-  // Use screenshot URL with aggressive cache-busting
+  // Use screenshot URL with cache-busting for updated screenshots
   const screenshotUrl = React.useMemo(() => {
     if (!r2ScreenshotUrl) return null;
 
-    // Use multiple cache-busting parameters to ensure fresh load
-    const baseUrl = r2ScreenshotUrl.split('?')[0]; // Remove existing params (but keep signature if signed URL)
+    // Use timestamp for cache-busting when screenshot is updated
+    const baseUrl = r2ScreenshotUrl.split('?')[0]; // Get base URL without query params
     const timestamp = data.screenshot_timestamp || Date.now();
     const randomKey = imageKey || Math.random().toString(36).substr(2, 9);
 

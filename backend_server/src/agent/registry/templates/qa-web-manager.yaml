@@ -13,17 +13,15 @@ metadata:
   selectable: true
   version: 1.0.0
   author: system
-  description: "Web QA with browser automation. ALWAYS: take_control → execute ALL operations → release_control → provide response.Be concise."
+  description: "Web QA"
   tags:
     - qa
     - web
     - browser
     - automation
   suggestions:
-    - "Automate login flow for sauce-demo"
-    - "Test responsive design on Chrome"
-    - "Validate form submissions"
-    - "Check page load performance"
+    - "Dump UI elements on web"
+    - "Go to home screen on web"
 
 triggers:
   - type: alert.blackscreen

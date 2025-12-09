@@ -13,17 +13,16 @@ metadata:
   selectable: true
   version: 1.0.0
   author: system
-  description: "STB/TV QA with AI vision.  ALWAYS: take_control → execute ALL operations → release_control → provide response.Be concise."
+  description: "STB/TV QA"
   tags:
     - qa
     - stb
     - tv
     - remote
   suggestions:
-    - "Automate channel navigation for HBO STB"
-    - "Test EPG loading performance"
-    - "Validate remote control D-pad navigation"
-    - "Check video playback on STB device"
+    - "Go to live"
+    - "Go to info"
+    - "Detect motion"
 
 triggers:
   - type: alert.blackscreen
