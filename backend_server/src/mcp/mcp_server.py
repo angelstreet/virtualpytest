@@ -5,13 +5,14 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 63 core tools for device automation organized into domains:
+This server provides 70 core tools for device automation organized into domains:
 - Control: device locking and session management
 - Actions: device command execution
 - Navigation: UI tree navigation and pathfinding
 - Verification: state verification and UI inspection
 - TestCase: test case execution and management
 - Script: Python script execution
+- Deployment: scheduled execution management
 - AI: test generation
 - Screenshot/Transcript: media capture
 - Device: device info and compatibility
@@ -45,6 +46,7 @@ from .tools.userinterface_tools import UserInterfaceTools
 from .tools.requirements_tools import RequirementsTools
 from .tools.screen_analysis_tools import ScreenAnalysisTools
 from .tools.exploration_tools import ExplorationTools  # NEW - AI-powered tree building
+from .tools.deployment_tools import DeploymentTools  # NEW - Deployment management
 
 # Import tool definitions
 from .tool_definitions import (
@@ -64,6 +66,7 @@ from .tool_definitions import (
     get_requirements_tools,
     get_screen_analysis_tools,
     get_exploration_tools,  # NEW - AI-powered tree building
+    get_deployment_tools,  # NEW - Deployment management
 )
 
 # Import utilities
@@ -101,6 +104,7 @@ class VirtualPyTestMCPServer:
         self.requirements_tools = RequirementsTools(self.api_client)
         self.screen_analysis_tools = ScreenAnalysisTools()
         self.exploration_tools = ExplorationTools(self.api_client)  # NEW - AI-powered tree building
+        self.deployment_tools = DeploymentTools(self.api_client)  # NEW - Deployment management
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -202,6 +206,15 @@ class VirtualPyTestMCPServer:
             'get_node_verification_suggestions': self.exploration_tools.get_node_verification_suggestions,
             'approve_node_verifications': self.exploration_tools.approve_node_verifications,
             'finalize_exploration': self.exploration_tools.finalize_exploration,
+            
+            # Deployment tools (NEW - Scheduled execution management)
+            'create_deployment': self.deployment_tools.create_deployment,
+            'list_deployments': self.deployment_tools.list_deployments,
+            'pause_deployment': self.deployment_tools.pause_deployment,
+            'resume_deployment': self.deployment_tools.resume_deployment,
+            'update_deployment': self.deployment_tools.update_deployment,
+            'delete_deployment': self.deployment_tools.delete_deployment,
+            'get_deployment_history': self.deployment_tools.get_deployment_history,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")

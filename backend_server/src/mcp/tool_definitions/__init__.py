@@ -21,6 +21,7 @@ from .userinterface_definitions import get_tools as get_userinterface_tools
 from .requirements_definitions import get_tools as get_requirements_tools
 from .screen_analysis_definitions import get_tools as get_screen_analysis_tools
 from .exploration_definitions import get_tools as get_exploration_tools  # NEW - AI-powered tree building
+from .deployment_definitions import get_tools as get_deployment_tools  # NEW - Deployment management
 
 __all__ = [
     'get_control_tools',
@@ -39,5 +40,6 @@ __all__ = [
     'get_requirements_tools',
     'get_screen_analysis_tools',
     'get_exploration_tools',  # NEW - AI-powered tree building
+    'get_deployment_tools',  # NEW - Deployment management
 ]
 

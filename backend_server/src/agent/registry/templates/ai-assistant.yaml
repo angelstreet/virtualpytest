@@ -21,8 +21,9 @@ metadata:
     - default
   suggestions:
     - "List all test cases"
-    - "Show me device available"
-    - "Go to device control page"
+    - "Show me available devices"
+    - "List all deployments"
+    - "Run testcase TC_AUTH_01"
 
 triggers:
   - type: chat.message
@@ -55,6 +56,15 @@ subagents:
       - remote_control
       - dpad_navigation
   
+  - id: qa-execution-manager
+    version: ">=1.0.0"
+    delegate_for:
+      - testcase_execution
+      - script_execution
+      - deployment_management
+      - scheduled_testing
+      - test_runs
+  
   - id: monitoring-manager
     version: ">=1.0.0"
     delegate_for:
@@ -65,6 +75,8 @@ subagents:
 
 skills:
   - list_testcases
+  - list_deployments
+  - list_scripts
   - list_userinterfaces
   - list_requirements
   - get_coverage_summary

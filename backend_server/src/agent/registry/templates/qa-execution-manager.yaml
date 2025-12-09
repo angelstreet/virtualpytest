@@ -2,23 +2,26 @@
 # Version: 1.0.0
 # Author: system
 # 
-# Dedicated manager for executing testcases and scripts
+# Dedicated manager for executing testcases, scripts, and managing deployments
 #
 ---
 metadata:
   id: qa-execution-manager
   name: QA Execution Manager
-  nickname: Runner
+  nickname: Angry Panda
   selectable: true
   version: 1.0.0
   author: system
-  description: "Testcase & Script Execution"
+  description: "Run Testcase and Script"
   tags:
     - qa
     - execution
+    - deployments
   suggestions:
-    - "Run testcase"
-    - "List testcases"
+    - "Run testcase TC_AUTH_01"
+    - "List all deployments"
+    - "Create deployment for daily validation"
+    - "Execute script validation.py"
 
 triggers:
   - type: schedule.regression_run
@@ -31,12 +34,30 @@ event_pools:
 subagents: []
 
 skills:
+  # Testcase Execution
   - list_testcases
   - load_testcase
   - execute_testcase
   - get_execution_status
+  
+  # Deployment Management
+  - create_deployment
+  - list_deployments
+  - pause_deployment
+  - resume_deployment
+  - update_deployment
+  - delete_deployment
+  - get_deployment_history
+  
+  # Script Execution
+  - list_scripts
+  - execute_script
+  
+  # Device Management
   - get_device_info
   - get_compatible_hosts
+  
+  # Requirements Coverage
   - list_requirements
   - get_requirement
   - get_coverage_summary
