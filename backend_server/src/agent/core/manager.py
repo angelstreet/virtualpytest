@@ -470,7 +470,12 @@ Max 2 sentences after data. Be direct."""
         except Exception as e:
             print(f"[AGENT DEBUG] ERROR in delegated manager: {e}")
             self.logger.error(f"[{self.nickname}] Error in delegated manager {delegated_manager.nickname}: {e}", exc_info=True)
-            yield AgentEvent(type=EventType.ERROR, agent=delegated_manager.nickname, content=f"Error: {str(e)}", error=str(e))
+            if isinstance(e, anthropic.InternalServerError):
+                rid = getattr(e, "request_id", None) or getattr(getattr(e, "body", {}), "get", lambda *_: None)("request_id")
+                msg = f"Anthropic 500 Internal Server Error (request_id={rid or 'unknown'}). This may be transient or quota-related."
+                yield AgentEvent(type=EventType.ERROR, agent=delegated_manager.nickname, content=msg, error=str(e))
+            else:
+                yield AgentEvent(type=EventType.ERROR, agent=delegated_manager.nickname, content=f"Error: {str(e)}", error=str(e))
         
         print(f"[AGENT DEBUG] {self.nickname} yielding AGENT_COMPLETED for {delegated_manager.nickname}")
         yield AgentEvent(type=EventType.AGENT_COMPLETED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} completed")
