@@ -73,11 +73,6 @@ event_pools:
 subagents: []  # Scout works alone with all its skills
 
 skills:
-  # Requirements & Coverage
-  - list_requirements
-  - get_requirement
-  - get_coverage_summary
-  - get_uncovered_requirements
   
   # User Interfaces
   - list_userinterfaces
@@ -85,10 +80,6 @@ skills:
   - list_nodes
   - list_edges
   - preview_userinterface
-  
-  # Test Cases
-  - list_testcases
-  - load_testcase
   
   # Device Control
   # CRITICAL WORKFLOW:
@@ -127,9 +118,9 @@ skills:
   - execute_device_action
   - list_actions
   
-  # Execution
-  - execute_testcase
-  - get_execution_status
+  # Execution - DISABLED for token optimization
+  # - execute_testcase
+  # - get_execution_status
   
   # Verifications
   - list_verifications
