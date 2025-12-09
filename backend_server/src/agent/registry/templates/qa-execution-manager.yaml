@@ -8,11 +8,11 @@
 metadata:
   id: qa-execution-manager
   name: QA Execution Manager
-  nickname: Scout
+  nickname: Angry Panda
   selectable: true
   version: 1.0.0
   author: system
-  description: "Execution specialist - runs testcases, executes scripts, manages deployments"
+  description: "Run Testcase and Script"
   tags:
     - qa
     - execution
@@ -21,8 +21,7 @@ metadata:
   suggestions:
     - "Run testcase TC_AUTH_01"
     - "Execute validation script on mobile"
-    - "Create deployment for daily validation"
-    - "Execute script validation.py with userinterface google_tv"
+    - "Create deployment for daily dnslookup"
 
 triggers:
   - type: schedule.regression_run
