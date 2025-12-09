@@ -32,6 +32,12 @@ goal:
     Uses ADB for UI inspection and touch automation.
     Specialized in mobile gestures, screen transitions, and app lifecycle.
     
+    CONTROL WORKFLOW (MANDATORY):
+    1. take_control - Call ONCE at task start
+    2. navigate_to_node / execute_device_action - Use as needed
+    3. release_control - Call ONCE at task end ONLY
+    NEVER release between operations - maintain control for entire task!
+    
     EXPLORATION MODES:
     1. NEW TREE: Create nodes and edges from scratch using atomic CRUD tools
     2. REVALIDATION (existing tree): For each node:
@@ -118,9 +124,7 @@ skills:
   - execute_device_action
   - list_actions
   
-  # Execution - DISABLED for token optimization
-  # - execute_testcase
-  # - get_execution_status
+
   
   # Verifications
   - list_verifications
