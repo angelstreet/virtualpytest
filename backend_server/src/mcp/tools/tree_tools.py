@@ -1170,12 +1170,30 @@ class TreeTools:
                     ErrorCategory.BACKEND
                 )
             
-            # STEP 3: Update node with screenshot URL (same as frontend - useNode.ts line 142-146)
+            # STEP 3: Read current node to get existing data (avoid overwriting other fields)
+            node_result = self.api_client.get(
+                f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
+                params={'team_id': team_id}
+            )
+            
+            if not node_result.get('success'):
+                return self.formatter.format_error(
+                    f"Screenshot saved but failed to read node for update: {node_result.get('error', 'Unknown error')}\n"
+                    f"Screenshot URL: {screenshot_url}\n"
+                    f"You may need to manually update the node.",
+                    ErrorCategory.BACKEND
+                )
+            
+            # STEP 4: Merge screenshot into existing data and update node
+            # Screenshot must be in data object, not top-level (database schema: data jsonb column)
+            current_data = node_result.get('node', {}).get('data', {})
+            current_data['screenshot'] = screenshot_url
+            current_data['screenshot_timestamp'] = int(time.time() * 1000)  # Force cache bust
+            
             update_result = self.api_client.put(
                 f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
                 data={
-                    'screenshot': screenshot_url,
-                    'screenshot_timestamp': int(time.time() * 1000)  # Force cache bust
+                    'data': current_data
                 },
                 params={'team_id': team_id}
             )
