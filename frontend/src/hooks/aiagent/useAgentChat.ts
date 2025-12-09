@@ -97,6 +97,8 @@ export const useAgentChat = () => {
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const pendingConversationIdRef = useRef<string | null>(null); // Track which conversation is awaiting response
+  const sessionEndedRef = useRef<boolean>(false); // Track if session_ended was received (prevents premature reset)
+  const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null); // For delayed disconnect handling
 
   // --- Conversation Persistence ---
 
@@ -299,27 +301,49 @@ export const useAgentChat = () => {
     socket.on('connect', () => {
       console.log('[useAgentChat] Socket connected');
       socket.emit('join_session', { session_id: sessionId });
+      
+      // Cancel any pending disconnect timeout on successful connect
+      if (disconnectTimeoutRef.current) {
+        clearTimeout(disconnectTimeoutRef.current);
+        disconnectTimeoutRef.current = null;
+      }
     });
     
     socket.on('disconnect', (reason) => {
       console.warn(`[useAgentChat] Socket disconnected: ${reason}`);
-      // If server closed connection, session may have ended - auto-unstick after brief delay
-      if (reason === 'io server disconnect' || reason === 'transport close') {
-        setTimeout(() => {
-          // Only unstick if still processing (session_ended wasn't received)
-          if (pendingConversationIdRef.current) {
-            console.warn('[useAgentChat] Unsticking after disconnect - session likely ended');
+      
+      // Only consider resetting on explicit server disconnect, NOT on transport close
+      // Transport close happens during normal window switching/backgrounding
+      if (reason === 'io server disconnect') {
+        // Even then, only reset if session_ended was actually received
+        // Use a longer timeout to give reconnection a chance
+        if (disconnectTimeoutRef.current) {
+          clearTimeout(disconnectTimeoutRef.current);
+        }
+        
+        disconnectTimeoutRef.current = setTimeout(() => {
+          // Only unstick if session actually ended AND we're still "processing"
+          if (pendingConversationIdRef.current && sessionEndedRef.current) {
+            console.warn('[useAgentChat] Server disconnect confirmed - cleaning up');
             setIsProcessing(false);
             pendingConversationIdRef.current = null;
             setPendingConversationId(null);
           }
-        }, 2000);
+          // If sessionEndedRef is false, the session is still active - don't reset
+        }, 5000); // Wait 5 seconds for reconnection before cleaning up
       }
+      // For transport close (tab backgrounding), do nothing - socket will reconnect
     });
     
     socket.on('reconnect', () => {
       console.log('[useAgentChat] Socket reconnected, rejoining session');
       socket.emit('join_session', { session_id: sessionId });
+      
+      // Cancel any pending disconnect timeout on successful reconnect
+      if (disconnectTimeoutRef.current) {
+        clearTimeout(disconnectTimeoutRef.current);
+        disconnectTimeoutRef.current = null;
+      }
     });
 
     socket.on('agent_event', (event: AgentEvent) => {
@@ -430,6 +454,7 @@ export const useAgentChat = () => {
       // Session ends: save any remaining events as final message
       if (event.type === 'session_ended' || event.type === 'complete') {
         console.log(`[useAgentChat] SESSION_ENDED - finalizing conversation`);
+        sessionEndedRef.current = true; // Mark that session properly ended
         setIsProcessing(false);
         
         if (processingTimeoutRef.current) {
@@ -627,6 +652,7 @@ export const useAgentChat = () => {
     setIsProcessing(true);
     setCurrentEvents([]);
     setError(null);
+    sessionEndedRef.current = false; // Reset for new message - session is active
 
     // Failsafe: Auto-unstick processing after 15 minutes
     if (processingTimeoutRef.current) {
@@ -718,7 +744,31 @@ export const useAgentChat = () => {
     localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
   }, [clearBackendSession]);
 
-  // Cleanup socket and timeout on unmount
+  // Handle visibility change - ensure socket reconnects when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[useAgentChat] Tab became visible - checking socket connection');
+        
+        // Cancel any pending disconnect timeout
+        if (disconnectTimeoutRef.current) {
+          clearTimeout(disconnectTimeoutRef.current);
+          disconnectTimeoutRef.current = null;
+        }
+        
+        // If socket is disconnected but we're still processing, attempt reconnect
+        if (socketRef.current && !socketRef.current.connected && pendingConversationIdRef.current) {
+          console.log('[useAgentChat] Reconnecting socket after tab visibility change');
+          socketRef.current.connect();
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Cleanup socket and timeouts on unmount
   useEffect(() => {
     return () => {
       if (socketRef.current) {
@@ -726,6 +776,9 @@ export const useAgentChat = () => {
       }
       if (processingTimeoutRef.current) {
         clearTimeout(processingTimeoutRef.current);
+      }
+      if (disconnectTimeoutRef.current) {
+        clearTimeout(disconnectTimeoutRef.current);
       }
     };
   }, []);
