@@ -39,9 +39,15 @@ def auto_proxy(endpoint):
     - /server/mcp/* (handled by mcp_bp - registered BEFORE auto_proxy, takes precedence)
     """
     try:
+        # Normalize endpoint: handle double /server/ prefix (e.g., /server/server/devices/getAllDevices -> devices/getAllDevices)
+        # This catches cases where base URL already includes /server and path also starts with /server
+        if endpoint.startswith('server/'):
+            endpoint = endpoint[7:]  # Remove 'server/' prefix
+            print(f"[@auto_proxy] 🔧 Normalized double /server/ prefix: /server/server/{endpoint} -> /server/{endpoint}")
+        
         # Explicit exclusions for endpoints that don't need host proxying
         # Note: mcp/ is handled by blueprint precedence, not explicit exclusion
-        if endpoint.startswith(('executable/', 'settings/', 'teams/', 'users/', 'auth/')):
+        if endpoint.startswith(('executable/', 'settings/', 'teams/', 'users/', 'auth/', 'devices/')):
             return jsonify({
                 'success': False,
                 'error': f'Endpoint /server/{endpoint} is handled by a dedicated blueprint, not auto-proxy'
