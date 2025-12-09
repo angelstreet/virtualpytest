@@ -8,6 +8,16 @@ import os
 import json
 from typing import Dict, List
 from datetime import datetime
+from .cloudflare_utils import convert_to_signed_url
+
+
+def ensure_signed_url(url: str) -> str:
+    """Ensure URL is signed if it's an R2 URL."""
+    if not url:
+        return url
+    if 'r2.dev' in url or 'r2.cloudflarestorage.com' in url or url.startswith('script-reports/') or url.startswith('navigation/'):
+        return convert_to_signed_url(url)
+    return url
 
 
 def format_timestamp_to_hhmmss_ms(timestamp_str: str) -> str:
@@ -505,28 +515,31 @@ def format_image_verification_extras(result: Dict, step: Dict) -> str:
         
         # Order: Source → Reference → Overlay (logical flow)
         if source_image:
+            signed_source = ensure_signed_url(source_image)
             thumbnails_html += f"""
             <div style='text-align: center;'>
                 <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Source</div>
-                <img src='{source_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                <img src='{signed_source}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                      onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
             </div>
             """
         
         if reference_image:
+            signed_reference = ensure_signed_url(reference_image)
             thumbnails_html += f"""
             <div style='text-align: center;'>
                 <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Reference</div>
-                <img src='{reference_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                <img src='{signed_reference}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                      onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
             </div>
             """
         
         if overlay_image:
+            signed_overlay = ensure_signed_url(overlay_image)
             thumbnails_html += f"""
             <div style='text-align: center;'>
                 <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>Overlay</div>
-                <img src='{overlay_image}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                <img src='{signed_overlay}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                      onclick='openVerificationImageModal({modal_data})' title='Click to compare all images'>
             </div>
             """
@@ -589,7 +602,7 @@ def format_analysis_results(step: Dict) -> str:
             # Convert motion images to modal format
             images = []
             for motion_img in motion_images:
-                image_url = motion_img.get('path', '')  # Will be converted to R2 URL by report utils
+                image_url = ensure_signed_url(motion_img.get('path', ''))  # Sign R2 URLs
                 # Extract analysis info for label with improved formatting
                 analysis_data = motion_img.get('analysis_data', {})
                 
@@ -672,7 +685,7 @@ def format_analysis_results(step: Dict) -> str:
             analysis_html += f'<div class="analysis-detail">Details: {subtitle_analysis.get("message")}</div>'
             
         # Show analyzed screenshot thumbnail for debugging (with modal like zapping images)
-        analyzed_screenshot = subtitle_analysis.get('analyzed_screenshot')
+        analyzed_screenshot = ensure_signed_url(subtitle_analysis.get('analyzed_screenshot'))
         if analyzed_screenshot:
             import json
             # Create single image modal data
@@ -774,7 +787,7 @@ def format_analysis_results(step: Dict) -> str:
             analysis_html += f'<div class="analysis-detail">Details: {audio_menu_analysis.get("message")}</div>'
 
         # Add screenshot display for audio menu analysis (similar to subtitle analysis)
-        analyzed_screenshot = audio_menu_analysis.get('analyzed_screenshot')
+        analyzed_screenshot = ensure_signed_url(audio_menu_analysis.get('analyzed_screenshot'))
         if analyzed_screenshot:
             import json
             # Create single image modal data
@@ -856,11 +869,11 @@ def format_analysis_results(step: Dict) -> str:
                 
                 analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none; margin-bottom: 8px;">{channel_info_line}</div>'
             
-            # Complete zapping sequence thumbnails (4 key images)
-            before_blackscreen = zapping_analysis.get('first_image')  # Image before blackscreen starts
-            blackscreen_start = zapping_analysis.get('blackscreen_start_image')
-            blackscreen_end = zapping_analysis.get('blackscreen_end_image') 
-            first_content = zapping_analysis.get('first_content_after_blackscreen')
+            # Complete zapping sequence thumbnails (4 key images) - sign all URLs
+            before_blackscreen = ensure_signed_url(zapping_analysis.get('first_image'))
+            blackscreen_start = ensure_signed_url(zapping_analysis.get('blackscreen_start_image'))
+            blackscreen_end = ensure_signed_url(zapping_analysis.get('blackscreen_end_image'))
+            first_content = ensure_signed_url(zapping_analysis.get('first_content_after_blackscreen'))
             
             # Debug logging for missing images
             print(f"[@report_step_formatter:format_analysis_results] Zapping images debug:")
@@ -918,8 +931,8 @@ def format_analysis_results(step: Dict) -> str:
             if analyzed_images > 0:
                 analysis_html += f'<div class="analysis-detail">Images Analyzed: {analyzed_images}</div>'
             
-            # Show failure mosaic with detailed analysis
-            failure_mosaic_path = zapping_analysis.get('failure_mosaic_path')
+            # Show failure mosaic with detailed analysis - sign URL
+            failure_mosaic_path = ensure_signed_url(zapping_analysis.get('failure_mosaic_path'))
             analysis_log = zapping_analysis.get('analysis_log', [])
             
             if failure_mosaic_path:

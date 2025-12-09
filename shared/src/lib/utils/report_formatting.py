@@ -9,6 +9,17 @@ import json
 import re
 from typing import Dict, List, Optional, Any
 from .report_step_formatter import create_compact_step_results_section
+from .cloudflare_utils import convert_to_signed_url
+
+
+def ensure_signed_url(url: str) -> str:
+    """Ensure URL is signed if it's an R2 URL. Used when embedding in HTML reports."""
+    if not url:
+        return url
+    # Only sign R2 URLs (public or endpoint URLs)
+    if 'r2.dev' in url or 'r2.cloudflarestorage.com' in url or url.startswith('script-reports/') or url.startswith('navigation/'):
+        return convert_to_signed_url(url)
+    return url
 
 
 def sanitize_for_json(text: str) -> str:
@@ -89,12 +100,15 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     if not screenshot_path:
         return ''
     
-    # Prepare screenshots for modal
+    # Sign the main screenshot URL
+    signed_screenshot_path = ensure_signed_url(screenshot_path)
+    
+    # Prepare screenshots for modal with signed URLs
     modal_screenshots = []
     if all_screenshots:
         for screenshot_data in all_screenshots:
             screenshot_label = screenshot_data[0]
-            screenshot_working_path = screenshot_data[1]
+            screenshot_working_path = ensure_signed_url(screenshot_data[1])  # Sign each URL
             action_cmd = screenshot_data[2] if len(screenshot_data) > 2 else None
             action_params = screenshot_data[3] if len(screenshot_data) > 3 else None
             
@@ -107,7 +121,7 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     else:
         modal_screenshots.append({
             'label': label or 'Screenshot',
-            'url': screenshot_path,
+            'url': signed_screenshot_path,
             'command': None,
             'params': {}
         })
@@ -125,7 +139,7 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
     # Then escape for HTML embedding
     modal_data_json = json_str.replace('"', '&quot;').replace("'", "&#x27;")
     
-    display_url = screenshot_path if screenshot_path.startswith('http') else screenshot_path
+    display_url = signed_screenshot_path
     
     return f"""
     <div class="screenshot-container">
@@ -231,22 +245,22 @@ def create_verification_image_modal_data(source_image: str, reference_image: str
         'images': []
     }
     
-    # Add all available images
+    # Add all available images with signed URLs
     if source_image:
         modal_data['images'].append({
-            'url': source_image,
+            'url': ensure_signed_url(source_image),
             'label': 'Source Image (Current)'
         })
     
     if reference_image:
         modal_data['images'].append({
-            'url': reference_image,
+            'url': ensure_signed_url(reference_image),
             'label': 'Reference Image (Expected)'
         })
     
     if overlay_image:
         modal_data['images'].append({
-            'url': overlay_image,
+            'url': ensure_signed_url(overlay_image),
             'label': 'Overlay (Differences)'
         })
     
