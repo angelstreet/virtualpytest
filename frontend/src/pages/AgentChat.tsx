@@ -546,27 +546,6 @@ useEffect(() => {
             }}>
               {event.tool_name}
             </Typography>
-            {isExecuting && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-                {[0, 1, 2].map((i) => (
-                  <Box 
-                    key={i}
-                    sx={{ 
-                      width: 3, 
-                      height: 3, 
-                      borderRadius: '50%', 
-                      bgcolor: PALETTE.accent,
-                      animation: 'bounce 1.4s ease-in-out infinite',
-                      animationDelay: `${i * 0.16}s`,
-                      '@keyframes bounce': {
-                        '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
-                        '40%': { transform: 'scale(1)', opacity: 1 },
-                      },
-                    }} 
-                  />
-                ))}
-              </Box>
-            )}
             <Tooltip title="Copy tool name and result">
               <IconButton
                 size="small"
