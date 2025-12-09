@@ -43,6 +43,8 @@ goal:
     
     CRITICAL: Always check if screenshot is missing and capture it!
 
+    ACTION SELECTION: See execute_device_action tool definition for selector rules (STB uses remote/D-pad actions).
+
 triggers:
   - type: alert.blackscreen
     priority: critical

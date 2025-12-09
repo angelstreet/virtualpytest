@@ -42,8 +42,7 @@ goal:
     
     CRITICAL: Always check if screenshot is missing and capture it!
     
-    ACTION SELECTION: Use analyze_screen_for_action to get best selectors.
-    See execute_device_action tool for selector priority order.
+    ACTION SELECTION: See execute_device_action tool definition for selector rules.
 
 triggers:
   - type: alert.blackscreen
@@ -124,12 +123,6 @@ skills:
   # Execution
   - execute_testcase
   - get_execution_status
-  # WEB ACTION SELECTION PRIORITY (use analyze_screen_for_action):
-  #   1. click_element_by_id (#id) - Most reliable
-  #   2. click_element (text) - Second best if text is unique
-  #   3. xpath - Third choice
-  #   4. coordinates - LAST RESORT ONLY!
-  # NEVER use coordinates if element has id or text!
   - execute_device_action
   
   # Verifications

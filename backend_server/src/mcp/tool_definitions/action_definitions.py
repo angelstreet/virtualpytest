@@ -16,8 +16,8 @@ Useful for discovering what actions can be executed on a device.
 PREREQUISITE: Device must be registered with the host.
 
 Device Model Specific:
-- android_mobile/android_tv: Returns ADB/Remote commands (swipe_up, click_element, type_text, key, etc)
-- web/desktop: Returns web automation commands (web_click, web_type, etc)
+- android_mobile/android_tv: Returns mobile commands (click_element with text only, press_key, swipe, etc)
+- web/desktop: Returns web automation commands (click_element_by_id, click_element, input_text, etc)
 
 Example:
   # First get compatible host
@@ -41,23 +41,32 @@ Example:
             "name": "execute_device_action",
             "description": """Execute actions on device (ADB, web, remote)
 
-⚠️ SELECTOR PRIORITY (use tap_coordinates ONLY as last resort!):
-MOBILE: click_element(text) > click_element_by_id > tap_coordinates
-WEB: click_element_by_id > click_element(text) > tap_coordinates
+CLICK STRATEGY BY PLATFORM:
+- MOBILE (android_mobile/android_tv): ONLY click_element with text parameter, NOT coordinates. Do not use IDs. Use Tap coordinates as a last resort.
+- WEB (web/desktop): Use click_element_by_id for stable selectors, or click_element(text) as fallback.
 
 PREREQUISITES:
 1. host_name REQUIRED - use get_compatible_hosts() first
 2. For navigation: call take_control() once before any operations
 
-COMMANDS:
-- MOBILE: click_element(text="Search"), press_key(key="BACK"), swipe_up, launch_app, input_text
-- WEB: click_element_by_id(element_id="btn"), input_text(selector="#field", text="...")
+MOBILE COMMANDS (android_mobile/android_tv):
+- click_element(text="Search") - Click by visible text only. Tap coordinates as last resort
+- press_key(key="BACK") - Press hardware key
+- swipe_up, swipe_down, swipe_left, swipe_right - Swipe gestures
+- launch_app(package="com.example.app") - Launch application
+- input_text(text="hello") - Type text into focused field
+
+WEB COMMANDS (web/desktop):
+- click_element_by_id(element_id="btn") - Click by CSS selector or ID
+- click_element(text="Search") - Click by visible text
+- input_text(selector="#field", text="...") - Type into specific field
+- press_key(key="Enter") - Press keyboard key
 
 WAIT TIMES (in params):
 - launch_app: 8000ms, click_element: 2000ms, press_key: 1500ms, input_text: 1000ms
 
 Examples:
-  # Mobile click (PREFERRED)
+  # Mobile click (text, coordinates as last resort)
   {"command": "click_element", "params": {"text": "Search", "wait_time": 2000}}
   
   # Web click by ID
