@@ -1,0 +1,73 @@
+# Agent Configuration: QA Assistant
+# Version: 2.0.0
+# Author: system
+#
+# Interactive QA assistant for human-driven tasks.
+# Dynamically loads skills based on user requests.
+#
+---
+metadata:
+  id: assistant
+  name: QA Assistant
+  nickname: Atlas
+  selectable: true
+  default: true
+  version: 2.0.0
+  author: system
+  description: "Interactive QA assistant for human-driven tasks"
+  tags:
+    - qa
+    - assistant
+    - interactive
+  suggestions:
+    - "Explore the sauce-demo web app"
+    - "Run testcase TC_AUTH_01"
+    - "Create a testcase for login"
+    - "Show me device status"
+    - "List all testcases"
+
+triggers:
+  - type: chat.message
+    priority: normal
+
+event_pools:
+  - own.assistant-tasks
+
+subagents: []
+
+# Skills this agent can dynamically load
+available_skills:
+  - exploration-mobile
+  - exploration-web
+  - exploration-stb
+  - execution
+  - design
+  - monitoring-read
+
+# Minimal tools for router mode (before skill loads)
+skills:
+  - list_userinterfaces
+  - get_device_info
+  - list_testcases
+  - list_hosts
+  - get_compatible_hosts
+  - preview_userinterface
+
+permissions:
+  devices:
+    - read
+    - take_control
+
+  database:
+    - read
+    - write.testcases
+    - write.results
+
+config:
+  enabled: true
+  max_parallel_tasks: 1
+  approval_required_for: []
+  auto_retry: true
+  feedback_collection: true
+  timeout_seconds: 3600
+

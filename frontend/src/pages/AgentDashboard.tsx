@@ -73,18 +73,6 @@ interface LeaderboardEntry {
 const GOLD = '#D4AF37';
 const GOLD_DARK = '#B8860B';
 
-// Fallback metadata (used when API data doesn't include nickname)
-const FALLBACK_METADATA: Record<string, { name: string; nickname: string }> = {
-  'ai-assistant': { name: 'AI Assistant', nickname: 'Atlas' },
-  'qa-manager': { name: 'QA Manager', nickname: 'Captain' },
-  'qa-web-manager': { name: 'QA Web Manager', nickname: 'Sherlock' },
-  'qa-mobile-manager': { name: 'QA Mobile Manager', nickname: 'Scout' },
-  'qa-stb-manager': { name: 'QA STB Manager', nickname: 'Watcher' },
-  'monitoring-manager': { name: 'Monitoring Manager', nickname: 'Guardian' },
-  'explorer': { name: 'Explorer', nickname: 'Pathfinder' },
-  'executor': { name: 'Executor', nickname: 'Runner' },
-};
-
 export const AgentDashboard: React.FC = () => {
   // Tab state
   const [activeTab, setActiveTab] = useState(0);
@@ -113,19 +101,12 @@ export const AgentDashboard: React.FC = () => {
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackAgentId, setFeedbackAgentId] = useState('');
 
-  // Get agent display name (checks loaded agents first, then fallback)
+  // Get agent display name from loaded agents
   const getAgentDisplay = (agentId: string) => {
-    // Check loaded agents first (they may have nickname from YAML)
-    const loadedAgent = agents.find(a => a.id === agentId);
-    if (loadedAgent) {
-      return { 
-        nickname: loadedAgent.nickname || loadedAgent.name, 
-        name: loadedAgent.name 
-      };
-    }
-    // Fallback to hardcoded metadata
-    const meta = FALLBACK_METADATA[agentId];
-    return meta ? { nickname: meta.nickname, name: meta.name } : { nickname: agentId, name: agentId };
+    const agent = agents.find(a => a.id === agentId);
+    return agent 
+      ? { nickname: agent.nickname || agent.name, name: agent.name }
+      : { nickname: agentId, name: agentId };
   };
 
   // Load data on mount
@@ -203,44 +184,34 @@ export const AgentDashboard: React.FC = () => {
 
   const getDefaultAgents = (): AgentDefinition[] => [
     {
-      id: 'qa-web-manager',
-      name: 'Sherlock',
-      icon: '🧪',
-      version: '1.0.0',
-      description: 'QA Web Manager • Web testing specialist',
+      id: 'assistant',
+      name: 'QA Assistant',
+      nickname: 'Atlas',
+      version: '2.0.0',
+      description: 'Interactive QA assistant for human-driven tasks',
       status: 'active',
-      type: 'continuous',
-      triggers: ['alert.blackscreen', 'build.deployed', 'schedule.web_regression']
+      type: 'on-demand',
+      triggers: ['chat.message']
     },
     {
-      id: 'qa-mobile-manager',
-      name: 'Scout',
-      icon: '🔍',
-      version: '1.0.0',
-      description: 'QA Mobile Manager • Android/iOS testing',
+      id: 'monitor',
+      name: 'QA Monitor',
+      nickname: 'Guardian',
+      version: '2.0.0',
+      description: 'Autonomous monitor that responds to system events',
       status: 'active',
       type: 'continuous',
-      triggers: ['alert.app_crash', 'alert.device_offline', 'build.deployed']
+      triggers: ['alert.blackscreen', 'alert.app_crash', 'alert.anr']
     },
     {
-      id: 'qa-stb-manager',
-      name: 'Watcher',
-      icon: '📺',
-      version: '1.0.0',
-      description: 'QA STB Manager • Set-top box validation',
+      id: 'analyzer',
+      name: 'Result Analyzer',
+      nickname: 'Sherlock',
+      version: '2.0.0',
+      description: 'Analyzes script and test results to detect false positives',
       status: 'active',
       type: 'continuous',
-      triggers: ['alert.blackscreen', 'alert.video_playback_failed', 'schedule.stb_regression']
-    },
-    {
-      id: 'monitoring-manager',
-      name: 'Guardian',
-      icon: '🛡️',
-      version: '1.0.0',
-      description: 'Monitoring Manager • System health & incidents',
-      status: 'active',
-      type: 'continuous',
-      triggers: ['schedule.health_check', 'alert.device_offline', 'alert.service_down']
+      triggers: ['script.completed', 'testcase.completed']
     }
   ];
 

@@ -76,7 +76,7 @@ export const AIProvider: React.FC<{children: React.ReactNode}> = ({ children }) 
   const [isConnected, setIsConnected] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<'checking' | 'ready' | 'needs_key' | 'error'>('checking');
-  const [selectedAgentId, setSelectedAgentId] = useState('ai-assistant');
+  const [selectedAgentId, setSelectedAgentId] = useState('assistant');
   
   // Skills control - default OFF (disabled)
   const [allowAutoNavigation, setAllowAutoNavigationState] = useState(() => {

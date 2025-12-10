@@ -32,16 +32,15 @@ export const AGENT_CHAT_LAYOUT = {
  * Agent color palette (used for UI display of agent badges/avatars)
  */
 export const AGENT_COLORS: Record<string, string> = {
-  'ai-assistant': AGENT_CHAT_PALETTE.accent,
-  'qa-web-manager': '#4fc3f7',
-  'qa-mobile-manager': '#81c784', 
-  'qa-stb-manager': '#ba68c8',
-  'monitoring-manager': '#ffb74d',
-  'qa-manager': '#607d8b',
-  'explorer': '#81c784',
-  'builder': '#ffb74d',
-  'executor': '#e57373',
-  'analyst': '#ba68c8',
-  'maintainer': '#4fc3f7',
+  'assistant': AGENT_CHAT_PALETTE.accent,
+  'monitor': '#4fc3f7',
+  'analyzer': '#81c784',
+  // Skill colors (for skill badges)
+  'exploration-mobile': '#81c784',
+  'exploration-web': '#4fc3f7',
+  'exploration-stb': '#ba68c8',
+  'execution': '#e57373',
+  'design': '#ffb74d',
+  'monitoring-read': '#4fc3f7',
 };
 

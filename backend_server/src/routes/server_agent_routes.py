@@ -134,7 +134,7 @@ def get_manager(team_id: str = None, agent_id: str = None):
     # Always create a new manager with the team_id to ensure correct API key
     # (In-memory storage means we can't cache the manager globally)
     from agent.core.manager import QAManagerAgent
-    logger.info(f"Initializing QA Manager agent for team: {team_id or 'default'}, agent: {agent_id or 'ai-assistant'}...")
+    logger.info(f"Initializing QA Manager agent for team: {team_id or 'default'}, agent: {agent_id or 'assistant'}...")
     return QAManagerAgent(user_identifier=team_id, agent_id=agent_id)
 
 
@@ -388,7 +388,7 @@ def register_agent_socketio_handlers(socketio):
         session_id = data.get('session_id')
         message = data.get('message')
         team_id = data.get('team_id')
-        agent_id = data.get('agent_id', 'ai-assistant')  # Default to generic assistant
+        agent_id = data.get('agent_id', 'assistant')  # Default to assistant agent
         allow_auto_navigation = data.get('allow_auto_navigation', False)
         current_page = data.get('current_page', '/')
         

@@ -11,7 +11,7 @@
 import React, { useState } from 'react';
 import { Box, Paper, Typography, IconButton, Collapse, Tabs, Tab, Chip, LinearProgress, Fade, Tooltip } from '@mui/material';
 import { Close, ExpandLess, ExpandMore, ThumbUp, ThumbDown, ArrowBack, CheckCircle, Error as ErrorIcon, Schedule, OpenInNew } from '@mui/icons-material';
-import { useAgentActivity, AGENT_METADATA, AgentTask } from '../../contexts/AgentActivityContext';
+import { useAgentActivity, AgentTask } from '../../contexts/AgentActivityContext';
 import { useNavigate } from 'react-router-dom';
 
 // Styles
@@ -50,7 +50,8 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
   const [isResponseExpanded, setIsResponseExpanded] = useState(false);
   const [localFeedback, setLocalFeedback] = useState<{ rating: number; animating: boolean } | null>(null);
   
-  const meta = AGENT_METADATA[agentId] || { name: agentId, nickname: agentId, icon: '🤖' };
+  // Agent nickname should come from backend API, fallback to agentId
+  const displayName = agentId;
   const runningTasks = tasks.filter(t => t.status === 'running');
   const completedTasks = tasks.filter(t => t.status === 'completed');
   const failedTasks = tasks.filter(t => t.status === 'failed');
@@ -164,7 +165,7 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Typography sx={{ fontWeight: 600, color: COLORS.text, fontSize: '0.85rem' }}>
-                {meta.nickname}
+                {displayName}
               </Typography>
               {tasks.length > 1 && (
                 <Chip label={tasks.length} size="small" sx={{ height: 16, fontSize: '0.65rem', bgcolor: '#333', color: COLORS.textMuted }} />

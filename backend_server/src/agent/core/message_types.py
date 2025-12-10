@@ -25,6 +25,8 @@ class EventType(str, Enum):
     AGENT_STARTED = "agent_started"         # New agent starting (creates new message bubble)
     AGENT_DELEGATED = "agent_delegated"     # Task delegated to agent (QA Manager says "delegating...")
     AGENT_COMPLETED = "agent_completed"     # Agent finished task (closes current message bubble)
+    SKILL_LOADED = "skill_loaded"           # Skill dynamically loaded
+    SKILL_UNLOADED = "skill_unloaded"       # Skill unloaded, back to router mode
     
     # Human interaction
     APPROVAL_REQUIRED = "approval_required"  # Need human approval

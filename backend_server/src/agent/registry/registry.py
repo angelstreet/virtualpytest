@@ -47,7 +47,8 @@ class AgentRegistry:
             cls._loaded = True
             return
         
-        yaml_files = list(templates_dir.glob('*.yaml'))
+        # Only load YAML files from root templates dir (exclude _deprecated)
+        yaml_files = [f for f in templates_dir.glob('*.yaml') if f.is_file()]
         logger.info(f"[@registry] ═══════════════════════════════════════════════")
         logger.info(f"[@registry] Loading {len(yaml_files)} agent templates...")
         logger.info(f"[@registry] ═══════════════════════════════════════════════")

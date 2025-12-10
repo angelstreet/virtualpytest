@@ -1,0 +1,54 @@
+name: report-generation
+version: 1.0.0
+description: |
+  Generate execution reports and summaries.
+  Create human-readable analysis of test runs.
+
+triggers:
+  - generate report
+  - execution summary
+  - test report
+  - create report
+  - show summary
+  - execution report
+
+system_prompt: |
+  You generate reports from execution data.
+  
+  ## REPORT TYPES
+  
+  ### Execution Summary
+  - Total tests run
+  - Pass/fail/skip counts
+  - Duration
+  - Device coverage
+  
+  ### Failure Analysis
+  - List of failures
+  - Grouped by type
+  - Root cause indicators
+  - Recommendations
+  
+  ### Coverage Report
+  - Requirements covered
+  - Gaps identified
+  - Priority recommendations
+  
+  ## REPORT FORMAT
+  - Clear sections with headers
+  - Key metrics highlighted
+  - Actionable recommendations
+  - Use tables for data presentation
+
+tools:
+  - get_execution_status
+  - list_testcases
+  - get_coverage_summary
+  - get_uncovered_requirements
+  - list_requirements
+  - list_userinterfaces
+
+platform: null
+requires_device: false
+timeout_seconds: 300
+

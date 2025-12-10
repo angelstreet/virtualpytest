@@ -1,420 +1,567 @@
-# AI Agent Architecture
+# VirtualPyTest Agent Architecture
 
-YAML-driven agent system. Flat hierarchy with specialized managers.
+## Overview
 
----
-
-## 1. Architecture Overview
+VirtualPyTest uses a **skill-based agent architecture** where 3 purpose-driven agents dynamically load specialized skills based on user requests and system events.
 
 ```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                              ATLAS                                          │
-│                         (Main Orchestrator)                                 │
-│                                                                             │
-│   Skills: READ-ONLY tools + navigate_to_page (browser only)                │
-│   Delegates to: Platform-specific MANAGER agents                           │
-├────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐          │
-│   │   Scout    │  │  Sherlock  │  │  Watcher   │  │  Guardian  │          │
-│   │  (Mobile)  │  │   (Web)    │  │   (STB)    │  │ (Monitor)  │          │
-│   │     🔍     │  │     🧪     │  │     📺     │  │     🛡️     │          │
-│   └────────────┘  └────────────┘  └────────────┘  └────────────┘          │
-│                                                                             │
-│   Each manager has ALL skills for its platform:                            │
-│   - take_control                                                           │
-│   - navigate_to_node                                                       │
-│   - execute_testcase                                                       │
-│   - create_node, create_edge (autonomous exploration)                      │
-│   - etc.                                                                   │
-└────────────────────────────────────────────────────────────────────────────┘
-```
-
-**Key Principle:** No sub-agents. Each manager is self-sufficient with all needed skills.
-
----
-
-## 2. Available Agents
-
-All agents are user-selectable (`selectable: true`):
-
-| Agent ID | Nickname | Icon | Platform | Specialty |
-|----------|----------|------|----------|-----------|
-| `ai-assistant` | **Atlas** | 🤖 | All | Orchestrator, delegates to specialists |
-| `qa-mobile-manager` | **Scout** | 🔍 | Mobile | Android/iOS device control & testing |
-| `qa-web-manager` | **Sherlock** | 🧪 | Web | Browser testing, DOM, web automation |
-| `qa-stb-manager` | **Watcher** | 📺 | STB/TV | Remote control, EPG, D-pad navigation |
-| `monitoring-manager` | **Guardian** | 🛡️ | All | Alerts, health checks, incidents |
-
-**No internal/hidden sub-agents.** Each selectable agent = one chat bubble.
-
----
-
-## 3. Two Separate Domains
-
-### Domain A: Browser Navigation (Atlas)
-
-```
-Tool: navigate_to_page
-Purpose: Navigate within VirtualPyTest web UI
-Agent: Atlas handles directly
-
-User: "go to incidents page"
-  ↓
-Atlas calls: navigate_to_page("incidents")
-  ↓
-Frontend navigates to /monitoring/incidents
-```
-
-### Domain B: Device Navigation (Managers)
-
-```
-Tool: take_control + navigate_to_node
-Purpose: Control physical/virtual devices
-Agent: Platform manager (Scout/Sherlock/Watcher)
-
-User: "go to home on horizon_android_mobile"
-  ↓
-Atlas: "DELEGATE TO qa-mobile-manager"
-  ↓
-Scout calls: take_control(userinterface="horizon_android_mobile")
-Scout calls: navigate_to_node(node="home")
-  ↓
-Device navigates to home screen
-```
-
-**These domains are completely separate. Never mix them.**
-
----
-
-## 4. Delegation Flow
-
-```
-User: "go to home on horizon_android_mobile"
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ Atlas checks:                                                    │
-│ - Platform? Mobile (android_mobile)                             │
-│ - Do I have navigate_to_node? NO                                │
-│ - Who handles mobile? Scout (qa-mobile-manager)                 │
-│                                                                  │
-│ Atlas responds: "DELEGATE TO qa-mobile-manager"                 │
-└─────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ Scout (qa-mobile-manager) receives request                       │
-│                                                                  │
-│ Scout has these skills (from YAML):                             │
-│ - take_control ✓                                                │
-│ - navigate_to_node ✓                                            │
-│                                                                  │
-│ Scout executes:                                                  │
-│ 1. take_control(userinterface="horizon_android_mobile")         │
-│ 2. navigate_to_node(node="home")                                │
-│                                                                  │
-│ Done. Two tool calls. No extra prep work.                       │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        AGENT LAYER                               │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐         │
+│  │  Assistant   │   │   Monitor    │   │   Analyzer   │         │
+│  │  Atlas       │   │  Guardian    │   │  Sherlock    │         │
+│  │              │   │              │   │              │         │
+│  │  Trigger:    │   │  Trigger:    │   │  Trigger:    │         │
+│  │  User Chat   │   │  Events      │   │  Script Done │         │
+│  │              │   │              │   │              │         │
+│  │  Mode:       │   │  Mode:       │   │  Mode:       │         │
+│  │  Interactive │   │  Autonomous  │   │  Autonomous  │         │
+│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘         │
+│         │                  │                  │                  │
+│         ▼                  ▼                  ▼                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                     SKILL LAYER                          │   │
+│  ├──────────────────────────────────────────────────────────┤   │
+│  │  exploration-mobile │ incident-response │ result-validation│  │
+│  │  exploration-web    │ health-check      │ false-positive   │  │
+│  │  exploration-stb    │ alert-triage      │ report-generation│  │
+│  │  execution          │                   │                  │  │
+│  │  design             │                   │                  │  │
+│  │  monitoring-read    │                   │                  │  │
+│  └──────────────────────────────────────────────────────────┘   │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                     TOOL LAYER (MCP)                     │   │
+│  │  70+ tools: take_control, create_node, execute_testcase  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Memory & Context Management
+## The 3 Agents
 
-### Conversation History
+### 1. Assistant (Atlas)
 
-**Root agents** (Atlas) receive full conversation history:
-- Can review past interactions
-- Has context of entire chat session
-- Useful for analyzing trends or referencing earlier discussions
+**Purpose:** Interactive QA assistant for human-driven tasks
 
-**Delegated agents** (Scout, Sherlock, Watcher) receive clean slate:
-- Only get the current user request
-- No parent agent's internal chatter (thinking, tool calls)
-- Prevents token bloat and context overload
+| Property | Value |
+|----------|-------|
+| ID | `assistant` |
+| Nickname | Atlas |
+| Selectable | Yes (default in UI) |
+| Trigger | User chat messages |
+| Mode | Interactive |
 
-### Why This Design?
+**Available Skills:**
+- `exploration-mobile` - Build navigation trees for Android apps
+- `exploration-web` - Build navigation trees for web apps
+- `exploration-stb` - Build navigation trees for STB/TV apps
+- `execution` - Run testcases and scripts
+- `design` - Create testcases and manage requirements
+- `monitoring-read` - Check device status (read-only)
 
+**Example Interactions:**
 ```
-User: "Explore google_tv mobile app"
-          ↓
-┌─────────────────────────────────────────────┐
-│ Atlas (Root Agent)                           │
-│ Input: Full session history (~2k tokens)    │
-│ - User's previous questions                 │
-│ - Atlas's previous responses                │
-│ - Current request                           │
-│                                             │
-│ Decision: DELEGATE TO qa-mobile-manager     │
-└─────────────────────────────────────────────┘
-          ↓
-┌─────────────────────────────────────────────┐
-│ Scout (Delegated Agent)                      │
-│ Input: Clean slate (~100 tokens)            │
-│ - Just the user's request                   │
-│ - NO Atlas's thinking/tool calls            │
-│                                             │
-│ Executes: take_control → navigate_to_node  │
-└─────────────────────────────────────────────┘
-```
+User: "Explore the sauce-demo web app"
+Atlas: Loading skill: exploration-web
+       [OK] Loaded skill: exploration-web
+       [Proceeds with web exploration workflow]
 
-**Benefits:**
-- **Efficiency**: Delegated agents stay lean (no unnecessary token bloat)
-- **Focus**: Specialist agents see only what they need
-- **Performance**: Reduces risk of empty responses from context overload
-- **Cost**: Lower token usage per delegation
-
-**Implementation:**
-```python
-# In manager.py process_message()
-if _is_delegated:
-    # Delegated: Clean slate
-    turn_messages = [{"role": "user", "content": message}]
-else:
-    # Root: Full history
-    turn_messages = session.messages
-```
-
-### Tool Count Limits
-
-Agents with **>20 tools** or **>6k tool tokens** may overwhelm Claude:
-- **Symptoms**: Empty responses, `stop_reason: end_turn`, minimal output
-- **Solution**: Split into specialized sub-agents or reduce tool count
-- **Example**: Scout has 28 tools (~10k tokens) - consider refactoring if issues occur
-
----
-
-## 6. Tool Simplicity
-
-**`navigate_to_node` is self-sufficient:**
-
-```
-❌ WRONG (what agent was doing):
-   1. get_compatible_hosts
-   2. preview_userinterface
-   3. capture_screenshot
-   4. dump_ui_elements
-   5. list_navigation_nodes
-   6. take_control
-   7. navigate_to_node
-
-✅ CORRECT (what agent should do):
-   1. take_control(userinterface="...")
-   2. navigate_to_node(node="...")
-
-That's it. The tools handle everything internally.
+User: "Run testcase TC_AUTH_01"
+Atlas: Loading skill: execution
+       [OK] Loaded skill: execution
+       [Executes the testcase]
 ```
 
 ---
 
-## 7. Platform-Specific Skills
+### 2. Monitor (Guardian)
 
-### Scout (Mobile)
+**Purpose:** Autonomous monitor that responds to system events
+
+| Property | Value |
+|----------|-------|
+| ID | `monitor` |
+| Nickname | Guardian |
+| Selectable | No (event-driven only) |
+| Trigger | Alerts, webhooks, schedules |
+| Mode | Autonomous |
+
+**Event Triggers:**
+- `alert.blackscreen` (critical)
+- `alert.app_crash` (critical)
+- `alert.anr` (critical)
+- `alert.no_signal` (critical)
+- `webhook.ci_failure` (high)
+- `schedule.health_check` (normal)
+
+**Available Skills:**
+- `incident-response` - Handle critical incidents
+- `health-check` - Perform scheduled system checks
+- `alert-triage` - Classify and route alerts
+
+---
+
+### 3. Analyzer (Sherlock)
+
+**Purpose:** Analyzes execution results and detects false positives
+
+| Property | Value |
+|----------|-------|
+| ID | `analyzer` |
+| Nickname | Sherlock |
+| Selectable | No (trigger-driven only) |
+| Trigger | Script/test completion |
+| Mode | Autonomous |
+
+**Event Triggers:**
+- `script.completed` (normal)
+- `testcase.completed` (normal)
+- `deployment.execution_done` (normal)
+
+**Available Skills:**
+- `result-validation` - Validate execution results
+- `false-positive-detection` - Identify flaky tests
+- `report-generation` - Generate execution reports
+
+---
+
+## How Skill Loading Works
+
+### Router Mode vs Skill Mode
+
+Each agent operates in one of two modes:
+
+#### Router Mode (Default)
+- Agent has minimal tools for quick queries
+- Analyzes user request to determine which skill to load
+- Responds with `LOAD SKILL [skill-name]` when specialized work is needed
+
+#### Skill Mode (After Loading)
+- Agent has full tool access from the loaded skill
+- Follows the skill's workflow instructions
+- Can unload skill with `UNLOAD SKILL` command
+
+### Skill Loading Flow
+
+```
+┌─────────────────┐
+│  User Message   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Router Mode    │◄─────────────────────┐
+│  (minimal tools)│                      │
+└────────┬────────┘                      │
+         │                               │
+         ▼                               │
+┌─────────────────┐     No skill needed  │
+│ Quick query?    │──────────────────────┤
+│ (list, status)  │                      │
+└────────┬────────┘                      │
+         │ Yes, complex task             │
+         ▼                               │
+┌─────────────────┐                      │
+│ LOAD SKILL      │                      │
+│ [skill-name]    │                      │
+└────────┬────────┘                      │
+         │                               │
+         ▼                               │
+┌─────────────────┐                      │
+│  Skill Mode     │                      │
+│  (full tools)   │                      │
+└────────┬────────┘                      │
+         │                               │
+         ▼                               │
+┌─────────────────┐                      │
+│ Task complete   │──────────────────────┘
+│ UNLOAD SKILL    │
+└─────────────────┘
+```
+
+### Example: Web Exploration
+
+```
+1. User: "Explore the sauce-demo app"
+
+2. Atlas (Router Mode):
+   - Has tools: list_userinterfaces, get_device_info, list_testcases
+   - Matches "explore" + "web app" to exploration-web skill
+   - Response: "Loading skill: exploration-web"
+
+3. Atlas loads exploration-web skill
+
+4. Atlas (Skill Mode):
+   - Has tools: take_control, dump_ui_elements, create_node, create_edge, etc.
+   - Follows exploration workflow from skill's system_prompt
+   - Executes web exploration
+
+5. Task complete -> UNLOAD SKILL -> Back to Router Mode
+```
+
+---
+
+## Skill Definitions
+
+Skills are defined in YAML files at `backend_server/src/agent/skills/definitions/`.
+
+### Skill YAML Structure
 
 ```yaml
-skills:
-  # Navigation
-  - take_control
-  - navigate_to_node
+name: skill-name                    # Unique identifier
+version: 1.0.0                      # Semantic version
+description: |                      # Agent uses this to decide
+  Short description of what this skill does.
+
+triggers:                           # Keywords for auto-matching
+  - keyword phrase 1
+  - keyword phrase 2
+
+system_prompt: |                    # Workflow instructions for LLM
+  You are doing X.
   
-  # Screen Analysis (ADB)
-  - dump_ui_elements
-  - analyze_screen_for_action
-  - analyze_screen_for_verification
-  - capture_screenshot
+  ## WORKFLOW
+  1. Step one
+  2. Step two
   
-  # Autonomous Exploration (NO human approval)
-  - create_node
-  - update_node
-  - delete_node
-  - create_edge
-  - update_edge
-  - delete_edge
-  - execute_edge
-  - save_node_screenshot
-  
-  # Execution
-  - execute_device_action
-  - execute_testcase
-  - get_compatible_hosts
+  ## RULES
+  - Important rule
+
+tools:                              # MCP tools to expose
+  - tool_name_1
+  - tool_name_2
+
+platform: null                      # mobile, web, stb, or null
+requires_device: false              # Needs device control?
+timeout_seconds: 1800               # Default timeout
 ```
 
-### Sherlock (Web)
+### Available Skills
 
-```yaml
-skills:
-  # Navigation
-  - take_control
-  - navigate_to_node
-  
-  # Screen Analysis (DOM)
-  - dump_ui_elements
-  - analyze_screen_for_action
-  - analyze_screen_for_verification
-  - capture_screenshot
-  
-  # Autonomous Exploration
-  - create_node
-  - update_node
-  - delete_node
-  - create_edge
-  - update_edge
-  - delete_edge
-  - execute_edge
-  - save_node_screenshot
-  
-  # Execution
-  - execute_testcase
-  - execute_device_action
-```
+#### Assistant Skills
 
-### Watcher (STB/TV)
+| Skill | Platform | Device Required | Description |
+|-------|----------|-----------------|-------------|
+| `exploration-mobile` | mobile | Yes | Build Android navigation trees using ADB |
+| `exploration-web` | web | Yes | Build web app navigation trees using DOM |
+| `exploration-stb` | stb | Yes | Build TV navigation trees using D-pad |
+| `execution` | all | Yes | Run testcases and scripts |
+| `design` | all | No | Create testcases, manage requirements |
+| `monitoring-read` | all | No | Check device status (read-only) |
 
-```yaml
-skills:
-  # Navigation
-  - take_control
-  - navigate_to_node
-  
-  # Screen Analysis (AI Vision - NO dump_ui_elements)
-  - capture_screenshot
-  - get_transcript
-  
-  # Autonomous Exploration
-  - create_node
-  - update_node
-  - delete_node
-  - create_edge
-  - update_edge
-  - delete_edge
-  - execute_edge
-  - save_node_screenshot
-  
-  # Execution
-  - execute_device_action    # D-pad, remote keys
-  - execute_testcase
-```
+#### Monitor Skills
 
-### Guardian (Monitoring)
+| Skill | Platform | Device Required | Description |
+|-------|----------|-----------------|-------------|
+| `incident-response` | all | Yes | Handle critical system incidents |
+| `health-check` | all | No | Scheduled system health verification |
+| `alert-triage` | all | No | Classify alerts and determine response |
 
-```yaml
-skills:
-  - get_alerts
-  - list_incidents
-  - get_device_health
-  - list_hosts
-```
+#### Analyzer Skills
+
+| Skill | Platform | Device Required | Description |
+|-------|----------|-----------------|-------------|
+| `result-validation` | all | No | Validate execution results |
+| `false-positive-detection` | all | No | Detect flaky tests |
+| `report-generation` | all | No | Generate execution reports |
 
 ---
 
-## 8. Chat Bubble Rules
+## Agent Definitions
 
-| Agent | Chat Bubble |
-|-------|-------------|
-| Atlas | ✅ Own bubble |
-| Scout | ✅ Own bubble (when delegated to) |
-| Sherlock | ✅ Own bubble (when delegated to) |
-| Watcher | ✅ Own bubble (when delegated to) |
-| Guardian | ✅ Own bubble (when delegated to) |
+Agents are defined in YAML files at `backend_server/src/agent/registry/templates/`.
 
-**Rule:** One selectable YAML agent = one chat bubble.
-
----
-
-## 9. YAML Structure
-
-### Atlas (Orchestrator)
+### Agent YAML Structure
 
 ```yaml
-# ai-assistant.yaml
 metadata:
-  id: ai-assistant
+  id: assistant
+  name: QA Assistant
   nickname: Atlas
-  selectable: true
+  selectable: true          # Appears in UI dropdown
+  default: true             # Default selection
+  version: 2.0.0
+  author: system
+  description: "Interactive QA assistant"
+  tags: [qa, assistant]
+  suggestions:              # Example prompts in chat UI
+    - "Explore the sauce-demo web app"
+    - "Run testcase TC_AUTH_01"
 
-skills:
-  # READ-ONLY tools
-  - list_testcases
+triggers:
+  - type: chat.message
+    priority: normal
+
+event_pools:
+  - own.assistant-tasks
+
+available_skills:           # Skills this agent can load
+  - exploration-mobile
+  - exploration-web
+  - exploration-stb
+  - execution
+  - design
+  - monitoring-read
+
+skills:                     # Router mode tools (minimal)
   - list_userinterfaces
-  - list_requirements
-  - get_coverage_summary
-  # Browser navigation only
-  - navigate_to_page
-  # NO device tools
+  - get_device_info
+  - list_testcases
+  - list_hosts
 
-subagents:
-  - id: qa-mobile-manager
-    delegate_for: [mobile_navigation, android_testing]
-  - id: qa-web-manager
-    delegate_for: [web_navigation, browser_testing]
-  - id: qa-stb-manager
-    delegate_for: [stb_navigation, tv_testing]
-  - id: monitoring-manager
-    delegate_for: [alert_investigation, incident_response]
-```
+permissions:
+  devices:
+    - read
+    - take_control
+  database:
+    - read
+    - write.testcases
 
-### Scout (Mobile Manager)
-
-```yaml
-# qa-mobile-manager.yaml
-metadata:
-  id: qa-mobile-manager
-  nickname: Scout
-  selectable: true
-
-skills:
-  - take_control
-  - navigate_to_node
-  - dump_ui_elements
-  - analyze_screen_for_action
-  - analyze_screen_for_verification
-  - capture_screenshot
-  - create_node
-  - update_node
-  - delete_node
-  - create_edge
-  - update_edge
-  - delete_edge
-  - execute_edge
-  - save_node_screenshot
-  - execute_device_action
-  - execute_testcase
-  - get_compatible_hosts
-  - list_navigation_nodes
-
-subagents: []  # No sub-agents - all skills included
+config:
+  enabled: true
+  max_parallel_tasks: 1
+  timeout_seconds: 3600
 ```
 
 ---
 
-## 10. File Structure
+## File Structure
 
 ```
 backend_server/src/agent/
-├── core/
-│   ├── manager.py              # QAManagerAgent (THE ONLY agent class)
-│   ├── session.py
-│   └── tool_bridge.py
-├── registry/
-│   ├── templates/              # YAML configs (SOURCE OF TRUTH)
-│   │   ├── ai-assistant.yaml       # Atlas
-│   │   ├── qa-mobile-manager.yaml  # Scout
-│   │   ├── qa-web-manager.yaml     # Sherlock
-│   │   ├── qa-stb-manager.yaml     # Watcher
-│   │   └── monitoring-manager.yaml # Guardian
-│   ├── registry.py
-│   └── validator.py
 ├── skills/
-│   └── skill_registry.py       # Validates YAML skills against MCP tools
-└── config.py                   # Model config only
+│   ├── __init__.py
+│   ├── skill_schema.py         # Pydantic model for skills
+│   ├── skill_loader.py         # YAML loader
+│   ├── skill_registry.py       # Tool validation
+│   └── definitions/            # Skill YAML files
+│       ├── exploration-mobile.yaml
+│       ├── exploration-web.yaml
+│       ├── exploration-stb.yaml
+│       ├── execution.yaml
+│       ├── design.yaml
+│       ├── monitoring-read.yaml
+│       ├── incident-response.yaml
+│       ├── health-check.yaml
+│       ├── alert-triage.yaml
+│       ├── result-validation.yaml
+│       ├── false-positive-detection.yaml
+│       └── report-generation.yaml
+├── registry/
+│   ├── config_schema.py        # Agent Pydantic model
+│   ├── registry.py             # Agent loading
+│   └── templates/              # Agent YAML files
+│       ├── assistant.yaml
+│       ├── monitor.yaml
+│       └── analyzer.yaml
+├── core/
+│   ├── manager.py              # QAManagerAgent (main orchestrator)
+│   ├── session.py              # Chat session management
+│   ├── tool_bridge.py          # MCP tool execution
+│   └── message_types.py        # Event types
+└── runtime/
+    └── runtime.py              # Event handling
 ```
-
-**Note:** Python agent classes (explorer.py, builder.py, etc.) have been removed.
-YAML is the single source of truth for all agent definitions.
 
 ---
 
-*Document Version: 5.1*  
-*Last Updated: December 2024*  
-*Changelog: Added memory & context management section, tool count limits, delegation clean-slate behavior*
+## Adding a New Skill
+
+### Step 1: Create Skill YAML
+
+Create `skills/definitions/my-new-skill.yaml`:
+
+```yaml
+name: my-new-skill
+version: 1.0.0
+description: |
+  What this skill does in one sentence.
+
+triggers:
+  - keyword 1
+  - keyword 2
+
+system_prompt: |
+  You perform [task description].
+  
+  ## WORKFLOW
+  1. First step
+  2. Second step
+  
+  ## RULES
+  - Important rule
+
+tools:
+  - tool_1
+  - tool_2
+  - tool_3
+
+platform: null
+requires_device: false
+timeout_seconds: 1800
+```
+
+### Step 2: Add to Agent
+
+Edit the agent's YAML file and add to `available_skills`:
+
+```yaml
+available_skills:
+  - existing-skill
+  - my-new-skill    # Add here
+```
+
+### Step 3: Restart Server
+
+The skill will be loaded automatically on server startup.
+
+---
+
+## Event Types
+
+The agent system emits these events via WebSocket:
+
+| Event | Description |
+|-------|-------------|
+| `thinking` | Agent is reasoning |
+| `tool_call` | Tool being called |
+| `tool_result` | Tool execution result |
+| `message` | Agent message to user |
+| `skill_loaded` | Skill dynamically loaded |
+| `skill_unloaded` | Skill unloaded |
+| `session_ended` | Chat session complete |
+| `error` | Error occurred |
+
+---
+
+## API Endpoints
+
+### REST Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/server/agent/health` | Health check |
+| POST | `/server/agent/api-key` | Save Anthropic API key |
+| POST | `/server/agent/sessions` | Create chat session |
+| GET | `/server/agent/sessions` | List sessions |
+| GET | `/server/agent/sessions/<id>` | Get session |
+| DELETE | `/server/agent/sessions/<id>` | Delete session |
+
+### WebSocket Events (namespace: `/agent`)
+
+| Event | Direction | Description |
+|-------|-----------|-------------|
+| `join_session` | Client -> Server | Join session room |
+| `send_message` | Client -> Server | Send chat message |
+| `stop_generation` | Client -> Server | Stop agent |
+| `agent_event` | Server -> Client | Agent response events |
+
+### Send Message Payload
+
+```json
+{
+  "session_id": "uuid",
+  "message": "User message",
+  "team_id": "team-uuid",
+  "agent_id": "assistant",
+  "allow_auto_navigation": false,
+  "current_page": "/dashboard"
+}
+```
+
+---
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ANTHROPIC_API_KEY` | Anthropic API key (or set per-user) |
+| `DEFAULT_MODEL` | Claude model to use (default: claude-sonnet-4-20250514) |
+| `LANGFUSE_ENABLED` | Enable observability (default: false) |
+
+### Agent Config Options
+
+```yaml
+config:
+  enabled: true              # Auto-start on server startup
+  max_parallel_tasks: 1      # Concurrent task limit
+  approval_required_for: []  # Actions needing approval
+  auto_retry: true           # Retry failed tasks
+  timeout_seconds: 3600      # Task timeout
+```
+
+---
+
+## Skill Matching Logic
+
+When a user sends a message, the assistant uses this logic to select a skill:
+
+1. **Trigger Matching:** Each skill has `triggers` (keyword phrases)
+2. **Score Calculation:** For each trigger found in the message, score += trigger length
+3. **Best Match:** Skill with highest score wins
+4. **No Match:** Use router tools for simple queries
+
+```python
+# Example matching
+message = "explore the sauce-demo web application"
+
+# exploration-web triggers: ["explore web", "map web app", "web tree"]
+# Score: "explore web" not found, "map web app" not found
+# -> Score = 0
+
+# But "web" is in multiple triggers, so partial matching helps
+# The LLM uses the skill descriptions to make the final decision
+```
+
+---
+
+## Best Practices
+
+### For Users
+
+1. **Be Specific:** "Explore the sauce-demo web app" is better than "explore"
+2. **One Task at a Time:** Complete current task before switching
+3. **Use Suggestions:** Click the example prompts in the chat UI
+4. **Check Status:** "Show device status" before running tests
+
+### For Developers
+
+1. **Keep Skills Focused:** Each skill should do one thing well
+2. **Document Workflows:** Clear system_prompt with step-by-step instructions
+3. **Minimal Tools:** Only include tools the skill actually needs
+4. **Test Triggers:** Ensure triggers match expected user phrases
+
+---
+
+## Troubleshooting
+
+### "Skill not loading"
+
+- Check skill name is in agent's `available_skills`
+- Verify skill YAML exists in `skills/definitions/`
+- Check server logs for YAML parsing errors
+
+### "Tool not found"
+
+- Verify tool name in skill's `tools` list
+- Check tool exists in MCP tool definitions
+- Restart server to reload tools
+
+### "Empty response from agent"
+
+- Too many tools can overwhelm the model
+- Check `max_tokens` setting
+- Review server logs for API errors
+
+### "Skill stuck in loop"
+
+- Add clear completion criteria to system_prompt
+- Use `UNLOAD SKILL` to return to router mode
+- Clear session with "clear session" command
+

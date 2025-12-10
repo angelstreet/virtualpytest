@@ -155,7 +155,7 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
         
         // Set default agent from YAML (looks for default: true)
         const defaultAgent = data.agents.find((a: any) => a.metadata?.default === true);
-        const defaultId = defaultAgent?.metadata?.id || selectableAgents[0]?.id || 'ai-assistant';
+        const defaultId = defaultAgent?.metadata?.id || selectableAgents[0]?.id || 'assistant';
         setSelectedAgentId(defaultId);
         
         setAgentsLoading(false);

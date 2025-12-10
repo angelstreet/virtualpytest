@@ -24,39 +24,11 @@ import { useAIContext } from '../../contexts/AIContext';
 // Available agents with agent-specific tips
 const AVAILABLE_AGENTS = [
   { 
-    id: 'ai-assistant', 
+    id: 'assistant', 
     nickname: 'Atlas', 
     description: 'General AI Assistant', 
     color: '#d4af37',
-    tips: ['Go to dashboard', 'Show me test reports', 'What can you do?']
-  },
-  { 
-    id: 'qa-web-manager', 
-    nickname: 'Sherlock', 
-    description: 'Web testing specialist', 
-    color: '#4fc3f7',
-    tips: ['Run web regression tests', 'Automate login flow', 'Check broken links']
-  },
-  { 
-    id: 'qa-mobile-manager', 
-    nickname: 'Scout', 
-    description: 'Mobile testing specialist', 
-    color: '#81c784',
-    tips: ['Run smoke test on Pixel 5', 'Test app on iOS', 'Check device status']
-  },
-  { 
-    id: 'qa-stb-manager', 
-    nickname: 'Watcher', 
-    description: 'STB testing specialist', 
-    color: '#ba68c8',
-    tips: ['Run STB zapping test', 'Check EPG loading', 'Test channel switch']
-  },
-  { 
-    id: 'monitoring-manager', 
-    nickname: 'Guardian', 
-    description: 'Monitoring specialist', 
-    color: '#ffb74d',
-    tips: ['Show active alerts', 'Check system health', 'Run incident analysis']
+    tips: ['Explore the sauce-demo app', 'Run testcase TC_AUTH_01', 'Create a testcase for login']
   },
 ];
 

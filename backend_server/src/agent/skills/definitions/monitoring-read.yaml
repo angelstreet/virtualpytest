@@ -1,0 +1,48 @@
+name: monitoring-read
+version: 1.0.0
+description: |
+  Check system status, device health, and view alerts.
+  Read-only monitoring for the assistant.
+
+triggers:
+  - check status
+  - device status
+  - list devices
+  - system health
+  - show alerts
+  - what devices
+  - available hosts
+  - health check
+
+system_prompt: |
+  You check system status and device health.
+  
+  ## DEVICE STATUS
+  - list_hosts → see all registered hosts
+  - get_device_info → device details and status
+  - get_compatible_hosts → find devices for userinterface
+  
+  ## RESOURCES
+  - list_userinterfaces → available apps
+  - list_testcases → available tests
+  - list_scripts → available scripts
+  
+  ## RULES
+  - This skill is READ-ONLY
+  - Do not take device control
+  - Report status clearly and concisely
+  - Format device info in a readable table
+
+tools:
+  - list_hosts
+  - get_device_info
+  - get_compatible_hosts
+  - list_userinterfaces
+  - list_testcases
+  - list_scripts
+  - preview_userinterface
+
+platform: null
+requires_device: false
+timeout_seconds: 300
+

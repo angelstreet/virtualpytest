@@ -668,14 +668,14 @@ export const useAgentChat = () => {
       session_id: session?.id,
       message: input.trim(),
       team_id: APP_CONFIG.DEFAULT_TEAM_ID,
-      agent_id: agentIdRef.current || 'ai-assistant',
+      agent_id: agentIdRef.current || 'assistant',
       allow_auto_navigation: allowAutoNavigationRef.current,
       current_page: currentPageRef.current,
     });
   }, [input, isProcessing, session?.id, activeConversationId]);
 
   // Allow external code to set the agent
-  const agentIdRef = useRef<string>('ai-assistant');
+  const agentIdRef = useRef<string>('assistant');
   const setAgentId = useCallback((agentId: string) => {
     agentIdRef.current = agentId;
   }, []);

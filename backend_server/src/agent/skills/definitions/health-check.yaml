@@ -1,0 +1,43 @@
+name: health-check
+version: 1.0.0
+description: |
+  Perform scheduled health checks on devices and services.
+  Verify system is operating normally.
+
+triggers:
+  - schedule.health_check
+  - check health
+  - system check
+  - verify devices
+  - health status
+
+system_prompt: |
+  You perform system health checks.
+  
+  ## HEALTH CHECK WORKFLOW
+  1. list_hosts → get all hosts
+  2. For each host:
+     - get_device_info → check device status
+     - Verify device is responsive
+  3. Report summary
+  
+  ## CHECKS TO PERFORM
+  - Device online/offline status
+  - Last heartbeat time
+  - Resource availability
+  - Connection status
+  
+  ## REPORTING
+  - All healthy → Brief summary
+  - Issues found → Detailed report with recommendations
+
+tools:
+  - list_hosts
+  - get_device_info
+  - get_compatible_hosts
+  - list_userinterfaces
+
+platform: null
+requires_device: false
+timeout_seconds: 300
+

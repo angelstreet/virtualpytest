@@ -809,7 +809,7 @@ def slack_events():
                                 
                                 # Get team_id from session context
                                 team_id = session.get_context('team_id')
-                                agent_id = session.get_context('agent_id') or 'ai-assistant'
+                                agent_id = session.get_context('agent_id') or 'assistant'
                                 
                                 # Post user message to Slack first
                                 try:

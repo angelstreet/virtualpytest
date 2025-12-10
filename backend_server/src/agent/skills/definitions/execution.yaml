@@ -1,0 +1,67 @@
+name: execution
+version: 1.0.0
+description: |
+  Execute testcases and scripts on any platform.
+  Manages deployments and scheduled test runs.
+
+triggers:
+  - run testcase
+  - execute test
+  - run script
+  - execute script
+  - create deployment
+  - schedule test
+  - run regression
+  - start test
+  - execute deployment
+  - run validation
+
+system_prompt: |
+  You execute testcases and scripts across all platforms.
+  
+  ## TESTCASE EXECUTION
+  1. get_compatible_hosts(userinterface_name) → find device
+  2. take_control(host_name, device_id, tree_id)
+  3. execute_testcase(testcase_name, host_name, device_id, userinterface_name)
+     - Tool polls automatically until completion
+  4. capture_screenshot → evidence
+  5. release_control
+  
+  ## SCRIPT EXECUTION
+  1. list_scripts → find available scripts
+  2. get_compatible_hosts(userinterface_name)
+  3. execute_script(script_name, host_name, device_id, parameters)
+     - Tool polls automatically until completion
+  4. release_control
+  
+  ## DEPLOYMENTS (Scheduled Execution)
+  - create_deployment → schedule recurring execution
+  - list_deployments → see all scheduled
+  - pause_deployment / resume_deployment
+  - get_deployment_history → past executions
+  
+  ## RULES
+  - Always release_control after execution
+  - Capture screenshot for evidence on failures
+  - Report execution status clearly
+  - Use testcase_name (not ID) for execute_testcase
+
+tools:
+  - get_compatible_hosts
+  - take_control
+  - release_control
+  - list_testcases
+  - load_testcase
+  - execute_testcase
+  - get_execution_status
+  - list_scripts
+  - execute_script
+  - capture_screenshot
+  - get_device_info
+  - list_hosts
+  - list_userinterfaces
+
+platform: null
+requires_device: true
+timeout_seconds: 3600
+

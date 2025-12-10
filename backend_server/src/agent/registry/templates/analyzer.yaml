@@ -1,0 +1,71 @@
+# Agent Configuration: Result Analyzer
+# Version: 2.0.0
+# Author: system
+#
+# Analyzes script and test results to detect false positives.
+# Not user-selectable, triggered by execution completion.
+#
+---
+metadata:
+  id: analyzer
+  name: Result Analyzer
+  nickname: Sherlock
+  selectable: false
+  default: false
+  version: 2.0.0
+  author: system
+  description: "Analyzes script and test results to detect false positives"
+  tags:
+    - analysis
+    - autonomous
+    - validation
+  suggestions: []
+
+triggers:
+  - type: script.completed
+    priority: normal
+  
+  - type: testcase.completed
+    priority: normal
+  
+  - type: deployment.execution_done
+    priority: normal
+
+event_pools:
+  - shared.executions
+  - shared.results
+
+subagents: []
+
+# Skills this agent can dynamically load
+available_skills:
+  - result-validation
+  - false-positive-detection
+  - report-generation
+
+# Minimal tools for initial analysis
+skills:
+  - get_execution_status
+  - list_testcases
+  - load_testcase
+  - capture_screenshot
+
+permissions:
+  devices:
+    - read
+
+  database:
+    - read
+    - write.analysis_results
+
+  external:
+    - slack
+
+config:
+  enabled: true
+  max_parallel_tasks: 5
+  approval_required_for: []
+  auto_retry: true
+  feedback_collection: false
+  timeout_seconds: 300
+

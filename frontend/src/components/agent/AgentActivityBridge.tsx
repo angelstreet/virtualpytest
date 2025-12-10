@@ -14,7 +14,7 @@ export const AgentActivityBridge: React.FC = () => {
   const { startTask, updateTaskStep, completeTask, failTask } = useAgentActivity();
   
   const currentTaskIdRef = useRef<string | null>(null);
-  const lastAgentIdRef = useRef<string>(selectedAgentId || 'ai-assistant');
+  const lastAgentIdRef = useRef<string>(selectedAgentId || 'assistant');
   const wasProcessingRef = useRef(false);
   const capturedStepsRef = useRef<typeof executionSteps>([]);
   
@@ -46,7 +46,7 @@ export const AgentActivityBridge: React.FC = () => {
     // Detect when processing starts
     if (isProcessing && !wasProcessingRef.current && activeTask) {
       // Extract agent ID from task context if available
-      const agentId = lastAgentIdRef.current || 'ai-assistant';
+      const agentId = lastAgentIdRef.current || 'assistant';
       
       // Start a new task in the badge system
       const taskId = startTask(agentId, activeTask, 'manual');
@@ -56,7 +56,7 @@ export const AgentActivityBridge: React.FC = () => {
     
     // Detect when processing stops
     if (!isProcessing && wasProcessingRef.current && currentTaskIdRef.current) {
-      const agentId = lastAgentIdRef.current || 'ai-assistant';
+      const agentId = lastAgentIdRef.current || 'assistant';
       
       // Use captured steps (they might have been cleared from AIContext already)
       const stepsToUse = capturedStepsRef.current.length > 0 ? capturedStepsRef.current : executionSteps;
@@ -144,7 +144,7 @@ export const AgentActivityBridge: React.FC = () => {
     
     const lastStep = executionSteps[executionSteps.length - 1];
     if (lastStep && lastStep.label !== 'Parse Command') {
-      const agentId = lastAgentIdRef.current || 'ai-assistant';
+      const agentId = lastAgentIdRef.current || 'assistant';
       console.log('🎯 Bridge: Updating step', lastStep.label);
       updateTaskStep(agentId, currentTaskIdRef.current, {
         id: lastStep.id,
@@ -162,7 +162,7 @@ export const AgentActivityBridge: React.FC = () => {
       if (!currentTaskIdRef.current) return;
       
       const { to } = event.detail;
-      const agentId = lastAgentIdRef.current || 'ai-assistant';
+      const agentId = lastAgentIdRef.current || 'assistant';
       
       console.log(`🎯 Bridge: Navigation detected - updating task with redirectedTo: ${to}`);
       

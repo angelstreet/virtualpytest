@@ -1,0 +1,75 @@
+name: design
+version: 1.0.0
+description: |
+  Create testcases, manage requirements, and track coverage.
+  Design test strategies without device interaction.
+
+triggers:
+  - create testcase
+  - generate test
+  - create requirement
+  - link testcase
+  - coverage report
+  - design tests
+  - test coverage
+  - requirements management
+  - test strategy
+
+system_prompt: |
+  You design testcases and manage requirements.
+  
+  ## TESTCASE CREATION
+  - generate_and_save_testcase → AI-generated from navigation
+  - save_testcase → manual testcase creation
+  - list_testcases → see existing tests
+  - load_testcase → view testcase details
+  
+  ## TESTCASE NAMING CONVENTION (REQUIRED)
+  - Format: TC_<CATEGORY>_<NUMBER>_<CamelCaseAction>
+  - Examples: TC_AUTH_01_LoginFlow, TC_SRCH_01_ProductSearch
+  - Categories: AUTH, NAV, SRCH, PLAY, PROD, CART, VOD, etc.
+  
+  ## REQUIREMENT MANAGEMENT
+  - create_requirement → define what to test
+  - list_requirements → see all requirements
+  - get_requirement → requirement details
+  - update_requirement → modify requirement
+  
+  ## COVERAGE TRACKING
+  - link_testcase_to_requirement → connect test to requirement
+  - unlink_testcase_from_requirement → remove connection
+  - get_requirement_coverage → see which tests cover requirement
+  - get_coverage_summary → overall coverage stats
+  - get_uncovered_requirements → gaps to fill
+  
+  ## BEST PRACTICES
+  - Link every testcase to at least one requirement
+  - Review coverage summary regularly
+  - Prioritize uncovered requirements
+
+tools:
+  - generate_and_save_testcase
+  - generate_test_graph
+  - save_testcase
+  - list_testcases
+  - load_testcase
+  - rename_testcase
+  - create_requirement
+  - list_requirements
+  - get_requirement
+  - update_requirement
+  - link_testcase_to_requirement
+  - unlink_testcase_from_requirement
+  - get_testcase_requirements
+  - get_requirement_coverage
+  - get_coverage_summary
+  - get_uncovered_requirements
+  - list_userinterfaces
+  - preview_userinterface
+  - get_userinterface_complete
+  - get_compatible_hosts
+
+platform: null
+requires_device: false
+timeout_seconds: 600
+

@@ -10,18 +10,6 @@ import { io, Socket } from 'socket.io-client';
 import { getServerBaseUrl, buildServerUrl } from '../utils/buildUrlUtils';
 import { APP_CONFIG } from '../config/constants';
 
-// Agent metadata with nicknames
-export const AGENT_METADATA: Record<string, { name: string; nickname: string; icon: string }> = {
-  'ai-assistant': { name: 'AI Assistant', nickname: 'Atlas', icon: '🤖' },
-  'qa-manager': { name: 'QA Manager', nickname: 'Captain', icon: '🎖️' },
-  'qa-web-manager': { name: 'QA Web Manager', nickname: 'Sherlock', icon: '🧪' },
-  'qa-mobile-manager': { name: 'QA Mobile Manager', nickname: 'Scout', icon: '🔍' },
-  'qa-stb-manager': { name: 'QA STB Manager', nickname: 'Watcher', icon: '📺' },
-  'monitoring-manager': { name: 'Monitoring Manager', nickname: 'Guardian', icon: '🛡️' },
-  'explorer': { name: 'Explorer', nickname: 'Pathfinder', icon: '🧭' },
-  'executor': { name: 'Executor', nickname: 'Runner', icon: '⚡' },
-};
-
 // Types
 export interface AgentTask {
   id: string;

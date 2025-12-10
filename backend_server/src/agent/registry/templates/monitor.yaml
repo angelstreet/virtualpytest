@@ -1,0 +1,82 @@
+# Agent Configuration: QA Monitor
+# Version: 2.0.0
+# Author: system
+#
+# Autonomous monitor that responds to system events.
+# Not user-selectable, triggered by alerts and webhooks.
+#
+---
+metadata:
+  id: monitor
+  name: QA Monitor
+  nickname: Guardian
+  selectable: false
+  default: false
+  version: 2.0.0
+  author: system
+  description: "Autonomous monitor that responds to system events"
+  tags:
+    - monitoring
+    - autonomous
+    - events
+  suggestions: []
+
+triggers:
+  - type: alert.blackscreen
+    priority: critical
+  
+  - type: alert.app_crash
+    priority: critical
+  
+  - type: alert.anr
+    priority: critical
+  
+  - type: alert.no_signal
+    priority: critical
+  
+  - type: webhook.ci_failure
+    priority: high
+  
+  - type: schedule.health_check
+    priority: normal
+
+event_pools:
+  - shared.alerts
+  - shared.builds
+  - shared.ci
+
+subagents: []
+
+# Skills this agent can dynamically load
+available_skills:
+  - incident-response
+  - health-check
+  - alert-triage
+
+# Minimal tools for initial assessment
+skills:
+  - get_device_info
+  - list_hosts
+  - capture_screenshot
+
+permissions:
+  devices:
+    - read
+    - take_control
+
+  database:
+    - read
+    - write.incidents
+
+  external:
+    - slack
+    - jira
+
+config:
+  enabled: true
+  max_parallel_tasks: 3
+  approval_required_for: []
+  auto_retry: true
+  feedback_collection: false
+  timeout_seconds: 600
+

@@ -156,9 +156,13 @@ class AgentDefinition(BaseModel):
         default_factory=list,
         description="Subagents this agent can delegate to"
     )
+    available_skills: List[str] = Field(
+        default_factory=list,
+        description="Skills this agent can dynamically load (e.g., 'exploration-mobile')"
+    )
     skills: List[str] = Field(
         default_factory=list,
-        description="Tool/skill identifiers agent can use"
+        description="Default tools (before skill loads)"
     )
     permissions: AgentPermissions = Field(
         default_factory=AgentPermissions,
