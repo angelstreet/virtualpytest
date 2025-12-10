@@ -56,8 +56,8 @@ Example (MOBILE):
                 "type": "object",
                 "properties": {
                     "elements": {
-                        "type": "array",
-                        "description": "Elements from dump_ui_elements (REQUIRED)"
+                        "type": ["array", "string"],
+                        "description": "Elements from dump_ui_elements (REQUIRED) - can be array or JSON string"
                     },
                     "intent": {
                         "type": "string",
@@ -135,8 +135,8 @@ Example:
                 "type": "object",
                 "properties": {
                     "elements": {
-                        "type": "array",
-                        "description": "Elements from dump_ui_elements (REQUIRED)"
+                        "type": ["array", "string"],
+                        "description": "Elements from dump_ui_elements (REQUIRED) - can be array or JSON string"
                     },
                     "node_label": {
                         "type": "string",
