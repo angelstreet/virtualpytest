@@ -61,7 +61,7 @@ Analyze script/testcase execution results in real-time to detect false positives
 
 ### Key Points
 - **Always responsive** - Chat requests are immediate
-- **No tool calls for reports** - Pre-fetched (saves 90% tokens)
+- **Pre-fetched reports** - Fetched by Python (saves 90% tokens)
 - **Interactive** - Can ask follow-up questions
 - **Full context** - Gets report content automatically
 
@@ -92,14 +92,14 @@ Reasoning: Legitimate application bug - element missing from DOM
 2. Result saved to database with report URLs
 3. Pushed to Redis queue (`p2_scripts`)
 4. Sherlock polls queue every 5 seconds
-5. **Pre-fetches report** (Python, no LLM tokens)
+5. **Pre-fetches report** (Python)
 6. Analyzes with LLM (classification only)
 7. Saves to database
 8. **Emits to Socket.IO** (`background_tasks` room)
 9. **Posts to Slack** (#sherlock channel)
 
 ### Key Points
-- **Token efficient** - Report fetched once by Python (not LLM tool)
+- **Token efficient** - Report fetched once by Python
 - **Non-blocking** - Doesn't slow down script execution
 - **Real-time UI** - Events stream to AgentChat
 - **Slack notifications** - Team gets alerts
@@ -109,7 +109,7 @@ Reasoning: Legitimate application bug - element missing from DOM
 ```python
 # In manager.py
 def _process_background_task(task):
-    # 1. Pre-fetch report (Python - zero tokens!)
+    # 1. Pre-fetch report (Python)
     report_data = fetch_execution_report(report_url, logs_url)
     
     # 2. Build message with pre-fetched content
@@ -117,10 +117,10 @@ def _process_background_task(task):
     SCRIPT: {script_name}
     SCRIPT_RESULT_ID: {task_id}
     
-    {report_data['summary']}  # ← Already fetched!
+    {report_data['summary']}
     """
     
-    # 3. LLM only classifies (no tool calls needed)
+    # 3. LLM classifies
     # 4. Emit to Socket.IO
     socketio.emit('agent_event', event, room='background_tasks')
     
@@ -327,7 +327,7 @@ def send_to_slack_channel(channel: str, message: str, agent_name: str):
 
 | Tool | Description | Usage |
 |------|-------------|-------|
-| `get_execution_results` | Query DB for executions + **auto-fetch reports** | Chat mode |
+| `get_execution_results` | Query DB for executions + auto-fetch reports | Chat mode |
 | `update_execution_analysis` | Save classification to DB | All modes |
 | `get_analysis_queue_status` | Check Redis queue + session stats | Monitoring |
 
@@ -337,8 +337,6 @@ def send_to_slack_channel(channel: str, message: str, agent_name: str):
 |-------|-------|---------|
 | `analyze` | update_execution_analysis | Failure classification |
 | `validate` | update_execution_analysis | Result validation |
-
-**Note:** `fetch_execution_report` tool **removed** - reports now pre-fetched by Python!
 
 ---
 
@@ -388,7 +386,7 @@ def send_to_slack_channel(channel: str, message: str, agent_name: str):
 │     ↓                                                │
 │  4. Sherlock Polls Queue (every 5s)                  │
 │     ↓                                                │
-│  5. Pre-fetch Report (Python - zero tokens!)        │
+│  5. Pre-fetch Report (Python)                        │
 │     fetch_execution_report(report_url, logs_url)     │
 │     ↓                                                │
 │  6. Build Message with Pre-fetched Content           │
@@ -396,7 +394,7 @@ def send_to_slack_channel(channel: str, message: str, agent_name: str):
 │      SCRIPT_RESULT_ID: c713ff96-...                  │
 │      [full report content included]"                 │
 │     ↓                                                │
-│  7. LLM Classifies (no tool calls!)                  │
+│  7. LLM Classifies                                   │
 │     Classification: VALID_PASS                       │
 │     ↓                                                │
 │  8. Save to Database                                 │
@@ -487,16 +485,8 @@ description: Execution analysis and classification
 system_prompt: |
   You are an execution analyzer.
   
-  QUEUE MODE (from Redis - report already pre-fetched):
-  1. Extract SCRIPT_RESULT_ID from message (UUID)
-  2. Read report content from message (already included!)
-  3. Classify the result
-  4. Call update_execution_analysis(script_result_id, ...)
-  
-  CHAT MODE (user request):
-  1. Use get_execution_results() to find execution (includes report)
-  2. Analyze the content
-  3. Call update_execution_analysis(script_result_id, ...)
+  QUEUE MODE: Extract SCRIPT_RESULT_ID from message, analyze report content, classify, save.
+  CHAT MODE: Use get_execution_results() to find execution, analyze, classify, save.
   
   CLASSIFICATIONS:
   - VALID_PASS: Test passed, legitimate (discard=false)
@@ -555,7 +545,7 @@ curl -X POST http://localhost:5001/server/scripts/execute \
 # 2. Watch backend logs
 # Should see:
 # [Sherlock] 📥 Task from p2_scripts: script
-# [@report_fetcher] Fetching report... (Python - zero tokens!)
+# [@report_fetcher] Fetching report...
 # [Sherlock] Analysis complete
 
 # 3. Check AgentChat UI
@@ -591,9 +581,9 @@ curl -X POST http://localhost:5001/server/scripts/execute \
 ## 🎯 KEY IMPROVEMENTS (v3.0)
 
 ### Token Efficiency
-✅ **90% token savings** - Reports pre-fetched by Python, not LLM tools  
+✅ **90% token savings** - Reports pre-fetched by Python  
 ✅ **No redundant fetching** - Fetch once, use everywhere  
-✅ **Prompt caching** - System prompts cached (90% cheaper)
+✅ **Prompt caching** - System prompts cached
 
 ### Visibility
 ✅ **Real-time UI** - See analysis as it happens  
@@ -617,13 +607,11 @@ curl -X POST http://localhost:5001/server/scripts/execute \
 ## 📈 PERFORMANCE METRICS
 
 ### Before (v2.x)
-- Tool calls per analysis: 1 (`fetch_execution_report`)
 - Tokens per analysis: ~2500-3000
 - Cost per analysis: ~$0.003
 - User visibility: None (silent background)
 
 ### After (v3.0)
-- Tool calls per analysis: 0 (pre-fetched!)
 - Tokens per analysis: ~300-500
 - Cost per analysis: ~$0.0003
 - User visibility: Real-time UI + Slack
@@ -632,7 +620,7 @@ curl -X POST http://localhost:5001/server/scripts/execute \
 - **90% fewer tokens**
 - **90% cost reduction**
 - **5s faster** (no HTTP during LLM)
-- **100% visibility** (was 0%)
+- **100% visibility**
 
 ---
 

@@ -30,7 +30,7 @@ system_prompt: |
   
   QUEUE MODE (from Redis - report already pre-fetched):
   1. Extract SCRIPT_RESULT_ID from message (this is the UUID)
-  2. Read the report content from message (already fetched - NO tool call!)
+  2. Read the report content from message (already included)
   3. Classify the result based on the report
   4. Call update_execution_analysis(script_result_id='<UUID>', ...) to save
   

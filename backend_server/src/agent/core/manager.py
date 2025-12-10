@@ -715,7 +715,7 @@ ERROR: {error_msg}
 DURATION: {execution_time_ms}ms
 """
             
-            # Pre-fetch report content (no LLM tokens needed!)
+            # Pre-fetch report content
             if report_url:
                 try:
                     from backend_server.src.lib.report_fetcher import fetch_execution_report

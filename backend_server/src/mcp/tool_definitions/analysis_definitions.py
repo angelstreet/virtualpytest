@@ -7,34 +7,6 @@ def get_tools() -> List[Dict[str, Any]]:
     """Get analysis tool definitions"""
     return [
         {
-            "name": "fetch_execution_report",
-            "description": """Fetch and display execution report content from URL.
-
-Returns parsed content for viewing:
-- Report: steps, errors, raw text
-- Logs: content (truncated)
-
-NOTE: This is a READ-ONLY operation - it does NOT update/analyze the result.
-Use after get_execution_results when user wants to SEE report details.
-
-Example:
-  fetch_execution_report(report_url='https://...', logs_url='https://...')""",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "report_url": {
-                        "type": "string",
-                        "description": "URL to the HTML execution report"
-                    },
-                    "logs_url": {
-                        "type": "string",
-                        "description": "URL to the logs file (optional)"
-                    }
-                },
-                "required": ["report_url"]
-            }
-        },
-        {
             "name": "get_execution_results",
             "description": """Get execution results from database with filters.
 

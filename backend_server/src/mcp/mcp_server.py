@@ -220,7 +220,6 @@ class VirtualPyTestMCPServer:
             'get_deployment_history': self.deployment_tools.get_deployment_history,
             
             # Analysis tools (for analyzer agent)
-            'fetch_execution_report': self.analysis_tools.fetch_execution_report,
             'get_execution_results': self.analysis_tools.get_execution_results,
             'update_execution_analysis': self.analysis_tools.update_execution_analysis,
             'get_analysis_queue_status': self.analysis_tools.get_analysis_queue_status,
