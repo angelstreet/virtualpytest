@@ -57,6 +57,7 @@ available_skills:
 skills:
   - list_userinterfaces
   - list_hosts
+  - get_execution_result
 
 permissions:
   devices:
