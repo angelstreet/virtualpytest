@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, request
 
 # Import database functions from src/lib/supabase (uses absolute import)
 from shared.src.lib.database.execution_results_db import (
-    get_last_execution_results,
+    get_execution_results,
     get_tree_metrics
 )
 
@@ -34,7 +34,7 @@ def get_all_execution_results():
     
     try:
         # Get execution results from database
-        result = get_last_execution_results(team_id, limit=200)
+        result = get_execution_results(team_id, limit=200)
         
         if result['success']:
             return jsonify(result['execution_results'])
