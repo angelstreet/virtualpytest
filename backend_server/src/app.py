@@ -569,11 +569,14 @@ def initialize_agent_triggers():
     """Initialize event-triggered agent analysis"""
     print("[@backend_server:triggers] Initializing agent triggers...")
     try:
-        from agent.core.trigger_handler import initialize_triggers
+        # Import directly to avoid circular import through agent.core.__init__
+        from backend_server.src.agent.core.trigger_handler import initialize_triggers
         initialize_triggers()
         print("[@backend_server:triggers] ✅ Agent triggers initialized")
     except Exception as e:
         print(f"[@backend_server:triggers] ⚠️  Failed to initialize triggers: {e}")
+        import traceback
+        traceback.print_exc()
         # Non-fatal - chat mode still works without triggers
 
 

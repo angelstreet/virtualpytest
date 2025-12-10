@@ -20,11 +20,8 @@ from .event_bus import (
     AnalysisQueue,
     get_analysis_queue,
 )
-from .trigger_handler import (
-    TriggerHandler,
-    get_trigger_handler,
-    initialize_triggers,
-)
+# Note: trigger_handler is NOT imported here to avoid circular imports
+# Import it directly where needed: from agent.core.trigger_handler import initialize_triggers
 
 __all__ = [
     'QAManagerAgent',
@@ -39,9 +36,6 @@ __all__ = [
     'get_event_bus',
     'AnalysisQueue',
     'get_analysis_queue',
-    'TriggerHandler',
-    'get_trigger_handler',
-    'initialize_triggers',
 ]
 
 
