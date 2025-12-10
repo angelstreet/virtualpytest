@@ -3,7 +3,7 @@ Nightwatch Handler - Incident/Alert Background Tasks
 
 Handles alerts from p1_alerts queue.
 Supports dry-run mode for monitoring without AI processing.
-Sends events to Slack #nightwatch channel.
+In dry-run mode: logs only, NO Slack (avoids rate limits).
 """
 
 import json
@@ -55,10 +55,8 @@ class NightwatchHandler:
         except Exception as emit_error:
             print(f"[{self.nickname}] ⚠️  Failed to emit event: {emit_error}")
         
-        # Send to Slack #nightwatch channel
-        self.send_to_slack(task_type, task_id, task_data)
-        
-        print(f"[{self.nickname}] ✅ DRY RUN complete for task {task_id}")
+        # DRY RUN: No Slack to avoid rate limits - just log + Socket.IO
+        print(f"[{self.nickname}] ✅ DRY RUN complete for task {task_id} (no Slack)")
     
     def build_event_content(self, task_type: str, task_id: str, task_data: Dict[str, Any]) -> str:
         """Build human-readable event content for dry-run mode"""
