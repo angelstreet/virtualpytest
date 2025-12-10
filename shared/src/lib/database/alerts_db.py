@@ -250,13 +250,14 @@ def create_alert(
         if result.data:
             print(f"[@db:alerts:create_alert] Success: {alert_id}")
             
-            # Add to analysis queue for Sherlock to process
+            # Add to analysis queue for Nightwatch/Sherlock to process
+            # Include FULL alert data so AI can analyze without DB lookup
             try:
                 from shared.src.lib.utils.redis_queue import get_queue_processor
                 queue_processor = get_queue_processor()
                 queue_processor.add_alert_to_queue(alert_id, {
-                    'id': alert_id,
-                    'type': 'alert'
+                    **alert_data,  # Full alert: host_name, device_id, incident_type, metadata, etc.
+                    'alert_type': incident_type,  # Alias for handler compatibility
                 })
                 print(f"[@db:alerts:create_alert] Added to analysis queue: {alert_id}")
             except Exception as e:

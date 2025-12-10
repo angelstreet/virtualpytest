@@ -60,80 +60,93 @@ class NightwatchHandler:
     
     def build_event_content(self, task_type: str, task_id: str, task_data: Dict[str, Any]) -> str:
         """Build human-readable event content for dry-run mode"""
-        if task_type == 'incident':
-            incident_type = task_data.get('incident_type', 'unknown')
-            host_name = task_data.get('host_name', 'Unknown')
-            severity = task_data.get('severity', 'unknown')
-            description = task_data.get('description', 'No description')
-            
-            return f"""INCIDENT_ID: {task_id}
+        # Alert data structure: incident_type, host_name, device_name, status, consecutive_count, metadata
+        incident_type = task_data.get('incident_type') or task_data.get('alert_type', 'unknown')
+        host_name = task_data.get('host_name', 'Unknown')
+        device_name = task_data.get('device_name', '')
+        status = task_data.get('status', 'active')
+        consecutive_count = task_data.get('consecutive_count', 0)
+        
+        # Extract severity from metadata if available
+        metadata = task_data.get('metadata', {})
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except:
+                metadata = {}
+        
+        # Build summary from metadata
+        summary_parts = []
+        if metadata.get('freeze'):
+            summary_parts.append('FREEZE detected')
+        if metadata.get('blackscreen'):
+            summary_parts.append('BLACKSCREEN detected')
+        if metadata.get('audio') is False or metadata.get('mean_volume_db', 0) < -80:
+            summary_parts.append('AUDIO LOSS detected')
+        
+        summary = ' | '.join(summary_parts) if summary_parts else f'{incident_type} detected'
+        device_info = f" ({device_name})" if device_name else ""
+        
+        return f"""ALERT_ID: {task_id}
 TYPE: {incident_type}
-HOST: {host_name}
-SEVERITY: {severity}
-DESCRIPTION: {description}"""
-        
-        elif task_type == 'alert':
-            alert_type = task_data.get('alert_type', 'unknown')
-            host_name = task_data.get('host_name', 'Unknown')
-            message = task_data.get('message', 'No message')
-            
-            return f"""ALERT_ID: {task_id}
-TYPE: {alert_type}
-HOST: {host_name}
-MESSAGE: {message}"""
-        
-        else:
-            return f"""TASK_ID: {task_id}
-TYPE: {task_type}
-DATA: {json.dumps(task_data, indent=2, default=str)[:300]}"""
+HOST: {host_name}{device_info}
+STATUS: {status}
+COUNT: {consecutive_count}
+SUMMARY: {summary}"""
     
     def build_task_message(self, task_type: str, task_id: str, task_data: Dict[str, Any]) -> str:
         """Build agent message for actual processing (non dry-run mode)"""
-        if task_type == 'alert':
-            alert_type = task_data.get('alert_type', 'unknown')
-            host_name = task_data.get('host_name', 'Unknown')
-            message = task_data.get('message', 'No message')
-            severity = task_data.get('severity', 'normal')
-            
-            return f"""Analyze this alert and determine appropriate action:
+        # Alert data structure from DB
+        incident_type = task_data.get('incident_type') or task_data.get('alert_type', 'unknown')
+        host_name = task_data.get('host_name', 'Unknown')
+        device_name = task_data.get('device_name', '')
+        status = task_data.get('status', 'active')
+        consecutive_count = task_data.get('consecutive_count', 0)
+        start_time = task_data.get('start_time', '')
+        
+        # Parse metadata for details
+        metadata = task_data.get('metadata', {})
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except:
+                metadata = {}
+        
+        # Build context from metadata
+        context_lines = []
+        if metadata.get('freeze'):
+            freeze_debug = metadata.get('freeze_debug', {})
+            context_lines.append(f"- FREEZE: {freeze_debug.get('frames_found', '?')} frozen frames detected")
+        if metadata.get('blackscreen'):
+            context_lines.append(f"- BLACKSCREEN: {metadata.get('blackscreen_percentage', '?')}% black")
+        if metadata.get('mean_volume_db') is not None:
+            context_lines.append(f"- AUDIO: {metadata.get('mean_volume_db', '?')} dB")
+        if metadata.get('r2_images', {}).get('thumbnail_urls'):
+            context_lines.append(f"- IMAGES: {len(metadata['r2_images']['thumbnail_urls'])} thumbnails available")
+        
+        context = '\n'.join(context_lines) if context_lines else 'No additional context'
+        device_info = f" ({device_name})" if device_name else ""
+        
+        return f"""Analyze this alert and determine appropriate action:
 
 ALERT_ID: {task_id}
-TYPE: {alert_type}
-HOST: {host_name}
-SEVERITY: {severity}
-MESSAGE: {message}
+TYPE: {incident_type}
+HOST: {host_name}{device_info}
+STATUS: {status}
+CONSECUTIVE_COUNT: {consecutive_count}
+START_TIME: {start_time}
+
+DETECTION DETAILS:
+{context}
 
 Based on the alert, determine:
 1. Is this a real incident requiring action?
 2. What is the root cause?
 3. What action should be taken?
 """
-        
-        elif task_type == 'incident':
-            incident_type = task_data.get('incident_type', 'unknown')
-            host_name = task_data.get('host_name', 'Unknown')
-            severity = task_data.get('severity', 'unknown')
-            description = task_data.get('description', 'No description')
-            
-            return f"""Analyze this incident and determine appropriate action:
-
-INCIDENT_ID: {task_id}
-TYPE: {incident_type}
-HOST: {host_name}
-SEVERITY: {severity}
-DESCRIPTION: {description}
-
-Based on the incident, determine:
-1. What is the severity level?
-2. What is the root cause?
-3. What immediate action should be taken?
-"""
-        
-        else:
-            return f"Unknown task type: {task_type}"
     
-    def send_to_slack(self, task_type: str, task_id: str, task_data: Dict[str, Any], result: str = None, dry_run: bool = True):
-        """Send incident event to Slack #nightwatch channel"""
+    def send_to_slack(self, task_type: str, task_id: str, task_data: Dict[str, Any], result: str = None, dry_run: bool = False):
+        """Send incident event to Slack #nightwatch channel (only when dry_run=False)"""
         try:
             try:
                 from backend_server.src.integrations.agent_slack_hook import send_to_slack_channel
@@ -145,52 +158,54 @@ Based on the incident, determine:
             if not SLACK_AVAILABLE:
                 return
             
-            dry_run_label = " (DRY RUN)" if dry_run else ""
-            dry_run_note = "\n_⚠️ Dry-run mode: Not processing, just monitoring_" if dry_run else ""
+            # Extract alert data
+            incident_type = task_data.get('incident_type') or task_data.get('alert_type', 'unknown')
+            host_name = task_data.get('host_name', 'Unknown')
+            device_name = task_data.get('device_name', '')
+            status = task_data.get('status', 'active')
+            consecutive_count = task_data.get('consecutive_count', 0)
             
-            # Build Slack message based on task type
-            if task_type == 'incident':
-                incident_type = task_data.get('incident_type', 'unknown')
-                host_name = task_data.get('host_name', 'Unknown')
-                severity = task_data.get('severity', 'unknown')
-                description = task_data.get('description', 'No description')
-                
-                severity_emoji = {"critical": "🔴", "high": "🟠", "normal": "🟡", "low": "🟢"}.get(severity.lower(), "⚪")
-                
-                slack_message = f"""
-{severity_emoji} *{self.nickname} Incident Detected*{dry_run_label}
+            # Parse metadata
+            metadata = task_data.get('metadata', {})
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except:
+                    metadata = {}
+            
+            # Build summary from metadata
+            issues = []
+            if metadata.get('freeze'):
+                issues.append('🧊 FREEZE')
+            if metadata.get('blackscreen'):
+                issues.append('⬛ BLACKSCREEN')
+            if metadata.get('audio') is False or metadata.get('mean_volume_db', 0) < -80:
+                issues.append('🔇 AUDIO LOSS')
+            
+            issues_str = ' | '.join(issues) if issues else incident_type
+            device_info = f" ({device_name})" if device_name else ""
+            
+            # Severity based on consecutive count
+            if consecutive_count >= 10:
+                severity_emoji = "🔴"
+                severity = "critical"
+            elif consecutive_count >= 5:
+                severity_emoji = "🟠"
+                severity = "high"
+            else:
+                severity_emoji = "🟡"
+                severity = "normal"
+            
+            slack_message = f"""
+{severity_emoji} *{self.nickname} Alert*
 
 *Type*: `{incident_type}`
-*Host*: `{host_name}`
+*Host*: `{host_name}`{device_info}
+*Issues*: {issues_str}
+*Status*: {status} (count: {consecutive_count})
 *Severity*: {severity}
-*Description*: {description}
 
-*Task ID*: `{task_id}`{dry_run_note}
-"""
-            
-            elif task_type == 'alert':
-                alert_type = task_data.get('alert_type', 'unknown')
-                host_name = task_data.get('host_name', 'Unknown')
-                message = task_data.get('message', 'No message')
-                
-                slack_message = f"""
-🚨 *{self.nickname} Alert Received*{dry_run_label}
-
-*Type*: `{alert_type}`
-*Host*: `{host_name}`
-*Message*: {message}
-
-*Task ID*: `{task_id}`{dry_run_note}
-"""
-            
-            else:
-                slack_message = f"""
-📋 *{self.nickname} Event Received*{dry_run_label}
-
-*Type*: `{task_type}`
-*Task ID*: `{task_id}`
-*Data*: ```{json.dumps(task_data, indent=2, default=str)[:300]}```
-{dry_run_note}
+*Alert ID*: `{task_id}`
 """
             
             # Add result if provided (non dry-run)
