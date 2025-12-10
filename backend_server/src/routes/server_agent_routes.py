@@ -119,7 +119,6 @@ server_agent_bp = Blueprint('server_agent', __name__, url_prefix='/server/agent'
 _manager = None
 _session_manager = None
 
-
 def get_manager(team_id: str = None, agent_id: str = None):
     """
     Get or create QA Manager instance (lazy load)

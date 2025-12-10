@@ -220,10 +220,7 @@ class VirtualPyTestMCPServer:
             'get_deployment_history': self.deployment_tools.get_deployment_history,
             
             # Analysis tools (for analyzer agent)
-            'fetch_execution_report': self.analysis_tools.fetch_execution_report,
-            'fetch_execution_logs': self.analysis_tools.fetch_execution_logs,
-            'get_last_execution_event': self.analysis_tools.get_last_execution_event,
-            'get_analysis_queue_status': self.analysis_tools.get_analysis_queue_status,
+            'get_execution_result': self.analysis_tools.get_execution_result,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")

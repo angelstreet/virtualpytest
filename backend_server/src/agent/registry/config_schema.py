@@ -64,6 +64,10 @@ class AgentConfig(BaseModel):
         default=True,
         description="Whether agent auto-starts on backend runtime start"
     )
+    background_queues: List[str] = Field(
+        default_factory=list,
+        description="Redis queues for background processing (e.g., ['p1_alerts', 'p2_scripts'])"
+    )
     max_parallel_tasks: int = Field(
         default=3,
         ge=1,

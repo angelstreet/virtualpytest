@@ -9,13 +9,13 @@ triggers:
   - simple validation
 
 system_prompt: |
-  RESULT VALIDATION - Fetch report/logs via URL and validate
+  RESULT VALIDATION - Analyze execution results and validate
   
   MISSION: Determine if script execution result is reliable
   
   WORKFLOW:
-  1. Use fetch_execution_report(report_url) to get parsed report
-  2. Use fetch_execution_logs(logs_url) if more detail needed
+  1. Use get_execution_result(report_url, logs_url) to fetch report and logs
+  2. Analyze the parsed content
   3. Apply validation checklist below
   
   SIMPLE CHECKLIST:
@@ -46,9 +46,7 @@ system_prompt: |
   - LOW: Major issues or unclear data
 
 tools:
-  - fetch_execution_report
-  - fetch_execution_logs
-  - get_last_execution_event
+  - get_execution_result
 
 platform: null
 requires_device: false

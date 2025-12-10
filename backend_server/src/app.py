@@ -413,10 +413,67 @@ def register_all_server_routes(app):
         print(f"❌ CRITICAL: Cannot load routes: {e}")
         return False
 
+# Global registry for persistent agents with background workers
+_background_agents = {}
+
+
+def start_agent_background_workers():
+    """Auto-start background workers for agents with background_queues configured"""
+    global _background_agents
+    
+    try:
+        from agent.registry import get_agent_registry
+        from agent.core.manager import QAManagerAgent
+        
+        registry = get_agent_registry()
+        agents = registry.list_agents()
+        
+        for agent_def in agents:
+            agent_id = agent_def.metadata.id
+            config = agent_def.config
+            
+            # Check if agent has background_queues configured
+            if config and hasattr(config, 'background_queues') and config.background_queues:
+                queues = config.background_queues
+                print(f"[@backend_server:background] Starting background for {agent_id}, queues: {queues}")
+                
+                try:
+                    agent = QAManagerAgent(agent_id=agent_id)
+                    started = agent.start_background()
+                    
+                    if started:
+                        _background_agents[agent_id] = agent
+                        print(f"[@backend_server:background] ✅ {agent_id} background started")
+                    else:
+                        print(f"[@backend_server:background] ⚠️ {agent_id} background failed to start")
+                        
+                except Exception as e:
+                    print(f"[@backend_server:background] ❌ {agent_id} error: {e}")
+        
+        if _background_agents:
+            print(f"[@backend_server:background] 🚀 {len(_background_agents)} agent(s) with background workers")
+        else:
+            print("[@backend_server:background] ℹ️ No agents with background_queues configured")
+            
+    except Exception as e:
+        print(f"[@backend_server:background] ⚠️ Failed to start background workers: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def setup_server_cleanup():
     """Setup cleanup handlers for server"""
     def cleanup():
         print("[@backend_server:cleanup] Cleaning up server resources...")
+        
+        # Stop background agents
+        for agent_id, agent in _background_agents.items():
+            try:
+                if agent.background_running:
+                    agent.stop_background()
+                    print(f"[@backend_server:cleanup] ✅ Stopped {agent_id} background")
+            except Exception:
+                pass
     
     atexit.register(cleanup)
 
@@ -565,20 +622,6 @@ def start_server(app):
     finally:
         print("[@backend_server:start] 👋 backend_server application stopped")
 
-def initialize_agent_triggers():
-    """Initialize event-triggered agent analysis"""
-    print("[@backend_server:triggers] Initializing agent triggers...")
-    try:
-        # Import directly to avoid circular import through agent.core.__init__
-        from backend_server.src.agent.core.trigger_handler import initialize_triggers
-        initialize_triggers()
-        print("[@backend_server:triggers] ✅ Agent triggers initialized")
-    except Exception as e:
-        print(f"[@backend_server:triggers] ⚠️  Failed to initialize triggers: {e}")
-        import traceback
-        traceback.print_exc()
-        # Non-fatal - chat mode still works without triggers
-
 
 def main():
     """Main function"""
@@ -596,8 +639,8 @@ def main():
         print("❌ CRITICAL: Cannot start server without all routes")
         sys.exit(1)
     
-    # STEP 4: Initialize agent triggers (event bus → queue → analyzer)
-    initialize_agent_triggers()
+    # STEP 4: Start background workers for agents with background_queues configured
+    start_agent_background_workers()
     
     # STEP 5: Start server
     start_server(app)

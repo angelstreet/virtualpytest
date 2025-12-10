@@ -9,13 +9,13 @@ triggers:
   - simple failure check
 
 system_prompt: |
-  FAILURE ANALYSIS - Fetch report/logs via URL and classify
+  FAILURE ANALYSIS - Analyze execution results and classify
   
   MISSION: Classify test failures using simple rules
   
   WORKFLOW:
-  1. Use fetch_execution_report(report_url) to get parsed HTML report
-  2. Use fetch_execution_logs(logs_url) if report is insufficient
+  1. Use get_execution_result(report_url, logs_url) to fetch report and logs
+  2. Analyze the parsed content
   3. Apply classification rules below
   
   SIMPLE RULES:
@@ -64,9 +64,7 @@ system_prompt: |
   - DISCARD: Low confidence (UNKNOWN)
 
 tools:
-  - fetch_execution_report
-  - fetch_execution_logs
-  - get_last_execution_event
+  - get_execution_result
 
 platform: null
 requires_device: false

@@ -1,57 +1,53 @@
 # Agent Configuration: Result Analyzer
-# Version: 2.4.0
+# Version: 2.5.0
 # Author: system
 #
-# Analyzes script and test results to detect false positives.
+# Analyzes script execution results to detect false positives.
 #
 # TWO MODES:
-# 1. Chat Mode: User selects analyzer and provides report URL directly
-# 2. Event Mode: Automatically triggered via queue when execution completes
+# 1. Chat Mode: User provides report URL directly
+# 2. Queue Mode: Background processing from p2_scripts queue
 #
-# Architecture:
-# - Chat requests → Immediate response (separate thread)
-# - Event triggers → Background queue (doesn't block chat)
+# Queue Flow:
+# 1. Task arrives: {type: 'script', id: '<script_id>', data: {...}}
+# 2. Agent fetches full script data from database (html_report_r2_url, logs, etc.)
+# 3. Agent uses fetch_execution_report/fetch_execution_logs tools
+# 4. Agent classifies: BUG | SCRIPT_ISSUE | SYSTEM_ISSUE | UNKNOWN
 #
 ---
 metadata:
   id: analyzer
   name: Result Analyzer
   nickname: Sherlock
-  selectable: true  # Users can select in chat
+  selectable: true
   default: false
-  version: 2.4.0
+  version: 2.5.0
   author: system
   description: "Analyzes script and test results"
   tags:
     - analysis
-    - autonomous
+    - scripts
     - validation
   suggestions:
     - "Analyze this report: http://..."
-    - "What's in the analysis queue?"
+    - "Is this failure a real bug or false positive?"
 
 triggers:
   - type: chat.message
-    priority: high  # Chat always takes priority
+    priority: high
 
-  - type: script.completed
-    priority: normal  # Queued for background processing
-  
-  - type: testcase.completed
-    priority: normal  # Queued for background processing
+  - type: redis.queue.script
+    priority: normal
 
 subagents: []
 
-# Micro-skills this agent can load (from skills/definitions/)
 available_skills:
-  - validate   # Result validation using report URLs
-  - analyze    # Failure classification using report URLs
+  - validate
+  - analyze
 
-# Router mode MCP tools (minimal - for quick queries)
+# Router mode tools
 skills:
-  - get_last_execution_event
-  - fetch_execution_report
-  - get_analysis_queue_status
+  - get_execution_result
 
 permissions:
   devices:
@@ -62,11 +58,11 @@ permissions:
     - write.analysis_results
 
   external:
-    - slack
-    - http  # Needed for fetching reports/logs via URL
+    - http
 
 config:
   enabled: true
+  background_queues: ['p2_scripts']  # Only scripts, alerts handled by different agent
   max_parallel_tasks: 5
   approval_required_for: []
   auto_retry: true

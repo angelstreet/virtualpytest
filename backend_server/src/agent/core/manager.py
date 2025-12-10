@@ -5,6 +5,7 @@ The orchestrator dynamically loads skills based on user requests:
 - Router mode: Minimal tools, decides which skill to load
 - Skill mode: Full tool access from loaded skill
 - Prompt Caching: System prompt and tools are cached for 90% cost reduction
+- Queue Worker: Background thread for processing Redis queue items
 
 Skills are defined in YAML files and provide focused capabilities.
 """
@@ -12,13 +13,17 @@ Skills are defined in YAML files and provide focused capabilities.
 import re
 import logging
 import time
+import threading
+import asyncio
+import json
+import os
 from typing import Dict, Any, AsyncGenerator, Optional, List
 
 import anthropic
 
 from ..config import get_anthropic_api_key, DEFAULT_MODEL, LANGFUSE_ENABLED
 from ..observability import track_generation, track_tool_call, flush
-from .session import Session
+from .session import Session, SessionManager
 from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent
 
@@ -48,6 +53,11 @@ class QAManagerAgent:
         # Active skill (None = router mode)
         self._active_skill = None
         
+        # Queue worker state
+        self._queue_worker_running = False
+        self._queue_worker_thread: Optional[threading.Thread] = None
+        self._session_manager = SessionManager()
+        
         # Load skills on startup
         from ..skills import SkillLoader
         SkillLoader.load_all_skills()
@@ -68,6 +78,11 @@ class QAManagerAgent:
         config = agent_def.config
         platform = config.platform_filter if config else None
         
+        # Get background queues from config
+        background_queues = []
+        if config and hasattr(config, 'background_queues'):
+            background_queues = config.background_queues or []
+        
         return {
             'name': metadata.name,
             'nickname': metadata.nickname or metadata.name,
@@ -76,6 +91,7 @@ class QAManagerAgent:
             'skills': agent_def.skills or [],
             'available_skills': getattr(agent_def, 'available_skills', []) or [],
             'subagents': [s.id for s in (agent_def.subagents or [])],
+            'background_queues': background_queues,
         }
     
     @property
@@ -419,3 +435,193 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content="Cancelled. What next?")
         
         yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
+    
+    # =========================================================================
+    # BACKGROUND WORKER - Processes items from configured Redis queues
+    # =========================================================================
+    
+    def start_background(self) -> bool:
+        """
+        Start background thread to process items from configured queues.
+        
+        Returns:
+            True if started, False if no queues configured or already running
+        """
+        queues = self.agent_config.get('background_queues', [])
+        if not queues:
+            self.logger.info(f"[{self.nickname}] No background_queues configured")
+            return False
+        
+        if self._queue_worker_running:
+            self.logger.warning(f"[{self.nickname}] Background worker already running")
+            return False
+        
+        self._queue_worker_running = True
+        self._queue_worker_thread = threading.Thread(
+            target=self._background_loop,
+            daemon=True,
+            name=f"agent-{self.agent_id}-background"
+        )
+        self._queue_worker_thread.start()
+        self.logger.info(f"[{self.nickname}] 🚀 Background worker started, queues: {queues}")
+        return True
+    
+    def stop_background(self):
+        """Stop background worker thread"""
+        if not self._queue_worker_running:
+            return
+        
+        self._queue_worker_running = False
+        if self._queue_worker_thread:
+            self._queue_worker_thread.join(timeout=5)
+        self.logger.info(f"[{self.nickname}] 🛑 Background worker stopped")
+    
+    @property
+    def background_running(self) -> bool:
+        """Check if background worker is running"""
+        return self._queue_worker_running
+    
+    def _get_redis_client(self):
+        """Get Redis client for queue operations"""
+        try:
+            import redis
+            
+            redis_url = os.getenv('UPSTASH_REDIS_REST_URL', '')
+            redis_token = os.getenv('UPSTASH_REDIS_REST_TOKEN', '')
+            
+            if redis_url:
+                host = redis_url.replace('https://', '').replace('http://', '').split('/')[0]
+                return redis.Redis(
+                    host=host,
+                    port=6379,
+                    password=redis_token,
+                    ssl=True,
+                    ssl_cert_reqs=None,
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+            else:
+                redis_host = os.getenv('REDIS_HOST', 'localhost')
+                redis_port = int(os.getenv('REDIS_PORT', '6379'))
+                redis_password = os.getenv('REDIS_PASSWORD', None)
+                
+                return redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    password=redis_password,
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+        except Exception as e:
+            self.logger.error(f"[{self.nickname}] Failed to create Redis client: {e}")
+            return None
+    
+    def _background_loop(self):
+        """Background loop - monitors queues and processes items"""
+        queues = self.agent_config.get('background_queues', [])
+        redis_client = self._get_redis_client()
+        
+        if not redis_client:
+            self.logger.error(f"[{self.nickname}] Cannot start background loop - no Redis")
+            self._queue_worker_running = False
+            return
+        
+        self.logger.info(f"[{self.nickname}] 🔄 Background loop started, monitoring: {queues}")
+        
+        while self._queue_worker_running:
+            try:
+                # BLPOP blocks until item arrives or timeout (60s)
+                result = redis_client.blpop(queues, timeout=60)
+                
+                if result and self._queue_worker_running:
+                    queue_name, task_json = result
+                    task = json.loads(task_json)
+                    
+                    self.logger.info(f"[{self.nickname}] 📥 Task from {queue_name}: {task.get('type', 'unknown')}")
+                    self._process_background_task(task, queue_name)
+                    
+            except Exception as e:
+                if self._queue_worker_running:
+                    self.logger.error(f"[{self.nickname}] Background loop error: {e}")
+                    time.sleep(5)
+        
+        self.logger.info(f"[{self.nickname}] 👋 Background loop ended")
+    
+    def _process_background_task(self, task: Dict[str, Any], queue_name: str):
+        """Process a single background task"""
+        try:
+            task_type = task.get('type', 'unknown')
+            task_id = task.get('id', 'unknown')
+            task_data = task.get('data', {})
+            
+            # Build message for agent based on task type
+            message = self._build_task_message(task_type, task_id, task_data)
+            
+            # Create session for this task
+            session = self._session_manager.create_session()
+            session.set_context('task_id', task_id)
+            session.set_context('task_type', task_type)
+            session.set_context('queue_name', queue_name)
+            
+            # Process with agent (run async in sync context)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                responses = []
+                
+                async def process():
+                    async for event in self.process_message(message, session):
+                        if event.type == EventType.MESSAGE:
+                            responses.append(event.content)
+                
+                loop.run_until_complete(process())
+                
+                result = '\n'.join(responses)
+                self.logger.info(f"[{self.nickname}] ✅ Task {task_id} complete")
+                
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            self.logger.error(f"[{self.nickname}] ❌ Task processing error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _build_task_message(self, task_type: str, task_id: str, task_data: Dict[str, Any]) -> str:
+        """Build agent message from queue task. All data comes from queue, no DB fetch."""
+        if task_type == 'script':
+            script_name = task_data.get('script_name', 'Unknown')
+            success = task_data.get('success', False)
+            error_msg = task_data.get('error_msg', 'None')
+            execution_time_ms = task_data.get('execution_time_ms', 0)
+            report_url = task_data.get('html_report_r2_url', '')
+            logs_url = task_data.get('logs_url', '')
+            
+            msg = f"""Analyze this script execution for false positive detection:
+
+SCRIPT: {script_name}
+RESULT: {'PASSED' if success else 'FAILED'}
+ERROR: {error_msg}
+DURATION: {execution_time_ms}ms
+"""
+            if report_url:
+                msg += f"""
+Use get_execution_result(report_url='{report_url}'"""
+                if logs_url:
+                    msg += f", logs_url='{logs_url}'"
+                msg += ") to get the detailed report."
+            
+            msg += """
+
+Classify as:
+- BUG: Real application issue
+- SCRIPT_ISSUE: Test/automation problem  
+- SYSTEM_ISSUE: Infrastructure problem"""
+            
+            return msg
+        
+        else:
+            return f"Unknown task type: {task_type}"
