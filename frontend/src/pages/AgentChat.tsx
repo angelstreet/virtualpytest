@@ -1103,7 +1103,13 @@ useEffect(() => {
                           '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
                           fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
                         }}>
-                          <ReactMarkdown>
+                          <ReactMarkdown
+                            components={{
+                              a: ({ href, children }) => (
+                                <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                              ),
+                            }}
+                          >
                             {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
                           </ReactMarkdown>
                         </Box>
@@ -1119,7 +1125,13 @@ useEffect(() => {
                         '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
                         fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
                       }}>
-                        <ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            a: ({ href, children }) => (
+                              <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                            ),
+                          }}
+                        >
                           {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
                         </ReactMarkdown>
                       </Box>
