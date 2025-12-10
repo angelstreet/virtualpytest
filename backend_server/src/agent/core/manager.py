@@ -546,6 +546,13 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                     
             except Exception as e:
                 if self._queue_worker_running:
+                    # Ignore expected Redis timeout exceptions
+                    error_msg = str(e).lower()
+                    if 'timeout' in error_msg and 'socket' in error_msg:
+                        # This is expected - blpop timeout, continue polling
+                        continue
+                    
+                    # Log actual errors
                     self.logger.error(f"[{self.nickname}] Background loop error: {e}")
                     time.sleep(5)
         
