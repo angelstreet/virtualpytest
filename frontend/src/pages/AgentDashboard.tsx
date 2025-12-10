@@ -126,8 +126,7 @@ export const AgentDashboard: React.FC = () => {
     try {
       const response = await fetch(buildServerUrl('/server/agents'));
       if (!response.ok) {
-        setAgents(getDefaultAgents());
-        return;
+        throw new Error(`API returned ${response.status}`);
       }
       const data = await response.json();
       if (data.agents?.length) {
@@ -148,13 +147,14 @@ export const AgentDashboard: React.FC = () => {
             selectable: true,
           }));
         setAgents(mapped);
+        setError(null);
       } else {
-        setAgents(getDefaultAgents());
+        setAgents([]);
+        setError('No agents configured. Add YAML configurations to backend_server/src/agent/registry/templates/');
       }
-      setError(null);
     } catch (err) {
-      setAgents(getDefaultAgents());
-      setError('API not available - showing predefined agents');
+      setAgents([]);
+      setError(`Failed to load agents from API: ${err instanceof Error ? err.message : 'Unknown error'}. Check backend server status.`);
     }
   };
 
@@ -182,38 +182,6 @@ export const AgentDashboard: React.FC = () => {
     }
   };
 
-  const getDefaultAgents = (): AgentDefinition[] => [
-    {
-      id: 'assistant',
-      name: 'QA Assistant',
-      nickname: 'Atlas',
-      version: '2.0.0',
-      description: 'Interactive QA assistant for human-driven tasks',
-      status: 'active',
-      type: 'on-demand',
-      triggers: ['chat.message']
-    },
-    {
-      id: 'monitor',
-      name: 'QA Monitor',
-      nickname: 'Guardian',
-      version: '2.0.0',
-      description: 'Autonomous monitor that responds to system events',
-      status: 'active',
-      type: 'continuous',
-      triggers: ['alert.blackscreen', 'alert.app_crash', 'alert.anr']
-    },
-    {
-      id: 'analyzer',
-      name: 'Result Analyzer',
-      nickname: 'Sherlock',
-      version: '2.0.0',
-      description: 'Analyzes script and test results to detect false positives',
-      status: 'active',
-      type: 'continuous',
-      triggers: ['script.completed', 'testcase.completed']
-    }
-  ];
 
   const handleToggleAgent = async (agent: AgentDefinition) => {
     const newEnabled = agent.status === 'disabled';
