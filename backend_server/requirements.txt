@@ -125,8 +125,10 @@ slack-sdk>=3.27.0
 apscheduler>=3.10.0     # Task scheduling for autonomous agents
 fastapi>=0.104.0        # Async API framework (for new agent endpoints)
 uvicorn>=0.24.0         # ASGI server
-python-multipart>=0.0.6 # FastAPI file upload support
+python-multipart>=0.0.18 # FastAPI file upload support
 
 # Security scanning tools (for development/CI)
 bandit>=1.7.0
 safety>=3.0.0
+urllib3>=2.6.0 # not directly required, pinned by Snyk to avoid a vulnerability
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
