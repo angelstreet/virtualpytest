@@ -69,9 +69,10 @@ import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming'
 
 const { sidebarWidth: SIDEBAR_WIDTH, rightPanelWidth: RIGHT_PANEL_WIDTH } = AGENT_CHAT_LAYOUT;
 
-// Helper to colorize PASSED/FAILED in text
+// Helper to colorize PASSED/FAILED in text (handles multiple patterns)
 const colorizeStatus = (text: string): React.ReactNode => {
   if (!text) return text;
+  // Match PASSED or FAILED as standalone words or in "Result: PASSED/FAILED" patterns
   const parts = text.split(/(PASSED|FAILED)/g);
   return parts.map((part, i) => {
     if (part === 'PASSED') return <span key={i} style={{ color: '#22c55e', fontWeight: 600 }}>PASSED</span>;

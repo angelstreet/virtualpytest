@@ -154,9 +154,37 @@ class TestCaseTools:
             # POLL for completion - same pattern as navigation/actions
             return self._poll_testcase_completion(execution_id, device_id, host_name, team_id, testcase_name)
         
-        # Sync result - return directly
+        # Sync result - format similar to async completion for consistency
         print(f"[@MCP:execute_testcase] Sync execution completed")
-        return self.formatter.format_api_response(result)
+        
+        # Extract execution details
+        result_success = result.get('success', False)
+        result_type = result.get('result_type', 'error')
+        execution_time_ms = result.get('execution_time_ms', 0)
+        execution_time_s = execution_time_ms / 1000
+        report_url = result.get('report_url', '')
+        logs_url = result.get('logs_url', '')
+        error_msg = result.get('error', '')
+        
+        # Format response similar to execute_script for consistency
+        if result_success:
+            response = f"✅ Test case '{testcase_name}' completed\n"
+            response += f"Result: PASSED ({execution_time_s:.1f}s)\n"
+            if report_url:
+                response += f"\n📄 Report: {report_url}"
+            if logs_url:
+                response += f"\n📋 Logs: {logs_url}"
+            return {"content": [{"type": "text", "text": response}], "isError": False}
+        else:
+            response = f"✅ Test case '{testcase_name}' completed\n"
+            response += f"Result: FAILED ({execution_time_s:.1f}s)\n"
+            if error_msg:
+                response += f"Error: {error_msg}\n"
+            if report_url:
+                response += f"\n📄 Report: {report_url}"
+            if logs_url:
+                response += f"\n📋 Logs: {logs_url}"
+            return {"content": [{"type": "text", "text": response}], "isError": True}
     
     def execute_testcase_by_id(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -279,13 +307,18 @@ class TestCaseTools:
                 # Get result from the nested execution_status_obj, not top-level status
                 result = execution_status_obj.get('result', {})
                 result_success = result.get('success', True)  # Check if testcase execution succeeded
+                result_type = result.get('result_type', 'error')
+                execution_time_ms = result.get('execution_time_ms', 0)
+                execution_time_s = execution_time_ms / 1000
+                report_url = result.get('report_url', '')
+                logs_url = result.get('logs_url', '')
                 
+                # Format response similar to execute_script for consistency
                 if result_success:
                     print(f"[@MCP:poll_testcase] Test case completed successfully after {elapsed}s")
-                    message = result.get('message', f"Test case '{testcase_name}' completed")
-                    report_url = result.get('report_url', '')
-                    logs_url = result.get('logs_url', '')
-                    response = f"✅ {message}"
+                    # Structured output matching execute_script format
+                    response = f"✅ Test case '{testcase_name}' completed\n"
+                    response += f"Result: PASSED ({execution_time_s:.1f}s)\n"
                     if report_url:
                         response += f"\n📄 Report: {report_url}"
                     if logs_url:
@@ -295,10 +328,11 @@ class TestCaseTools:
                     # Execution completed but testcase FAILED
                     print(f"[@MCP:poll_testcase] Test case completed with FAILURES after {elapsed}s")
                     error_msg = result.get('error', 'Test case execution failed')
-                    message = result.get('message', f"Test case '{testcase_name}' failed")
-                    report_url = result.get('report_url', '')
-                    logs_url = result.get('logs_url', '')
-                    response = f"❌ {message}: {error_msg}"
+                    # Structured output matching execute_script format
+                    response = f"✅ Test case '{testcase_name}' completed\n"
+                    response += f"Result: FAILED ({execution_time_s:.1f}s)\n"
+                    if error_msg:
+                        response += f"Error: {error_msg}\n"
                     if report_url:
                         response += f"\n📄 Report: {report_url}"
                     if logs_url:
