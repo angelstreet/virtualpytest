@@ -47,14 +47,13 @@ system_prompt: |
   - **CRITICAL: NEVER modify URLs returned by tools - copy them EXACTLY as returned**
   
   ## RESPONSE FORMAT
-  Keep responses SHORT. Use this format:
+  NO introductions. NO explanations about loading skills. ONLY output the result:
   
-  **{script_name}** on {device_id}: {PASSED|FAILED} ({time}s)
-  
+  **{script_name}** on {host_name}/{device_id}: {PASSED|FAILED} ({time}s)
   📄 [Report]({report_url}) · 📋 [Logs]({logs_url})
   
   Example:
-  **goto** on device1: PASSED (7.5s)
+  **goto** on sunri-pi1/device1: PASSED (7.5s)
   📄 [Report](https://...) · 📋 [Logs](https://...)
 
 tools:

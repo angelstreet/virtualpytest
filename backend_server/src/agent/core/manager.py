@@ -152,18 +152,16 @@ You have minimal tools for quick queries. For complex tasks, load a skill.
 {tools_list}
 
 ## Instructions
-1. Read the user's request carefully
-2. If it's a quick query (list, status, info), use your router tools
-3. If it requires specialized work, respond with: `LOAD SKILL [skill-name]`
+1. Quick queries (list, status, info) → use router tools directly
+2. Specialized work → respond with ONLY: `LOAD SKILL [skill-name]`
+   NO explanations. NO "I'll help you". JUST the command.
 
 Examples:
 - "List testcases" → Use list_testcases tool
-- "Show device status" → Use get_device_info tool
-- "Explore the sauce-demo app" → LOAD SKILL exploration-web
-- "Run testcase TC_AUTH_01" → LOAD SKILL execution
-- "Create a testcase for login" → LOAD SKILL design
+- "Run goto script" → LOAD SKILL execution
+- "Explore sauce-demo" → LOAD SKILL exploration-web
 
-Be direct. Max 2 sentences unless asked for details."""
+Be extremely concise. No fluff."""
     
     def _build_skill_prompt(self, ctx: Dict[str, Any] = None) -> str:
         """Build skill mode prompt - use loaded skill's system prompt"""
@@ -369,18 +367,13 @@ Be thorough with this skill's workflow. Use the tools systematically.
                 if skill_to_load:
                     print(f"[AGENT DEBUG] {self.nickname} loading skill: {skill_to_load}")
                     
-                    # Emit the response first (shows intent)
-                    display_text = re.sub(
-                        r'LOAD\s+SKILL\s+[\w-]+',
-                        f'Loading skill: **{skill_to_load}**',
-                        response_text,
-                        flags=re.IGNORECASE
-                    )
-                    yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=display_text, metrics=metrics)
+                    # Silent skill loading - don't emit verbose router message
+                    # Just emit a minimal skill loading indicator
+                    yield AgentEvent(type=EventType.SKILL_LOADED, agent=self.nickname, content=skill_to_load)
                     
                     # Load the skill
                     if self.load_skill(skill_to_load):
-                        yield AgentEvent(type=EventType.SKILL_LOADED, agent=self.nickname, content=f"✓ Loaded skill: {skill_to_load}")
+                        pass  # Skill loaded, continue to re-process
                         
                         # Re-process with loaded skill
                         print(f"[AGENT DEBUG] {self.nickname} re-processing with skill {skill_to_load}")
