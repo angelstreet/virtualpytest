@@ -26,13 +26,6 @@ metadata:
     - "Explore the sauce-demo web app"
     - "Show device status"
 
-triggers:
-  - type: chat.message
-    priority: normal
-
-event_pools:
-  - own.assistant-tasks
-
 subagents: []
 
 # Micro-skills this agent can load (2-8 tools each)

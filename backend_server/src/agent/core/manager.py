@@ -26,6 +26,8 @@ from ..observability import track_generation, track_tool_call, flush
 from .session import Session, SessionManager
 from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent
+from .sherlock_handler import SherlockHandler
+from .nightwatch_handler import NightwatchHandler
 
 
 class QAManagerAgent:
@@ -58,6 +60,10 @@ class QAManagerAgent:
         self._queue_worker_thread: Optional[threading.Thread] = None
         self._session_manager = SessionManager()
         
+        # Agent-specific handlers (lazy init based on agent_id)
+        self._sherlock_handler: Optional[SherlockHandler] = None
+        self._nightwatch_handler: Optional[NightwatchHandler] = None
+        
         # Load skills on startup
         from ..skills import SkillLoader
         SkillLoader.load_all_skills()
@@ -83,6 +89,11 @@ class QAManagerAgent:
         if config and hasattr(config, 'background_queues'):
             background_queues = config.background_queues or []
         
+        # Get dry_run flag from config
+        dry_run = False
+        if config and hasattr(config, 'dry_run'):
+            dry_run = config.dry_run or False
+        
         return {
             'name': metadata.name,
             'nickname': metadata.nickname or metadata.name,
@@ -92,6 +103,7 @@ class QAManagerAgent:
             'available_skills': getattr(agent_def, 'available_skills', []) or [],
             'subagents': [s.id for s in (agent_def.subagents or [])],
             'background_queues': background_queues,
+            'dry_run': dry_run,
         }
     
     @property
@@ -617,11 +629,26 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             print(f"[{self.nickname}] 👋 Background loop ended")
             self.logger.info(f"[{self.nickname}] 👋 Background loop ended")
     
+    def _get_handler(self):
+        """Get the appropriate handler based on agent type"""
+        if self.agent_id == 'analyzer':
+            if not self._sherlock_handler:
+                self._sherlock_handler = SherlockHandler(self.nickname)
+            return self._sherlock_handler
+        elif self.agent_id == 'monitor':
+            if not self._nightwatch_handler:
+                self._nightwatch_handler = NightwatchHandler(self.nickname)
+            return self._nightwatch_handler
+        return None
+    
     def _process_background_task(self, task: Dict[str, Any], queue_name: str):
         """Process a single background task with Socket.IO and Slack notifications"""
         task_id = 'unknown'
+        is_dry_run = self.agent_config.get('dry_run', False)
+        handler = self._get_handler()
+        
         try:
-            print(f"[{self.nickname}] 🔧 _process_background_task START")
+            print(f"[{self.nickname}] 🔧 _process_background_task START (dry_run={is_dry_run})")
             print(f"[{self.nickname}] 🔧 Task keys: {list(task.keys())}")
             
             task_type = task.get('type', 'unknown')
@@ -631,24 +658,35 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             print(f"[{self.nickname}] 🔧 task_type={task_type}, task_id={task_id}")
             print(f"[{self.nickname}] 🔧 task_data keys: {list(task_data.keys())}")
             
-            # Build message for agent based on task type
+            # DRY RUN MODE: Use Nightwatch handler
+            if is_dry_run:
+                if not self._nightwatch_handler:
+                    self._nightwatch_handler = NightwatchHandler(self.nickname)
+                self._nightwatch_handler.handle_dry_run_task(task_type, task_id, task_data, queue_name)
+                return
+            
+            # Build message using appropriate handler
+            if not handler:
+                print(f"[{self.nickname}] ⚠️  No handler for agent_id={self.agent_id}")
+                return
+            
             print(f"[{self.nickname}] 🔧 Building task message...")
-            message = self._build_task_message(task_type, task_id, task_data)
+            message = handler.build_task_message(task_type, task_id, task_data)
             print(f"[{self.nickname}] 🔧 Message built: {message[:100]}...")
             
-            # Create session for this task (use background room for Socket.IO)
+            # Create session for this task
             print(f"[{self.nickname}] 🔧 Creating session...")
             session = self._session_manager.create_session()
             session.set_context('task_id', task_id)
             session.set_context('task_type', task_type)
             session.set_context('queue_name', queue_name)
-            session.set_context('is_background', True)  # Mark as background task
+            session.set_context('is_background', True)
             print(f"[{self.nickname}] 🔧 Session created: {session.id}")
             
-            # Get Socket.IO manager (singleton, thread-safe)
+            # Get Socket.IO manager
             from ..socket_manager import socket_manager
             
-            # Process with agent (run async in sync context)
+            # Process with agent
             print(f"[{self.nickname}] 🔧 Starting async processing...")
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -661,11 +699,11 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                         if event.type == EventType.MESSAGE:
                             responses.append(event.content)
                         
-                        # Emit event to Socket.IO (background room)
+                        # Emit event to Socket.IO
                         try:
                             event_dict = event.to_dict()
                             socket_manager.emit_to_room(
-                                room='background_tasks',  # Dedicated room for background tasks
+                                room='background_tasks',
                                 event='agent_event',
                                 data=event_dict,
                                 namespace='/agent'
@@ -680,8 +718,8 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                 print(f"[{self.nickname}] ✅ Task {task_id} completed successfully")
                 self.logger.info(f"[{self.nickname}] ✅ Task {task_id} complete")
                 
-                # Send to Slack #sherlock channel
-                self._send_to_slack_sherlock(task_type, task_id, task_data, result, success=True)
+                # Send result to Slack via handler
+                handler.send_to_slack(task_type, task_id, task_data, result, success=True)
                 
             finally:
                 loop.close()
@@ -695,105 +733,3 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             traceback.print_exc()
             print(f"[{self.nickname}] ❌❌❌ END OF ERROR")
     
-    def _build_task_message(self, task_type: str, task_id: str, task_data: Dict[str, Any]) -> str:
-        """Build agent message from queue task. Pre-fetches report to save tokens."""
-        if task_type == 'script':
-            script_name = task_data.get('script_name', 'Unknown')
-            success = task_data.get('success', False)
-            error_msg = task_data.get('error_msg', 'None')
-            execution_time_ms = task_data.get('execution_time_ms', 0)
-            report_url = task_data.get('html_report_r2_url', '')
-            logs_url = task_data.get('logs_url', '')
-            
-            msg = f"""Analyze this script execution for false positive detection:
-
-SCRIPT: {script_name}
-SCRIPT_RESULT_ID: {task_id}
-RESULT: {'PASSED' if success else 'FAILED'}
-ERROR: {error_msg}
-DURATION: {execution_time_ms}ms
-"""
-            
-            # Pre-fetch report content
-            if report_url:
-                try:
-                    from backend_server.src.lib.report_fetcher import fetch_execution_report
-                    report_data = fetch_execution_report(report_url, logs_url)
-                    
-                    # Include parsed report directly in message
-                    if report_data.get('summary'):
-                        msg += f"\n\n{report_data['summary']}"
-                    else:
-                        msg += f"\n\nReport URL: {report_url}"
-                        if logs_url:
-                            msg += f"\nLogs URL: {logs_url}"
-                except Exception as e:
-                    print(f"[{self.nickname}] ⚠️  Failed to pre-fetch report: {e}")
-                    msg += f"\n\nReport URL: {report_url}"
-                    if logs_url:
-                        msg += f"\nLogs URL: {logs_url}"
-            
-            msg += f"""
-
-Based on the report above, classify this execution and call:
-update_execution_analysis(script_result_id='{task_id}', discard=<true/false>, classification=<CLASSIFICATION>, explanation=<brief explanation>)
-
-CLASSIFICATIONS:
-- VALID_PASS: Test passed, legitimate success (discard=false)
-- VALID_FAIL: Test failed, real bug detected (discard=false)
-- BUG: Screenshot shows element BUT error says "not found" (discard=false)
-- SCRIPT_ISSUE: Test automation problem - bad selector/timing/expected value (discard=true)
-- SYSTEM_ISSUE: Infrastructure problem - black screen/no signal/device disconnected (discard=true)"""
-            
-            return msg
-        
-        else:
-            return f"Unknown task type: {task_type}"
-    
-    def _send_to_slack_sherlock(self, task_type: str, task_id: str, task_data: Dict[str, Any], result: str, success: bool = True):
-        """Send analysis result to Slack #sherlock channel"""
-        try:
-            # Try to import Slack hook
-            try:
-                from backend_server.src.integrations.agent_slack_hook import send_to_slack_channel
-                SLACK_AVAILABLE = True
-            except ImportError:
-                SLACK_AVAILABLE = False
-                return
-            
-            if not SLACK_AVAILABLE:
-                return
-            
-            # Build Slack message
-            script_name = task_data.get('script_name', 'Unknown')
-            script_success = task_data.get('success', False)
-            error_msg = task_data.get('error_msg', 'None')
-            
-            status_emoji = "✅" if success else "❌"
-            result_emoji = "🟢" if script_success else "🔴"
-            
-            slack_message = f"""
-{status_emoji} *{self.nickname} Analysis Complete*
-
-*Script*: `{script_name}`
-*Result*: {result_emoji} {'PASSED' if script_success else 'FAILED'}
-*Error*: {error_msg}
-
-*Analysis*:
-```
-{result[:500]}...
-```
-
-*Task ID*: `{task_id}`
-"""
-            
-            # Send to #sherlock channel
-            send_to_slack_channel(
-                channel='#sherlock',
-                message=slack_message,
-                agent_name=self.nickname
-            )
-            print(f"[{self.nickname}] 📬 Sent result to Slack #sherlock")
-            
-        except Exception as e:
-            print(f"[{self.nickname}] ⚠️  Failed to send to Slack: {e}")

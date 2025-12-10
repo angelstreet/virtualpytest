@@ -28,6 +28,38 @@ export interface AgentEvent {
     cache_read_tokens?: number;
     cache_create_tokens?: number;
   };
+  // Background task fields (from dry-run events)
+  task_id?: string;
+  task_type?: string;
+  task_data?: Record<string, unknown>;
+  queue_name?: string;
+  dry_run?: boolean;
+}
+
+// Generic background task - works for any agent with background_queues
+export interface BackgroundTask {
+  id: string;
+  agentId: string;
+  agentNickname: string;
+  title: string;           // Script name, incident type, etc.
+  subtitle?: string;       // Host name, device, etc.
+  status: 'in_progress' | 'completed';
+  severity?: string;       // For alerts: critical, high, normal, low
+  classification?: string; // For analysis: VALID_PASS, BUG, etc.
+  conversationId: string;
+  startedAt: string;
+  completedAt?: string;
+  viewed: boolean;
+  taskType?: string;       // script, alert, incident, etc.
+}
+
+// Background agent info (loaded from API)
+export interface BackgroundAgentInfo {
+  id: string;
+  nickname: string;
+  queues: string[];
+  dryRun: boolean;
+  color?: string;
 }
 
 export interface Message {
@@ -100,26 +132,32 @@ export const useAgentChat = () => {
   const sessionEndedRef = useRef<boolean>(false); // Track if session_ended was received (prevents premature reset)
   const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null); // For delayed disconnect handling
   
-  // Sherlock background tasks state
-  const [sherlockTasks, setSherlockTasks] = useState<{
-    inProgress: Array<{
-      id: string;
-      scriptName: string;
-      conversationId: string;
-      startedAt: string;
-    }>;
-    recent: Array<{
-      id: string;
-      scriptName: string;
-      conversationId: string;
-      classification: string;
-      completedAt: string;
-      viewed: boolean;
-    }>;
-  }>({
-    inProgress: [],
-    recent: []
-  });
+  // Generic background tasks state - keyed by agent ID
+  // Loaded dynamically based on agents with background_queues config
+  const [backgroundTasks, setBackgroundTasks] = useState<Record<string, {
+    inProgress: BackgroundTask[];
+    recent: BackgroundTask[];
+  }>>({});
+  
+  // Background agents info (agents with background_queues) - set from parent
+  const backgroundAgentsRef = useRef<Map<string, BackgroundAgentInfo>>(new Map());
+  
+  // Set background agents (called by parent after loading from API)
+  const setBackgroundAgents = useCallback((agents: BackgroundAgentInfo[]) => {
+    const map = new Map<string, BackgroundAgentInfo>();
+    agents.forEach(a => {
+      map.set(a.id, a);
+      map.set(a.nickname, a); // Also index by nickname for event matching
+    });
+    backgroundAgentsRef.current = map;
+    
+    // Initialize empty state for each background agent
+    const initialState: Record<string, { inProgress: BackgroundTask[]; recent: BackgroundTask[] }> = {};
+    agents.forEach(a => {
+      initialState[a.id] = { inProgress: [], recent: [] };
+    });
+    setBackgroundTasks(prev => ({ ...initialState, ...prev }));
+  }, []);
 
   // --- Conversation Persistence ---
 
@@ -307,186 +345,175 @@ export const useAgentChat = () => {
 
   // --- Socket Connection ---
 
-  // --- Sherlock Event Handler ---
+  // --- Generic Background Event Handler ---
+  // Handles events from any agent with background_queues config
   
-  // Track active Sherlock analysis session
-  const sherlockSessionRef = useRef<{ conversationId: string; taskId: string; scriptName: string } | null>(null);
+  // Track active background sessions per agent
+  const backgroundSessionsRef = useRef<Map<string, { conversationId: string; taskId: string; title: string }>>(new Map());
   
-  const handleSherlockEvent = useCallback((event: AgentEvent) => {
-    console.log('[Sherlock] Handling event:', event.type, event.content?.slice(0, 50));
+  const handleBackgroundEvent = useCallback((event: AgentEvent): boolean => {
+    // Check if this event is from a background agent
+    const agentInfo = backgroundAgentsRef.current.get(event.agent);
+    if (!agentInfo) return false; // Not a background agent event
     
-    // Extract script info from event if present
-    const scriptIdMatch = event.content?.match(/SCRIPT_RESULT_ID:\s*([a-f0-9-]+)/);
-    const scriptNameMatch = event.content?.match(/SCRIPT:\s*([^\n]+)/);
+    const agentId = agentInfo.id;
+    const agentNickname = agentInfo.nickname;
+    const isDryRun = agentInfo.dryRun;
     
-    let conversationId: string;
-    let taskId: string;
-    let scriptName: string;
+    console.log(`[Background:${agentNickname}] Handling event:`, event.type, event.content?.slice(0, 50));
     
-    // If we have script info in this event, use it to create/update session
-    if (scriptIdMatch && scriptNameMatch) {
-      taskId = scriptIdMatch[1];
-      scriptName = scriptNameMatch[1].trim();
-      conversationId = `sherlock_${taskId}`;
-      
-      // Check if we had a temporary conversation and need to migrate
-      const tempConvo = sherlockSessionRef.current?.conversationId.startsWith('sherlock_temp_') 
-        ? sherlockSessionRef.current.conversationId 
-        : null;
-      
-      // Store session info for subsequent events
-      sherlockSessionRef.current = { conversationId, taskId, scriptName };
-      
-      console.log(`[Sherlock] Detected script: ${scriptName}, task: ${taskId}`);
-      
-      // Create conversation for this analysis
-      const newConvo: Conversation = {
-        id: conversationId,
-        title: `🔍 ${scriptName}`,
-        messages: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      setConversations(prev => {
-        // Remove temp conversation if exists
-        let updated = tempConvo ? prev.filter(c => c.id !== tempConvo) : prev;
-        
-        const exists = updated.find(c => c.id === conversationId);
-        if (exists) {
-          console.log('[Sherlock] Conversation already exists:', conversationId);
-          return prev;
-        }
-        console.log('[Sherlock] Created new conversation:', conversationId);
-        return [newConvo, ...updated];
-      });
-      
-      // Add to in-progress (remove temp if exists)
-      setSherlockTasks(prev => ({
-        ...prev,
-        inProgress: [
-          {
-            id: taskId,
-            scriptName,
-            conversationId,
-            startedAt: new Date().toISOString(),
-          },
-          ...prev.inProgress.filter(t => !t.id.startsWith('temp_'))
-        ]
-      }));
-    } else if (sherlockSessionRef.current) {
-      // Use stored session info from previous event
-      conversationId = sherlockSessionRef.current.conversationId;
-      taskId = sherlockSessionRef.current.taskId;
-      scriptName = sherlockSessionRef.current.scriptName;
-      console.log('[Sherlock] Using stored session:', conversationId);
+    // Extract task info from event (generic patterns)
+    const taskData = event.task_data || {};
+    const taskId = event.task_id || 
+      event.content?.match(/SCRIPT_RESULT_ID:\s*([a-f0-9-]+)/)?.[1] ||
+      event.content?.match(/INCIDENT_ID:\s*([^\n]+)/)?.[1]?.trim() ||
+      event.content?.match(/ALERT_ID:\s*([^\n]+)/)?.[1]?.trim() ||
+      event.content?.match(/TASK_ID:\s*([^\n]+)/)?.[1]?.trim() ||
+      `temp_${Date.now()}`;
+    
+    const taskType: string = event.task_type || (taskData.type as string) || 'task';
+    
+    // Build title and subtitle based on task type
+    let title = 'Task';
+    let subtitle: string | undefined;
+    let severity: string | undefined;
+    let classification: string | undefined;
+    
+    if (taskType === 'script' || event.content?.includes('SCRIPT:')) {
+      title = event.content?.match(/SCRIPT:\s*([^\n]+)/)?.[1]?.trim() || (taskData.script_name as string) || 'Script';
+    } else if (taskType === 'alert' || taskType === 'incident') {
+      title = (taskData.incident_type as string) || (taskData.alert_type as string) || taskType;
+      subtitle = taskData.host_name as string | undefined;
+      severity = taskData.severity as string | undefined;
     } else {
-      // No script info yet and no stored session - create temporary conversation
-      const tempId = `temp_${Date.now()}`;
-      conversationId = `sherlock_temp_${Date.now()}`;
-      console.log('[Sherlock] Creating temporary conversation:', conversationId);
-      
-      sherlockSessionRef.current = { conversationId, taskId: tempId, scriptName: 'Analysis in progress...' };
-      
-      const tempConvo: Conversation = {
-        id: conversationId,
-        title: '🔍 Analysis in progress...',
-        messages: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      setConversations(prev => {
-        const exists = prev.find(c => c.id === conversationId);
-        return exists ? prev : [tempConvo, ...prev];
-      });
-      
-      // Add temporary task to in-progress
-      setSherlockTasks(prev => ({
-        ...prev,
-        inProgress: [{
-          id: tempId,
-          scriptName: 'Analysis in progress...',
-          conversationId,
-          startedAt: new Date().toISOString(),
-        }, ...prev.inProgress]
-      }));
+      title = taskType;
     }
     
-    // Check if analysis is complete (detect update_execution_analysis tool call)
+    const conversationId = `bg_${agentId}_${taskId}`;
+    
+    // Store session info
+    backgroundSessionsRef.current.set(agentId, { conversationId, taskId, title });
+    
+    // Create conversation for this task
+    const emoji = isDryRun ? '🌙' : '🔍';
+    const newConvo: Conversation = {
+      id: conversationId,
+      title: subtitle ? `${emoji} ${title} - ${subtitle}` : `${emoji} ${title}`,
+      messages: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    setConversations(prev => {
+      const exists = prev.find(c => c.id === conversationId);
+      if (exists) return prev;
+      console.log(`[Background:${agentNickname}] Created conversation:`, conversationId);
+      return [newConvo, ...prev];
+    });
+    
+    // Create task object
+    const task: BackgroundTask = {
+      id: taskId,
+      agentId,
+      agentNickname,
+      title,
+      subtitle,
+      status: isDryRun ? 'completed' : 'in_progress', // Dry run = instant complete
+      severity,
+      conversationId,
+      startedAt: new Date().toISOString(),
+      completedAt: isDryRun ? new Date().toISOString() : undefined,
+      viewed: false,
+      taskType,
+    };
+    
+    // Update tasks state
+    setBackgroundTasks(prev => {
+      const agentTasks = prev[agentId] || { inProgress: [], recent: [] };
+      
+      if (isDryRun) {
+        // Dry run mode: add directly to recent
+        return {
+          ...prev,
+          [agentId]: {
+            ...agentTasks,
+            recent: [task, ...agentTasks.recent].slice(0, 5),
+          }
+        };
+      } else {
+        // Normal mode: add to in-progress
+        const exists = agentTasks.inProgress.find(t => t.id === taskId);
+        if (exists) return prev;
+        return {
+          ...prev,
+          [agentId]: {
+            ...agentTasks,
+            inProgress: [task, ...agentTasks.inProgress.filter(t => !t.id.startsWith('temp_'))],
+          }
+        };
+      }
+    });
+    
+    // Check for completion markers (tool calls that indicate completion)
     if (event.type === 'tool_call' && event.tool_name === 'update_execution_analysis') {
-      console.log(`[Sherlock] ✅ Analysis complete - tool call detected`);
-      console.log(`[Sherlock] taskId=${taskId}, conversationId=${conversationId}`);
+      classification = event.tool_params?.classification as string || 'UNKNOWN';
       
-      // Extract classification from tool params
-      const classification = event.tool_params?.classification || 'UNKNOWN';
-      console.log(`[Sherlock] Classification: ${classification}`);
-      
-      // Move from in-progress to recent (search by conversationId to handle temp IDs)
-      setSherlockTasks(prev => {
-        // Find task by conversation ID (more reliable than task ID for temp tasks)
-        const task = prev.inProgress.find(t => t.conversationId === conversationId);
-        if (!task) {
-          console.log('[Sherlock] ⚠️ Task not found in inProgress:', conversationId);
-          console.log('[Sherlock] Current inProgress:', prev.inProgress.map(t => t.conversationId));
-          return prev;
-        }
+      setBackgroundTasks(prev => {
+        const agentTasks = prev[agentId] || { inProgress: [], recent: [] };
+        const inProgressTask = agentTasks.inProgress.find(t => t.conversationId === conversationId);
+        if (!inProgressTask) return prev;
         
-        console.log(`[Sherlock] Moving task ${task.scriptName} to recent`);
+        const completedTask: BackgroundTask = {
+          ...inProgressTask,
+          status: 'completed',
+          classification,
+          completedAt: new Date().toISOString(),
+        };
         
         return {
-          inProgress: prev.inProgress.filter(t => t.conversationId !== conversationId),
-          recent: [{
-            id: taskId || task.id,
-            scriptName: scriptName || task.scriptName,
-            conversationId,
-            classification: classification as string,
-            completedAt: new Date().toISOString(),
-            viewed: false,
-          }, ...prev.recent].slice(0, 3) // Keep only last 3
+          ...prev,
+          [agentId]: {
+            inProgress: agentTasks.inProgress.filter(t => t.conversationId !== conversationId),
+            recent: [completedTask, ...agentTasks.recent].slice(0, 5),
+          }
         };
       });
     }
     
-    // Also handle session_ended to ensure task is moved
-    if (event.type === 'session_ended' && sherlockSessionRef.current) {
-      console.log('[Sherlock] Session ended, ensuring task is moved to recent');
-      const sessionInfo = sherlockSessionRef.current;
-      
-      setSherlockTasks(prev => {
-        const task = prev.inProgress.find(t => t.conversationId === sessionInfo.conversationId);
-        if (!task) {
-          console.log('[Sherlock] Task already moved or not found');
-          return prev;
-        }
-        
-        // Move to recent with default classification if not already moved
-        console.log(`[Sherlock] Moving ${task.scriptName} to recent on session end`);
-        return {
-          inProgress: prev.inProgress.filter(t => t.conversationId !== sessionInfo.conversationId),
-          recent: [{
-            id: sessionInfo.taskId,
-            scriptName: sessionInfo.scriptName,
-            conversationId: sessionInfo.conversationId,
+    // Handle session_ended
+    if (event.type === 'session_ended') {
+      const sessionInfo = backgroundSessionsRef.current.get(agentId);
+      if (sessionInfo) {
+        setBackgroundTasks(prev => {
+          const agentTasks = prev[agentId] || { inProgress: [], recent: [] };
+          const inProgressTask = agentTasks.inProgress.find(t => t.conversationId === sessionInfo.conversationId);
+          if (!inProgressTask) return prev;
+          
+          const completedTask: BackgroundTask = {
+            ...inProgressTask,
+            status: 'completed',
             classification: 'COMPLETED',
             completedAt: new Date().toISOString(),
-            viewed: false,
-          }, ...prev.recent].slice(0, 3)
-        };
-      });
+          };
+          
+          return {
+            ...prev,
+            [agentId]: {
+              inProgress: agentTasks.inProgress.filter(t => t.conversationId !== sessionInfo.conversationId),
+              recent: [completedTask, ...agentTasks.recent].slice(0, 5),
+            }
+          };
+        });
+        backgroundSessionsRef.current.delete(agentId);
+      }
     }
     
-    // Add event to Sherlock conversation
-    console.log('[Sherlock] Adding event to conversation:', conversationId);
+    // Add event to conversation
     setConversations(prev => prev.map(c => {
       if (c.id !== conversationId) return c;
       
-      console.log('[Sherlock] Found conversation, adding event');
-      
-      // Add event to last message or create new message
       const lastMsg = c.messages[c.messages.length - 1];
       if (lastMsg && lastMsg.role === 'agent' && event.type !== 'session_ended') {
-        // Append to existing message events (except session_ended)
         return {
           ...c,
           messages: [
@@ -500,7 +527,6 @@ export const useAgentChat = () => {
           updatedAt: new Date().toISOString(),
         };
       } else if (event.type !== 'session_ended') {
-        // Create new agent message (except for session_ended)
         return {
           ...c,
           messages: [
@@ -509,7 +535,7 @@ export const useAgentChat = () => {
               id: `${Date.now()}-${Math.random()}`,
               role: 'agent',
               content: event.content || `${event.type} event`,
-              agent: 'Sherlock',
+              agent: agentNickname,
               timestamp: new Date().toISOString(),
               events: [event],
             }
@@ -521,11 +547,7 @@ export const useAgentChat = () => {
       return c;
     }));
     
-    // Clear session on completion
-    if (event.type === 'session_ended') {
-      console.log('[Sherlock] Session ended, clearing session ref');
-      sherlockSessionRef.current = null;
-    }
+    return true; // Event was handled
   }, []);
 
   const connectSocket = useCallback((sessionId: string) => {
@@ -648,10 +670,10 @@ export const useAgentChat = () => {
       // Debug: Log every event received
       console.log(`[useAgentChat] Event received: type=${event.type}, agent=${event.agent}`);
       
-      // Handle Sherlock background task events
-      if (event.agent === 'Sherlock' || event.content?.includes('SCRIPT_RESULT_ID:')) {
-        handleSherlockEvent(event);
-        // Don't return - still process normally for conversation view
+      // Handle background agent events (any agent with background_queues config)
+      // The handler checks if the event.agent is a background agent
+      if (event.agent && handleBackgroundEvent(event)) {
+        // Event was handled by a background agent, don't return - still process for conversation view
       }
       
       // Track mode
@@ -1048,24 +1070,24 @@ export const useAgentChat = () => {
   const clearHistory = useCallback(() => {
     clearBackendSession(); // Fresh backend session
     
-    // Preserve Sherlock/system conversations (IDs starting with 'sherlock_')
+    // Preserve background agent conversations (prefix: bg_)
     setConversations(prev => {
-      const sherlockConversations = prev.filter(c => c.id.startsWith('sherlock_'));
+      const backgroundConversations = prev.filter(c => c.id.startsWith('bg_'));
       
-      // Update localStorage with only Sherlock conversations
-      if (sherlockConversations.length > 0) {
-        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(sherlockConversations));
+      // Update localStorage with only background conversations
+      if (backgroundConversations.length > 0) {
+        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(backgroundConversations));
       } else {
         localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
       }
       
-      return sherlockConversations;
+      return backgroundConversations;
     });
     
     // Clear active conversation if it was a regular one
     setActiveConversationId(prev => {
-      if (prev && prev.startsWith('sherlock_')) {
-        return prev; // Keep Sherlock conversation active
+      if (prev && prev.startsWith('bg_')) {
+        return prev; // Keep background conversation active
       }
       localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
       activeConversationIdRef.current = null;
@@ -1135,8 +1157,9 @@ export const useAgentChat = () => {
     activeConversationId,
     pendingConversationId,
     
-    // Sherlock Tasks
-    sherlockTasks,
+    // Background Tasks (generic - keyed by agent ID)
+    backgroundTasks,
+    setBackgroundAgents,
     
     // Actions
     setInput,

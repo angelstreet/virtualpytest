@@ -166,6 +166,7 @@ class DeviceTools:
             return {"content": [{"type": "text", "text": f"❌ Error: Userinterface '{userinterface_name}' not found"}], "isError": True}
         
         models = ui_result.get('models', [])
+        tree_id = ui_result.get('root_tree_id')
         
         if not models:
             return {"content": [{"type": "text", "text": f"❌ Error: Userinterface '{userinterface_name}' has no device models defined"}], "isError": True}
@@ -222,10 +223,15 @@ class DeviceTools:
         response_text += f"🎯 RECOMMENDED (Auto-selected):\n"
         response_text += f"   Host: {first_host['host_name']}\n"
         response_text += f"   Device: {first_device.get('device_name', 'Unknown')} ({first_device.get('device_model')})\n"
-        response_text += f"   Device ID: {first_device.get('device_id')}\n\n"
-        response_text += f"📋 Use these values in your next operation:\n"
+        response_text += f"   Device ID: {first_device.get('device_id')}\n"
+        if tree_id:
+            response_text += f"   Tree ID: {tree_id}\n"
+        response_text += f"\n📋 Use these values in your next operation:\n"
         response_text += f"   host_name='{first_host['host_name']}'\n"
-        response_text += f"   device_id='{first_device.get('device_id')}'\n\n"
+        response_text += f"   device_id='{first_device.get('device_id')}'\n"
+        if tree_id:
+            response_text += f"   tree_id='{tree_id}'\n"
+        response_text += f"\n"
         
         if len(compatible_hosts) > 1:
             response_text += f"📌 Other compatible hosts:\n"

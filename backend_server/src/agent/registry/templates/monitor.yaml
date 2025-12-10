@@ -10,7 +10,7 @@
 metadata:
   id: monitor
   name: QA Monitor
-  nickname: Guardian
+  nickname: Nightwatch
   selectable: false
   default: false
   version: 2.1.0
@@ -20,31 +20,10 @@ metadata:
     - monitoring
     - autonomous
     - events
-  suggestions: []
-
-triggers:
-  - type: alert.blackscreen
-    priority: critical
-  
-  - type: alert.app_crash
-    priority: critical
-  
-  - type: alert.anr
-    priority: critical
-  
-  - type: alert.no_signal
-    priority: critical
-  
-  - type: webhook.ci_failure
-    priority: high
-  
-  - type: schedule.health_check
-    priority: normal
-
-event_pools:
-  - shared.alerts
-  - shared.builds
-  - shared.ci
+  suggestions:
+    - "Check all hosts health"
+    - "List recent incidents"
+    - "Show alert summary"
 
 subagents: []
 
@@ -73,6 +52,8 @@ permissions:
 
 config:
   enabled: true
+  background_queues: ['p1_alerts']
+  dry_run: true  # Just print events, don't process (save tokens)
   max_parallel_tasks: 3
   approval_required_for: []
   auto_retry: true

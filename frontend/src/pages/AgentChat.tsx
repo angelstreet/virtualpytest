@@ -60,7 +60,7 @@ import {
 import { useSearchParams, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
-import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
+import { useAgentChat, type AgentEvent, type BackgroundTask, type BackgroundAgentInfo } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 import { useAIContext } from '../contexts/AIContext';
 import { buildServerUrl } from '../utils/buildUrlUtils';
@@ -113,8 +113,11 @@ const AgentChat: React.FC = () => {
   // Track if we've processed URL params
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
   
-  // Sherlock background tasks state
-  const [sherlockExpanded, setSherlockExpanded] = useState(false);
+  // Background agents expanded state (keyed by agent ID)
+  const [backgroundExpanded, setBackgroundExpanded] = useState<Record<string, boolean>>({});
+  
+  // Background agents info (agents with background_queues)
+  const [backgroundAgents, setBackgroundAgentsState] = useState<BackgroundAgentInfo[]>([]);
   
 // Selected agent - will be set from API (looks for agent with default: true)
 // Start empty to avoid MUI out-of-range while agents load
@@ -195,6 +198,23 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
         const defaultAgent = selectableAgents.find((a: any) => a.isDefault);
         const defaultId = defaultAgent?.id || selectableAgents[0]?.id || 'assistant';
         setSelectedAgentId(defaultId);
+        
+        // Identify background agents (those with background_queues config)
+        const bgAgents: BackgroundAgentInfo[] = data.agents
+          .filter((a: any) => a.config?.background_queues?.length > 0)
+          .map((a: any) => ({
+            id: a.metadata?.id || a.id,
+            nickname: a.metadata?.nickname || a.nickname || a.name,
+            queues: a.config.background_queues,
+            dryRun: a.config.dry_run || false,
+            color: AGENT_COLORS[a.metadata?.id || a.id] || PALETTE.accent,
+          }));
+        
+        if (bgAgents.length > 0) {
+          console.log(`[AgentChat] Found ${bgAgents.length} background agents:`, bgAgents.map(a => a.nickname));
+          setBackgroundAgentsState(bgAgents);
+          setBackgroundAgents(bgAgents); // Pass to hook
+        }
         
         setAgentsLoading(false);
       } catch (err) {
@@ -278,7 +298,8 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     conversations,
     activeConversationId,
     pendingConversationId,
-    sherlockTasks,
+    backgroundTasks,
+    setBackgroundAgents,
     setInput,
     setShowApiKey,
     setApiKeyInput,
@@ -402,8 +423,8 @@ useEffect(() => {
     };
   }, [status, setInput, sendMessage]);
   
-  // Group conversations (exclude Sherlock conversations - they show in the Sherlock section)
-  const regularConversations = conversations.filter(c => !c.id.startsWith('sherlock_'));
+  // Group conversations (exclude background agent conversations - they show in their sections)
+  const regularConversations = conversations.filter(c => !c.id.startsWith('bg_'));
   const groupedConversations = groupConversationsByTime(regularConversations);
 
   // --- Renderers ---
@@ -618,54 +639,59 @@ useEffect(() => {
     );
   };
 
-  // --- Sherlock Section ---
-  const renderSherlockSection = () => {
-    // Combine in-progress and last 3 recent tasks
+  // --- Generic Background Agent Section ---
+  // Renders a section for any agent with background_queues config
+  const renderBackgroundAgentSection = (agent: BackgroundAgentInfo) => {
+    const agentTasks = backgroundTasks[agent.id] || { inProgress: [], recent: [] };
+    
+    // Combine in-progress and recent tasks
     const allTasks = [
-      ...sherlockTasks.inProgress.map(t => ({ ...t, isInProgress: true })),
-      ...sherlockTasks.recent.slice(0, 3).map(t => ({ ...t, isInProgress: false }))
+      ...agentTasks.inProgress.map(t => ({ ...t, isInProgress: true })),
+      ...agentTasks.recent.slice(0, 5).map(t => ({ ...t, isInProgress: false }))
     ];
     
     const totalActive = allTasks.length;
+    const isExpanded = backgroundExpanded[agent.id] || false;
     
-    const getStatusIcon = (classification: string) => {
-      // Simple: ✓ for pass, ✗ for fail/issues
-      switch (classification) {
-        case 'VALID_PASS':
-        case 'COMPLETED':
-          return '✓';
-        case 'VALID_FAIL':
-        case 'BUG':
-        case 'SCRIPT_ISSUE':
-        case 'SYSTEM_ISSUE':
-          return '✗';
-        default: 
-          return '✓';
+    // Get status/severity icon based on task properties
+    const getTaskIcon = (task: BackgroundTask & { isInProgress?: boolean }) => {
+      if (task.isInProgress) return null; // Will show pulsing dot
+      
+      // If task has severity (alerts/incidents)
+      if (task.severity) {
+        switch (task.severity.toLowerCase()) {
+          case 'critical': return '🔴';
+          case 'high': return '🟠';
+          case 'normal': return '🟡';
+          case 'low': return '🟢';
+          default: return '⚪';
+        }
       }
+      
+      // If task has classification (analysis)
+      if (task.classification) {
+        switch (task.classification) {
+          case 'VALID_PASS':
+          case 'COMPLETED':
+            return '✓';
+          case 'VALID_FAIL':
+          case 'BUG':
+          case 'SCRIPT_ISSUE':
+          case 'SYSTEM_ISSUE':
+            return '✗';
+          default: 
+            return '✓';
+        }
+      }
+      
+      return '•';
     };
     
     return (
-      <Box sx={{ px: 1, mb: 2 }}>
-        {/* Section Header */}
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            px: 1, 
-            color: PALETTE.textMuted,
-            fontWeight: 600,
-            fontSize: '0.7rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            display: 'block',
-            mb: 0.5,
-          }}
-        >
-          SYSTEM
-        </Typography>
-        
-        {/* Sherlock Expandable */}
+      <Box key={agent.id} sx={{ px: 1, mb: 1 }}>
+        {/* Agent Section Header */}
         <Box
-          onClick={() => setSherlockExpanded(!sherlockExpanded)}
+          onClick={() => setBackgroundExpanded(prev => ({ ...prev, [agent.id]: !isExpanded }))}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -680,12 +706,11 @@ useEffect(() => {
             transition: 'background-color 0.15s',
           }}
         >
-          {/* Accordion chevron indicator */}
           <ExpandIcon 
             sx={{ 
               fontSize: 16, 
               color: PALETTE.textMuted,
-              transform: sherlockExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.2s',
             }} 
           />
@@ -698,10 +723,9 @@ useEffect(() => {
               fontWeight: 500,
             }}
           >
-            # Sherlock
+            # {agent.nickname}
           </Typography>
           
-          {/* Badge showing count */}
           {totalActive > 0 ? (
             <Chip 
               label={totalActive} 
@@ -710,7 +734,7 @@ useEffect(() => {
                 height: 18,
                 minWidth: 18,
                 fontSize: '0.7rem',
-                bgcolor: PALETTE.accent,
+                bgcolor: agent.color || PALETTE.accent,
                 color: '#fff',
                 '& .MuiChip-label': { px: 0.75 },
               }} 
@@ -722,12 +746,12 @@ useEffect(() => {
           )}
         </Box>
         
-        {/* Expandable Content - simplified list (last 3 + in progress) */}
+        {/* Expandable Task List */}
         {totalActive > 0 && (
-          <Fade in={sherlockExpanded}>
+          <Fade in={isExpanded}>
             <Box sx={{ pl: 2, pr: 1, mt: 0.5 }}>
               {allTasks.map(task => {
-                const icon = task.isInProgress ? null : getStatusIcon((task as any).classification || 'UNKNOWN');
+                const icon = getTaskIcon(task);
                 
                 return (
                   <Box
@@ -753,13 +777,12 @@ useEffect(() => {
                       transition: 'background-color 0.15s',
                     }}
                   >
-                    {/* Checkmark for completed, pulsing dot for in-progress */}
                     {task.isInProgress ? (
                       <Box sx={{ 
                         width: 6, 
                         height: 6, 
                         borderRadius: '50%',
-                        bgcolor: PALETTE.accent,
+                        bgcolor: agent.color || PALETTE.accent,
                         flexShrink: 0,
                         animation: 'pulse 2s ease-in-out infinite',
                         '@keyframes pulse': {
@@ -771,26 +794,39 @@ useEffect(() => {
                       <Box sx={{ fontSize: 11, minWidth: 12, textAlign: 'center', flexShrink: 0 }}>{icon}</Box>
                     )}
                     
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        flex: 1,
-                        fontSize: '0.75rem',
-                        color: task.isInProgress ? 'text.primary' : 'text.secondary',
-                        fontWeight: task.isInProgress ? 500 : 400,
-                      }}
-                      noWrap
-                    >
-                      {task.scriptName}
-                    </Typography>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          display: 'block',
+                          fontSize: '0.75rem',
+                          color: task.isInProgress ? 'text.primary' : 'text.secondary',
+                          fontWeight: task.isInProgress ? 500 : 400,
+                        }}
+                        noWrap
+                      >
+                        {task.title}
+                      </Typography>
+                      {task.subtitle && (
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            display: 'block',
+                            fontSize: '0.65rem',
+                            color: 'text.disabled',
+                          }}
+                          noWrap
+                        >
+                          {task.subtitle}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 );
               })}
             </Box>
           </Fade>
         )}
-        
-        <Divider sx={{ mt: 0.5, mb: 0 }} />
       </Box>
     );
   };
@@ -839,8 +875,28 @@ useEffect(() => {
             </Button>
           </Box>
 
-          {/* Sherlock Section */}
-          {renderSherlockSection()}
+          {/* Background Agents Section - renders all agents with background_queues */}
+          {backgroundAgents.length > 0 && (
+            <>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  px: 2, 
+                  color: PALETTE.textMuted,
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  display: 'block',
+                  mb: 0.5,
+                }}
+              >
+                SYSTEM
+              </Typography>
+              {backgroundAgents.map(agent => renderBackgroundAgentSection(agent))}
+              <Divider sx={{ mb: 1 }} />
+            </>
+          )}
 
           {/* Conversation History */}
           <Box

@@ -20,10 +20,6 @@ metadata:
     - validation
     - autonomous
 
-triggers:
-  - type: redis.queue.script
-    priority: normal
-
 subagents: []
 
 available_skills:

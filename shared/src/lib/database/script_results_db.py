@@ -119,7 +119,7 @@ def update_script_execution_result(
         if result.data:
             print(f"[@db:script_results:update_script_execution_result] Success")
             
-            # Add to analysis queue for Sherlock to process
+            # Add to analysis queue to be processed by the agent
             try:
                 from shared.src.lib.utils.redis_queue import get_queue_processor
                 queue_processor = get_queue_processor()
@@ -128,7 +128,7 @@ def update_script_execution_result(
                 record = result.data[0] if result.data else {}
                 script_name = record.get('script_name', 'unknown')
                 
-                # Pass all data Sherlock expects (from manager.py _build_task_message)
+                # Pass all data expects (from manager.py _build_task_message)
                 queue_processor.add_script_to_queue(script_result_id, {
                     'id': script_result_id,
                     'type': 'script_result',
