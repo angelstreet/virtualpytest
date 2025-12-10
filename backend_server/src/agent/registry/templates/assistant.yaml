@@ -49,6 +49,9 @@ available_skills:
   # Design (2 skills)
   - create-testcase
   - manage-requirements
+  # Analysis (2 skills)
+  - analyze
+  - validate
 
 # Router mode tools (minimal - just for quick queries)
 skills:

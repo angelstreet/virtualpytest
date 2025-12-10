@@ -19,7 +19,7 @@ metadata:
   id: analyzer
   name: Result Analyzer
   nickname: Sherlock
-  selectable: true
+  selectable: false
   default: false
   version: 2.5.0
   author: system
@@ -28,13 +28,8 @@ metadata:
     - analysis
     - scripts
     - validation
-  suggestions:
-    - "Analyze this report: http://..."
-    - "Is this failure a real bug or false positive?"
 
 triggers:
-  - type: chat.message
-    priority: high
 
   - type: redis.queue.script
     priority: normal
