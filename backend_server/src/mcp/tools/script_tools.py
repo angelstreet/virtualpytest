@@ -168,11 +168,15 @@ class ScriptTools:
             elif 'SCRIPT_SUCCESS:false' in result['stdout']:
                 script_success = False
         
-        # Format response
+        # Format response (use HTML color tags)
         response_text = f"✅ Script '{script_name}' completed\n"
         response_text += f"Exit code: {exit_code}\n"
         if script_success is not None:
-            response_text += f"Test result: {'PASSED' if script_success else 'FAILED'}\n"
+            if script_success:
+                status = '<span style="color: #22c55e; font-weight: 600;">PASSED</span>'
+            else:
+                status = '<span style="color: #ef4444; font-weight: 600;">FAILED</span>'
+            response_text += f"Test result: {status}\n"
         if result.get('report_url'):
             response_text += f"\n📄 Report: {result['report_url']}"
         
@@ -224,7 +228,11 @@ class ScriptTools:
                     response_text = f"✅ Script '{script_name}' completed\n"
                     response_text += f"Exit code: {exit_code}\n"
                     if script_success is not None:
-                        response_text += f"Test result: {'PASSED' if script_success else 'FAILED'}\n"
+                        if script_success:
+                            status = '<span style="color: #22c55e; font-weight: 600;">PASSED</span>'
+                        else:
+                            status = '<span style="color: #ef4444; font-weight: 600;">FAILED</span>'
+                        response_text += f"Test result: {status}\n"
                     if report_url:
                         response_text += f"\n📄 Report: {report_url}"
                     
