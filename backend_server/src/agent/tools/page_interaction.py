@@ -381,6 +381,33 @@ def get_alerts(
         return f"❌ Error: {str(e)}"
 
 
+def refresh_navigation_editor() -> str:
+    """
+    Refresh the navigation editor canvas to show latest changes.
+    Useful after creating nodes/edges to ensure proper rendering.
+    """
+    logger.info("🤖 refresh_navigation_editor called")
+    
+    if not socket_manager.socketio:
+        return "❌ Backend UI control system not ready."
+    
+    socket_manager.broadcast(
+        'ui_action',
+        {
+            "action": "interact",
+            "payload": {
+                "element_id": "tree-canvas",
+                "action": "refresh",
+                "params": {}
+            },
+            "agent_message": "Refreshing navigation editor..."
+        },
+        namespace='/agent'
+    )
+    
+    return "✅ Navigation editor refreshed"
+
+
 # Export all tools
 PAGE_INTERACTION_TOOLS = [
     "get_available_pages",

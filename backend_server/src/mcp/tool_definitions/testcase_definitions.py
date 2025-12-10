@@ -124,14 +124,11 @@ Can organize with folders and tags.""",
         },
         {
             "name": "list_testcases",
-            "description": """List all saved test cases
-
-Returns list of saved test cases with names, descriptions, and IDs.""",
+            "description": "List all saved test cases. Returns id, name, interface for each.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
-                    "include_inactive": {"type": "boolean", "description": "Include deleted test cases (optional, default: false)"}
+                    "team_id": {"type": "string", "description": "Team ID (optional)"}
                 },
                 "required": []
             }
