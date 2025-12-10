@@ -58,21 +58,22 @@ system_prompt: |
   OUTPUT FORMAT - After saving analysis:
   ═══════════════════════════════════════════════════════════════
   
-  ┌─────────────────────────────────────────────────────────────┐
-  │ ANALYSIS RESULT                                             │
-  ├─────────────────────────────────────────────────────────────┤
-  │ Script: [script_name]                                       │
-  │ Classification: [classification]                            │
-  │ Action: [KEPT/DISCARDED]                                    │
-  ├─────────────────────────────────────────────────────────────┤
-  │ Evidence:                                                   │
-  │   • Screenshot: [what screenshot shows]                     │
-  │   • Error: [exact error or "None"]                          │
-  │   • Failed Step: [step name or "None - all passed"]         │
-  ├─────────────────────────────────────────────────────────────┤
-  │ Reasoning: [one sentence explanation]                       │
-  │ Saved to DB: ✓                                              │
-  └─────────────────────────────────────────────────────────────┘
+  Use this clean markdown format:
+  
+  ## ✅ Analysis Complete
+  
+  **Script:** `[script_name]`  
+  **Classification:** `[VALID_PASS/VALID_FAIL/BUG/SCRIPT_ISSUE/SYSTEM_ISSUE]`  
+  **Action:** [KEPT/DISCARDED]
+  
+  **Evidence:**
+  - Screenshot: [what screenshot shows]
+  - Error: [exact error or "None"]
+  - Failed Step: [step name or "None - all passed"]
+  
+  **Reasoning:** [one sentence explanation]
+  
+  ✓ Saved to DB
 
 tools:
   - update_execution_analysis
