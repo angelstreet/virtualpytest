@@ -170,6 +170,7 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
               description: a.metadata?.description || a.description || '',
               color: AGENT_COLORS[id] || PALETTE.accent,
               tips: a.metadata?.suggestions || [], // Load from YAML suggestions
+              isDefault: a.metadata?.default === true, // Track default for sorting
             };
           });
         
@@ -177,11 +178,18 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
           throw new Error('No selectable agents found');
         }
         
+        // Sort agents: default agent first, then others
+        selectableAgents.sort((a: any, b: any) => {
+          if (a.isDefault) return -1;
+          if (b.isDefault) return 1;
+          return 0;
+        });
+        
         setAvailableAgents(selectableAgents);
         
         // Set default agent from YAML (looks for default: true)
-        const defaultAgent = data.agents.find((a: any) => a.metadata?.default === true);
-        const defaultId = defaultAgent?.metadata?.id || selectableAgents[0]?.id || 'assistant';
+        const defaultAgent = selectableAgents.find((a: any) => a.isDefault);
+        const defaultId = defaultAgent?.id || selectableAgents[0]?.id || 'assistant';
         setSelectedAgentId(defaultId);
         
         setAgentsLoading(false);
