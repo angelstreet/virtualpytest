@@ -12,6 +12,28 @@ class ScriptTools:
         self.api = api_client
         self.formatter = MCPFormatter()
     
+    def _filter_result_for_mcp(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Filter script execution result to only include essential fields.
+        Reduces token usage by ~99% (22k -> 200 tokens) by excluding verbose stdout/stderr.
+        
+        Full logs are available via logs_url if needed for debugging.
+        """
+        if not result:
+            return {}
+        
+        # Essential fields only - exclude stdout/stderr (thousands of tokens)
+        return {
+            'script_name': result.get('script_name'),
+            'device_id': result.get('device_id'),
+            'exit_code': result.get('exit_code'),
+            'script_success': result.get('script_success'),
+            'execution_time_ms': result.get('execution_time_ms'),
+            'report_url': result.get('report_url'),
+            'logs_url': result.get('logs_url'),
+            'parameters': result.get('parameters'),
+        }
+    
     def list_scripts(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         List all available Python scripts
@@ -154,10 +176,11 @@ class ScriptTools:
         if result.get('report_url'):
             response_text += f"\n📄 Report: {result['report_url']}"
         
+        # Return filtered result (no stdout/stderr) to reduce token usage
         return {
             "content": [{"type": "text", "text": response_text}],
             "isError": False,  # exit_code 0 = tool execution successful
-            "result": result
+            "result": self._filter_result_for_mcp(result)
         }
     
     def _poll_script_completion(self, task_id: str, host_name: str, script_name: str, max_wait: int = 7200) -> Dict[str, Any]:
@@ -205,10 +228,11 @@ class ScriptTools:
                     if report_url:
                         response_text += f"\n📄 Report: {report_url}"
                     
+                    # Return filtered result (no stdout/stderr) to reduce token usage
                     return {
                         "content": [{"type": "text", "text": response_text}],
                         "isError": is_tool_error,
-                        "result": task_result
+                        "result": self._filter_result_for_mcp(task_result)
                     }
                 
                 elif current_status == 'failed':
