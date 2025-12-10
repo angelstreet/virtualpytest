@@ -402,8 +402,9 @@ useEffect(() => {
     };
   }, [status, setInput, sendMessage]);
   
-  // Group conversations
-  const groupedConversations = groupConversationsByTime(conversations);
+  // Group conversations (exclude Sherlock conversations - they show in the Sherlock section)
+  const regularConversations = conversations.filter(c => !c.id.startsWith('sherlock_'));
+  const groupedConversations = groupConversationsByTime(regularConversations);
 
   // --- Renderers ---
 

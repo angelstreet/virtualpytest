@@ -329,6 +329,11 @@ export const useAgentChat = () => {
       scriptName = scriptNameMatch[1].trim();
       conversationId = `sherlock_${taskId}`;
       
+      // Check if we had a temporary conversation and need to migrate
+      const tempConvo = sherlockSessionRef.current?.conversationId.startsWith('sherlock_temp_') 
+        ? sherlockSessionRef.current.conversationId 
+        : null;
+      
       // Store session info for subsequent events
       sherlockSessionRef.current = { conversationId, taskId, scriptName };
       
@@ -344,24 +349,30 @@ export const useAgentChat = () => {
       };
       
       setConversations(prev => {
-        const exists = prev.find(c => c.id === conversationId);
+        // Remove temp conversation if exists
+        let updated = tempConvo ? prev.filter(c => c.id !== tempConvo) : prev;
+        
+        const exists = updated.find(c => c.id === conversationId);
         if (exists) {
           console.log('[Sherlock] Conversation already exists:', conversationId);
           return prev;
         }
         console.log('[Sherlock] Created new conversation:', conversationId);
-        return [newConvo, ...prev];
+        return [newConvo, ...updated];
       });
       
-      // Add to in-progress
+      // Add to in-progress (remove temp if exists)
       setSherlockTasks(prev => ({
         ...prev,
-        inProgress: [{
-          id: taskId,
-          scriptName,
-          conversationId,
-          startedAt: new Date().toISOString(),
-        }, ...prev.inProgress]
+        inProgress: [
+          {
+            id: taskId,
+            scriptName,
+            conversationId,
+            startedAt: new Date().toISOString(),
+          },
+          ...prev.inProgress.filter(t => !t.id.startsWith('temp_'))
+        ]
       }));
     } else if (sherlockSessionRef.current) {
       // Use stored session info from previous event
@@ -371,8 +382,11 @@ export const useAgentChat = () => {
       console.log('[Sherlock] Using stored session:', conversationId);
     } else {
       // No script info yet and no stored session - create temporary conversation
+      const tempId = `temp_${Date.now()}`;
       conversationId = `sherlock_temp_${Date.now()}`;
       console.log('[Sherlock] Creating temporary conversation:', conversationId);
+      
+      sherlockSessionRef.current = { conversationId, taskId: tempId, scriptName: 'Analysis in progress...' };
       
       const tempConvo: Conversation = {
         id: conversationId,
@@ -386,6 +400,17 @@ export const useAgentChat = () => {
         const exists = prev.find(c => c.id === conversationId);
         return exists ? prev : [tempConvo, ...prev];
       });
+      
+      // Add temporary task to in-progress
+      setSherlockTasks(prev => ({
+        ...prev,
+        inProgress: [{
+          id: tempId,
+          scriptName: 'Analysis in progress...',
+          conversationId,
+          startedAt: new Date().toISOString(),
+        }, ...prev.inProgress]
+      }));
     }
     
     // Check if analysis is complete
