@@ -58,6 +58,7 @@ import {
 } from '@mui/icons-material';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 import { useAIContext } from '../contexts/AIContext';
@@ -1111,6 +1112,7 @@ useEffect(() => {
                           fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
                         }}>
                         <ReactMarkdown
+                          rehypePlugins={[rehypeRaw]}
                           components={{
                             a: ({ href, children }) => (
                               <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
@@ -1135,6 +1137,7 @@ useEffect(() => {
                         fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
                       }}>
                         <ReactMarkdown
+                          rehypePlugins={[rehypeRaw]}
                           components={{
                             a: ({ href, children }) => (
                               <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
