@@ -145,69 +145,29 @@ class UserInterfaceTools:
             return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
     
     def list_userinterfaces(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        List all userinterfaces for the team
-        
-        Args:
-            team_id: Team ID (optional - uses default)
-            force_refresh: Force cache refresh (optional - default false)
-        
-        Returns:
-            List of all userinterfaces with root tree info
-        """
+        """List all userinterfaces"""
         try:
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
-            force_refresh = params.get('force_refresh', False)
             
-            self.logger.info(f"Listing userinterfaces for team {team_id}")
-            
-            # Call backend - EXISTING ENDPOINT
             result = self.api_client.get(
                 '/server/userinterface/getAllUserInterfaces',
-                params={
-                    'team_id': team_id,
-                    'force_refresh': 'true' if force_refresh else 'false'
-                }
+                params={'team_id': team_id}
             )
             
-            # Result is array directly (not wrapped in success)
-            if isinstance(result, list):
-                interfaces = result
-            else:
-                interfaces = result.get('interfaces', [])
+            interfaces = result if isinstance(result, list) else result.get('interfaces', [])
             
             if not interfaces:
-                return self.formatter.format_success(
-                    "📋 No userinterfaces found for this team\n"
-                    "\n💡 Create one with: create_userinterface(name='netflix_android', device_model='android_mobile')"
-                )
+                return {"content": [{"type": "text", "text": "No userinterfaces found"}], "isError": False}
             
-            response_text = f"📋 User Interfaces ({len(interfaces)} total):\n\n"
-            
-            for interface in interfaces:
-                name = interface.get('name', 'unnamed')
-                interface_id = interface.get('id', 'unknown')
-                models = interface.get('models', [])
-                root_tree = interface.get('root_tree')
-                
-                response_text += f"• {name}\n"
-                response_text += f"    ID: {interface_id}\n"
-                response_text += f"    Models: {', '.join(models) if models else 'none'}\n"
-                
-                if root_tree:
-                    tree_id = root_tree.get('id')
-                    response_text += f"    ✅ Has navigation tree (ID: {tree_id})\n"
-                    response_text += f"    💡 Get full tree: get_userinterface_complete(userinterface_id='{interface_id}')\n"
-                else:
-                    response_text += f"    ⚠️  No navigation tree yet\n"
-                
-                response_text += "\n"
+            # Minimal output
+            lines = [f"{len(interfaces)} interfaces:"]
+            for ui in interfaces:
+                lines.append(f"- {ui.get('name')} ({', '.join(ui.get('models', []))})")
             
             return {
-                "content": [{"type": "text", "text": response_text}],
+                "content": [{"type": "text", "text": "\n".join(lines)}],
                 "isError": False,
-                "interfaces": interfaces,
-                "total": len(interfaces)
+                "interfaces": [{"name": ui.get('name'), "id": ui.get('id')} for ui in interfaces]
             }
         
         except Exception as e:

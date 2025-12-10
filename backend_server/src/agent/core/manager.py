@@ -32,7 +32,6 @@ class QAManagerAgent:
     
     Skills are loaded dynamically based on user requests.
     """
-    
     def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
         self.logger = logging.getLogger(__name__)
         self.user_identifier = user_identifier

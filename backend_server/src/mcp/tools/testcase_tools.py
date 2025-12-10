@@ -445,52 +445,29 @@ class TestCaseTools:
         return {"content": [{"type": "text", "text": f"✅ Test case '{testcase_name}' saved successfully (ID: {testcase_id})"}], "isError": False}
     
     def list_testcases(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        List all saved test cases
-        
-        REUSES existing /server/testcase/list endpoint (same as frontend)
-        Pattern from server_testcase_routes.py line 108
-        
-        Args:
-            params: {
-                'team_id': str (OPTIONAL),
-                'include_inactive': bool (OPTIONAL, default: False)
-            }
-            
-        Returns:
-            MCP-formatted response with list of test cases
-        """
+        """List all saved test cases"""
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
-        include_inactive = params.get('include_inactive', False)
         
-        query_params = {'team_id': team_id, 'include_inactive': str(include_inactive).lower()}
+        result = self.api.get('/server/testcase/list', params={'team_id': team_id})
         
-        # Call EXISTING endpoint - SAME as server_testcase_routes.py line 108
-        print(f"[@MCP:list_testcases] Calling /server/testcase/list")
-        result = self.api.get('/server/testcase/list', params=query_params)
-        
-        # Check for errors
         if not result.get('success'):
-            error_msg = result.get('error', 'Failed to list test cases')
-            return {"content": [{"type": "text", "text": f"❌ List failed: {error_msg}"}], "isError": True}
+            return {"content": [{"type": "text", "text": f"Error: {result.get('error')}"}], "isError": True}
         
-        # Format response
         testcases = result.get('testcases', [])
+        
         if not testcases:
             return {"content": [{"type": "text", "text": "No test cases found"}], "isError": False}
         
-        response_text = f"📋 Found {len(testcases)} test case(s):\n\n"
-        for tc in testcases[:20]:  # Limit to first 20
-            name = tc.get('testcase_name', 'unknown')
-            tc_id = tc.get('testcase_id', 'unknown')
-            desc = tc.get('description', 'No description')
-            ui = tc.get('userinterface_name', 'unknown')
-            response_text += f"- {name} (ID: {tc_id}, Interface: {ui})\n  {desc}\n\n"
+        # Minimal output
+        lines = [f"{len(testcases)} testcases:"]
+        for tc in testcases:
+            lines.append(f"- {tc.get('testcase_name')} ({tc.get('userinterface_name', '?')})")
         
-        if len(testcases) > 20:
-            response_text += f"... and {len(testcases) - 20} more"
-        
-        return {"content": [{"type": "text", "text": response_text}], "isError": False, "testcases": testcases}
+        return {
+            "content": [{"type": "text", "text": "\n".join(lines)}],
+            "isError": False,
+            "testcases": [{"id": tc.get('testcase_id'), "name": tc.get('testcase_name'), "interface": tc.get('userinterface_name')} for tc in testcases]
+        }
     
     def load_testcase(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

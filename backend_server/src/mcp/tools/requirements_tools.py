@@ -58,61 +58,32 @@ class RequirementsTools:
         return {"content": [{"type": "text", "text": response_text}], "isError": False}
     
     def list_requirements(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        List all requirements with optional filters
-        
-        Args:
-            params: {
-                'team_id': str (OPTIONAL)
-                'category': str (OPTIONAL)
-                'priority': str (OPTIONAL)
-                'status': str (OPTIONAL) - default: 'active'
-            }
-            
-        Returns:
-            MCP-formatted response with requirements list
-        """
+        """List all requirements"""
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
-        query_params = {
+        result = self.api.get('/server/requirements/list', params={
             'team_id': team_id,
-            'category': params.get('category'),
-            'priority': params.get('priority'),
-            'status': params.get('status', 'active')
-        }
-        
-        # Remove None values
-        query_params = {k: v for k, v in query_params.items() if v is not None}
-        
-        print(f"[@MCP:list_requirements] Fetching requirements with filters: {query_params}")
-        result = self.api.get('/server/requirements/list', params=query_params)
+            'status': 'active'
+        })
         
         if not result.get('success'):
-            error_msg = result.get('error', 'Failed to list requirements')
-            return {"content": [{"type": "text", "text": f"❌ List failed: {error_msg}"}], "isError": True}
+            return {"content": [{"type": "text", "text": f"Error: {result.get('error')}"}], "isError": True}
         
         requirements = result.get('requirements', [])
-        count = result.get('count', len(requirements))
         
         if not requirements:
             return {"content": [{"type": "text", "text": "No requirements found"}], "isError": False}
         
-        response_text = f"📋 Requirements ({count} total):\n\n"
+        # Minimal output
+        lines = [f"{len(requirements)} requirements:"]
+        for req in requirements:
+            lines.append(f"- [{req.get('priority', '?')}] {req.get('requirement_code')}: {req.get('requirement_name', '')[:40]}")
         
-        for req in requirements[:50]:  # Limit to 50 for readability
-            response_text += f"• {req['requirement_code']} - {req['requirement_name']}\n"
-            response_text += f"  ID: {req.get('requirement_id', 'N/A')}\n"
-            response_text += f"  Priority: {req.get('priority', 'N/A')} | Category: {req.get('category', 'N/A')}\n"
-            response_text += f"  App Type: {req.get('app_type', 'N/A')} | Device Model: {req.get('device_model', 'N/A')}\n"
-            if req.get('description'):
-                desc = req['description'][:100] + '...' if len(req['description']) > 100 else req['description']
-                response_text += f"  Description: {desc}\n"
-            response_text += "\n"
-        
-        if count > 50:
-            response_text += f"\n... and {count - 50} more requirements"
-        
-        return {"content": [{"type": "text", "text": response_text}], "isError": False}
+        return {
+            "content": [{"type": "text", "text": "\n".join(lines)}],
+            "isError": False,
+            "requirements": [{"id": req.get('requirement_id'), "code": req.get('requirement_code')} for req in requirements]
+        }
     
     def update_requirement(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

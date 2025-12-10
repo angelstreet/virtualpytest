@@ -427,6 +427,9 @@ def register_agent_socketio_handlers(socketio):
         session.set_context('allow_auto_navigation', allow_auto_navigation)
         session.set_context('current_page', current_page)
         
+        # Reset cancellation flag for new message (ensures clean start)
+        session.reset_cancellation()
+        
         # Try to get manager - handle API key not configured
         try:
             manager = get_manager(team_id=team_id, agent_id=agent_id)
@@ -584,11 +587,13 @@ def register_agent_socketio_handlers(socketio):
     def handle_stop(data):
         """Handle stop request"""
         session_id = data.get('session_id')
+        print(f"[SOCKET DEBUG] ⛔ stop_generation received for session: {session_id}")
         
         if session_id:
             session_mgr = get_session_manager()
             session = session_mgr.get_session(session_id)
             if session:
+                print(f"[SOCKET DEBUG] ⛔ Cancelling session {session_id}")
                 session.cancel()
                 logger.info(f"Session {session_id} cancelled by user")
                 # Emit cancelled event immediately so UI updates

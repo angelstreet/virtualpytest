@@ -37,29 +37,11 @@ Example:
         },
         {
             "name": "list_requirements",
-            "description": """List all requirements with optional filters
-
-Returns list of requirements with optional filtering by category, priority, or status.
-
-Common Next Steps:
-- To link requirements to test cases → Call list_testcases() FIRST to see what test cases exist
-- To check coverage → Call get_coverage_summary()
-- To find gaps → Call get_uncovered_requirements()
-
-Don't assume test cases exist just because requirements exist!
-
-Example:
-  list_requirements(
-    category='playback',
-    priority='P1'
-  )""",
+            "description": "List all requirements. Returns id, code, name, priority for each.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
-                    "category": {"type": "string", "description": "Filter by category (optional)"},
-                    "priority": {"type": "string", "description": "Filter by priority: P1, P2, P3 (optional)"},
-                    "status": {"type": "string", "description": "Filter by status (optional - default: 'active')"}
+                    "team_id": {"type": "string", "description": "Team ID (optional)"}
                 },
                 "required": []
             }

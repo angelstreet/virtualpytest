@@ -36,19 +36,11 @@ Returns: userinterface_id and root tree_id""",
         },
         {
             "name": "list_userinterfaces",
-            "description": """List all userinterfaces (app models) for the team
-
-Shows which apps have navigation trees ready.
-
-Example:
-  list_userinterfaces()
-
-Returns: List of all interfaces with root tree info""",
+            "description": "List all userinterfaces. Returns name, id, models for each.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
-                    "force_refresh": {"type": "boolean", "description": "Force cache refresh (optional - default false)"}
+                    "team_id": {"type": "string", "description": "Team ID (optional)"}
                 },
                 "required": []
             }
