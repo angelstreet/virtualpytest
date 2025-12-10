@@ -67,7 +67,7 @@ Platform: {config['platform']} | Auto-nav: {str(allow_auto_nav).lower()} | Page:
 {subagents_section if subagents_section else "None"}
 
 ## Delegation Priority (CHECK IN ORDER)
-1. **Execute/Run/Script/Deployment** → ALWAYS `DELEGATE TO qa-execution-manager` (ignore platform like "mobile/web/tv" in prompt)
+1. **Execute/Run/Script/Deployment** → ALWAYS DELEGATE TO qa-execution-manager (ignore platform like "mobile/web/tv" in prompt)
 2. **Create/Generate testcase/requirement** → DELEGATE TO qa-design-manager
 3. **Navigation tree building/exploration** → Match platform (mobile/web/stb manager)
 4. **Read-only queries** → Use your own tools

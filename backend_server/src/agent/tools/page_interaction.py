@@ -18,77 +18,35 @@ BACKEND_API_BASE = "http://localhost:5109"
 # Mirror of frontend PAGE_SCHEMAS - key pages and their elements
 # This should stay in sync with frontend/src/lib/ai/pageSchema.ts
 PAGE_SCHEMAS = {
-    '/': {
-        'name': 'Dashboard',
-        'description': 'Overview of system status, hosts, devices',
-        'elements': ['host-accordion', 'refresh-btn', 'restart-service-btn', 'restart-stream-btn'],
-    },
     '/device-control': {
         'name': 'Device Control',
         'description': 'View and control connected devices with live streams',
         'elements': ['device-grid', 'host-filter', 'model-filter', 'stream-modal'],
-    },
-    '/test-execution/run-tests': {
-        'name': 'Run Tests',
-        'description': 'Execute test cases on devices',
-        'elements': ['host-selector', 'device-selector', 'script-selector', 'run-btn', 'execution-table'],
-    },
-    '/test-execution/run-campaigns': {
-        'name': 'Run Campaigns',
-        'description': 'Execute multi-device test campaigns',
-        'elements': ['campaign-stepper', 'script-sequence', 'launch-btn', 'history-table'],
-    },
-    '/test-plan/test-cases': {
-        'name': 'Test Cases',
-        'description': 'Manage test cases',
-        'elements': ['testcase-table', 'interface-filter', 'create-btn', 'search-input'],
-    },
-    '/test-plan/campaigns': {
-        'name': 'Campaigns',
-        'description': 'Manage campaign definitions',
-        'elements': ['campaign-table', 'create-btn'],
-    },
-    '/monitoring/incidents': {
-        'name': 'Incidents',
-        'description': 'View and manage alerts',
-        'elements': ['active-alerts-table', 'closed-alerts-table', 'freeze-modal'],
     },
     '/monitoring/heatmap': {
         'name': 'Heatmap',
         'description': 'Real-time device health monitoring',
         'elements': ['mosaic-player', 'timeline-slider', 'status-filter', 'analysis-table'],
     },
-    '/test-results/reports': {
-        'name': 'Test Reports',
-        'description': 'View test execution reports',
-        'elements': ['reports-table', 'detail-toggle', 'stats-cards'],
-    },
-    '/test-results/campaign-reports': {
-        'name': 'Campaign Reports',
-        'description': 'View campaign results',
-        'elements': ['campaign-reports-table', 'trend-chart'],
-    },
     '/builder/test-builder': {
         'name': 'Test Builder',
         'description': 'Visual test case builder',
         'elements': ['step-canvas', 'action-palette', 'save-btn', 'device-preview'],
     },
-    '/configuration/settings': {
-        'name': 'Settings',
-        'description': 'System configuration',
-        'elements': ['settings-form', 'save-btn'],
+    '/builder/campaign-builder': {
+        'name': 'Campaign Builder',
+        'description': 'Create and manage test campaigns',
+        'elements': ['campaign-canvas', 'script-sequence', 'device-selector', 'save-campaign-btn'],
     },
-    '/ai-agent': {
-        'name': 'AI Agent Chat',
-        'description': 'Interactive AI assistant',
-        'elements': ['chat-input', 'chat-history', 'mode-selector'],
+    '/builder/navigation-editor': {
+        'name': 'Navigation Editor',
+        'description': 'Edit and manage navigation trees',
+        'elements': ['tree-canvas', 'node-editor', 'edge-editor', 'save-navigation-btn'],
     },
 }
 
 # Navigation aliases for natural language
 NAVIGATION_ALIASES = {
-    'dashboard': '/',
-    'home': '/',
     'device control': '/device-control',
     'device-control': '/device-control',
     'devices': '/device-control',
@@ -96,27 +54,15 @@ NAVIGATION_ALIASES = {
     'rec': '/device-control',
     'streams': '/device-control',
     'live': '/device-control',
-    'run tests': '/test-execution/run-tests',
-    'execute tests': '/test-execution/run-tests',
-    'test execution': '/test-execution/run-tests',
-    'run campaigns': '/test-execution/run-campaigns',
-    'campaigns': '/test-plan/campaigns',
-    'test cases': '/test-plan/test-cases',
-    'testcases': '/test-plan/test-cases',
-    'tests': '/test-plan/test-cases',
-    'incidents': '/monitoring/incidents',
-    'alerts': '/monitoring/incidents',
     'heatmap': '/monitoring/heatmap',
     'monitoring': '/monitoring/heatmap',
-    'reports': '/test-results/reports',
-    'test reports': '/test-results/reports',
-    'campaign reports': '/test-results/campaign-reports',
     'test builder': '/builder/test-builder',
     'builder': '/builder/test-builder',
-    'settings': '/configuration/settings',
-    'config': '/configuration/settings',
-    'ai agent': '/ai-agent',
-    'chat': '/ai-agent',
+    'campaign builder': '/builder/campaign-builder',
+    'campaign-builder': '/builder/campaign-builder',
+    'navigation editor': '/builder/navigation-editor',
+    'navigation-editor': '/builder/navigation-editor',
+    'navigation': '/builder/navigation-editor',
 }
 
 
@@ -176,13 +122,11 @@ def navigate_to_page(page_name: str, context: Optional[Dict[str, Any]] = None) -
     Navigates the user's browser to a specific page.
     
     Args:
-        page_name: Page name or path. Examples: 'dashboard', 'device control', 'reports', 
-                   '/test-execution/run-tests', 'heatmap', 'incidents'
+        page_name: Page name or path. Examples: 'device control', 'heatmap', 
+                   'test builder', 'campaign builder', 'navigation editor'
         context: Optional parameters (e.g., {'device_id': 's21'})
     
-    Available pages: dashboard, device control, run tests, run campaigns, test cases,
-                     campaigns, incidents, heatmap, reports, campaign reports, 
-                     test builder, settings, ai agent
+    Available pages: device control, heatmap, test builder, campaign builder, navigation editor
     """
     logger.info(f"🤖 navigate_to_page called: page_name={page_name}, context={context}")
     

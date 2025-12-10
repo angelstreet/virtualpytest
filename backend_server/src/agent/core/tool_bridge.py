@@ -84,13 +84,13 @@ class ToolBridge:
             if name == "navigate_to_page":
                 result.append({
                     "name": "navigate_to_page",
-                    "description": "Navigates the user's browser to a specific page. Available pages: dashboard, device control, run tests, campaigns, test cases, incidents, heatmap, reports, test builder, settings, ai agent",
+                    "description": "Navigates the user's browser to a specific page. Available pages: device control, heatmap, test builder, campaign builder, navigation editor",
                     "input_schema": {
                         "type": "object",
                         "properties": {
                             "page_name": {
                                 "type": "string",
-                                "description": "Page name or path (e.g., 'dashboard', 'device control', 'reports', 'heatmap', 'incidents')"
+                                "description": "Page name or path (e.g., 'device control', 'heatmap', 'test builder', 'campaign builder', 'navigation editor')"
                             },
                             "context": {
                                 "type": "object",
