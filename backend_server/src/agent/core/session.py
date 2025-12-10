@@ -48,11 +48,16 @@ class Session:
     
     def cancel(self):
         """Cancel current operation"""
+        import traceback
+        print(f"[SESSION DEBUG] cancel() called for session {self.id}")
+        print(f"[SESSION DEBUG] Call stack:\n{''.join(traceback.format_stack()[-5:-1])}")
         self.cancelled = True
         self.updated_at = datetime.utcnow()
         
     def reset_cancellation(self):
         """Reset cancellation flag"""
+        if self.cancelled:
+            print(f"[SESSION DEBUG] reset_cancellation() - was cancelled, now reset for session {self.id}")
         self.cancelled = False
         self.updated_at = datetime.utcnow()
     

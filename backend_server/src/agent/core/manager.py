@@ -450,7 +450,8 @@ Max 2 sentences. Be direct."""
             async for event in delegated_manager.process_message(message, session, _is_delegated=True):
                 event_count += 1
                 if session.cancelled:
-                    print(f"[AGENT DEBUG] Session cancelled!")
+                    print(f"[AGENT DEBUG] Session cancelled! (session_id={session.id})")
+                    print(f"[AGENT DEBUG] Event #{event_count} from {delegated_manager.nickname} triggered cancellation check")
                     yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Stopped by user.")
                     session.reset_cancellation()
                     return
