@@ -820,6 +820,21 @@ useEffect(() => {
                           {task.subtitle}
                         </Typography>
                       )}
+                      {/* Date like Sherlock */}
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          display: 'block',
+                          fontSize: '0.6rem',
+                          color: 'text.disabled',
+                          opacity: 0.7,
+                        }}
+                      >
+                        {(() => {
+                          const d = new Date(task.startedAt);
+                          return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                        })()}
+                      </Typography>
                     </Box>
                   </Box>
                 );

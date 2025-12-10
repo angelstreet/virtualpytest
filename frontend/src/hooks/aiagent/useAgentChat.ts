@@ -374,6 +374,7 @@ export const useAgentChat = () => {
     const taskType: string = event.task_type || (taskData.type as string) || 'task';
     
     // Build title and subtitle based on task type
+    // Try task_data first, then parse from event.content
     let title = 'Task';
     let subtitle: string | undefined;
     let severity: string | undefined;
@@ -382,8 +383,23 @@ export const useAgentChat = () => {
     if (taskType === 'script' || event.content?.includes('SCRIPT:')) {
       title = event.content?.match(/SCRIPT:\s*([^\n]+)/)?.[1]?.trim() || (taskData.script_name as string) || 'Script';
     } else if (taskType === 'alert' || taskType === 'incident') {
-      title = (taskData.incident_type as string) || (taskData.alert_type as string) || taskType;
-      subtitle = taskData.host_name as string | undefined;
+      // For alerts: title = "host_name - device_name", subtitle = incident_type
+      const hostName = (taskData.host_name as string) || event.content?.match(/HOST:\s*([^\n(]+)/)?.[1]?.trim();
+      const deviceName = taskData.device_name as string;
+      const incidentType = (taskData.incident_type as string) || (taskData.alert_type as string) || 
+        event.content?.match(/TYPE:\s*([^\n]+)/)?.[1]?.trim();
+      
+      // Title: host - device (or just host if no device)
+      if (hostName && deviceName) {
+        title = `${hostName} - ${deviceName}`;
+      } else if (hostName) {
+        title = hostName;
+      } else {
+        title = 'Unknown device';
+      }
+      
+      // Subtitle: incident type (freeze, blackscreen, etc.)
+      subtitle = incidentType || 'alert';
       severity = taskData.severity as string | undefined;
     } else {
       title = taskType;
@@ -394,12 +410,21 @@ export const useAgentChat = () => {
     // Store session info
     backgroundSessionsRef.current.set(agentId, { conversationId, taskId, title });
     
-    // Create conversation for this task
+    // Create conversation for this task WITH initial message
     const emoji = isDryRun ? '🌙' : '🔍';
+    const initialMessage = {
+      id: `${Date.now()}-${Math.random()}`,
+      role: 'agent' as const,
+      content: event.content || `${taskType} received`,
+      agent: agentNickname,
+      timestamp: new Date().toISOString(),
+      events: [event],
+    };
+    
     const newConvo: Conversation = {
       id: conversationId,
       title: subtitle ? `${emoji} ${title} - ${subtitle}` : `${emoji} ${title}`,
-      messages: [],
+      messages: [initialMessage], // Start with initial message
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -407,7 +432,7 @@ export const useAgentChat = () => {
     setConversations(prev => {
       const exists = prev.find(c => c.id === conversationId);
       if (exists) return prev;
-      console.log(`[Background:${agentNickname}] Created conversation:`, conversationId);
+      console.log(`[Background:${agentNickname}] Created conversation with message:`, conversationId);
       return [newConvo, ...prev];
     });
     
@@ -508,11 +533,17 @@ export const useAgentChat = () => {
       }
     }
     
-    // Add event to conversation
+    // Add event to conversation (for subsequent events only - initial event added with conversation)
     setConversations(prev => prev.map(c => {
       if (c.id !== conversationId) return c;
       
       const lastMsg = c.messages[c.messages.length - 1];
+      
+      // Skip if event already exists in last message (prevents duplicate on initial event)
+      if (lastMsg?.events?.some(e => e.task_id === event.task_id && e.type === event.type)) {
+        return c;
+      }
+      
       if (lastMsg && lastMsg.role === 'agent' && event.type !== 'session_ended') {
         return {
           ...c,
