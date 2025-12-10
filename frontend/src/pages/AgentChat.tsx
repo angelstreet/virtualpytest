@@ -1338,9 +1338,25 @@ useEffect(() => {
                       <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.2 }}>
                         {getAgentNickname(activeAgent)}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        • {session?.mode ? `${session.mode} mode` : 'Processing...'}
-                      </Typography>
+                      {/* Inline bouncing dots when no tool events */}
+                      {!hasToolEvents && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.5 }}>
+                          {[0, 1, 2].map((i) => (
+                            <Box 
+                              key={i}
+                              sx={{ 
+                                width: 4, height: 4, borderRadius: '50%', bgcolor: PALETTE.accent,
+                                animation: 'bounce 1.4s ease-in-out infinite',
+                                animationDelay: `${i * 0.16}s`,
+                                '@keyframes bounce': {
+                                  '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
+                                  '40%': { transform: 'scale(1)', opacity: 1 },
+                                },
+                              }} 
+                            />
+                          ))}
+                        </Box>
+                      )}
                     </Box>
                   </Box>
                 );
@@ -1350,25 +1366,6 @@ useEffect(() => {
                 <Box sx={{ pl: 2, borderLeft: `2px solid ${session?.active_agent ? getAgentColor(session.active_agent) : PALETTE.accent}40` }}>
                   {/* Tool calls only - thinking messages hidden */}
                   {mergeToolEvents(currentEvents).map(renderToolActivity)}
-                </Box>
-              )}
-
-              {!currentEvents.some(e => e.type === 'tool_call') && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                  {[0, 1, 2].map((i) => (
-                    <Box 
-                      key={i}
-                      sx={{ 
-                        width: 5, height: 5, borderRadius: '50%', bgcolor: PALETTE.accent,
-                        animation: 'bounce 1.4s ease-in-out infinite',
-                        animationDelay: `${i * 0.16}s`,
-                        '@keyframes bounce': {
-                          '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
-                          '40%': { transform: 'scale(1)', opacity: 1 },
-                        },
-                      }} 
-                    />
-                  ))}
                 </Box>
               )}
 
