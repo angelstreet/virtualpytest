@@ -26,6 +26,7 @@ from mcp.tool_definitions import (
     get_requirements_tools,
     get_screen_analysis_tools,
     get_exploration_tools,
+    get_analysis_tools,
 )
 
 # Import UI interaction tools (browser control)
@@ -85,6 +86,7 @@ def _build_skill_registry() -> Dict[str, SkillInfo]:
         ('requirements', get_requirements_tools()),
         ('screen_analysis', get_screen_analysis_tools()),
         ('exploration', get_exploration_tools()),
+        ('analysis', get_analysis_tools()),
     ]
     
     # Add MCP tools
