@@ -565,6 +565,18 @@ def start_server(app):
     finally:
         print("[@backend_server:start] 👋 backend_server application stopped")
 
+def initialize_agent_triggers():
+    """Initialize event-triggered agent analysis"""
+    print("[@backend_server:triggers] Initializing agent triggers...")
+    try:
+        from agent.core.trigger_handler import initialize_triggers
+        initialize_triggers()
+        print("[@backend_server:triggers] ✅ Agent triggers initialized")
+    except Exception as e:
+        print(f"[@backend_server:triggers] ⚠️  Failed to initialize triggers: {e}")
+        # Non-fatal - chat mode still works without triggers
+
+
 def main():
     """Main function"""
     print("🖥️ VIRTUALPYTEST backend_server")
@@ -581,7 +593,10 @@ def main():
         print("❌ CRITICAL: Cannot start server without all routes")
         sys.exit(1)
     
-    # STEP 4: Start server
+    # STEP 4: Initialize agent triggers (event bus → queue → analyzer)
+    initialize_agent_triggers()
+    
+    # STEP 5: Start server
     start_server(app)
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 # Agent Configuration: Result Analyzer
-# Version: 2.3.0
+# Version: 2.4.0
 # Author: system
 #
 # Analyzes script and test results to detect false positives.
@@ -19,7 +19,7 @@ metadata:
   nickname: Sherlock
   selectable: true  # Users can select in chat
   default: false
-  version: 2.3.0
+  version: 2.4.0
   author: system
   description: "Analyzes script and test results"
   tags:
@@ -40,26 +40,17 @@ triggers:
   - type: testcase.completed
     priority: normal  # Queued for background processing
 
-event_pools:
-  - shared.executions
-  - shared.results
-
 subagents: []
 
-# Micro-skills (2-3 tools each)
+# Micro-skills this agent can load (from skills/definitions/)
 available_skills:
-  - validate
-  - analyze
-  - validate-result
-  - detect-false-positive
-  - generate-report
+  - validate   # Result validation using report URLs
+  - analyze    # Failure classification using report URLs
 
-# Router mode tools - for quick queries and fetching execution data
+# Router mode MCP tools (minimal - for quick queries)
 skills:
-  - get_execution_status
   - get_last_execution_event
   - fetch_execution_report
-  - fetch_execution_logs
   - get_analysis_queue_status
 
 permissions:

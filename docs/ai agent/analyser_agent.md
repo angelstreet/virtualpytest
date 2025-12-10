@@ -1,4 +1,4 @@
-# RESULT ANALYSIS SYSTEM v2.3
+# RESULT ANALYSIS SYSTEM v2.4
 
 ## 🎯 CORE OBJECTIVE
 Analyze script/testcase execution results to detect false positives, classify failures, and determine result reliability.
@@ -28,7 +28,7 @@ Analyze script/testcase execution results to detect false positives, classify fa
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                              ▲
-                             │ QUEUED (background worker)
+                             │ Background worker processes queue
 ┌────────────────────────────┴────────────────────────────────────┐
 │                      ANALYSIS QUEUE                              │
 │  ┌──────┐ ┌──────┐ ┌──────┐                                     │
@@ -36,13 +36,13 @@ Analyze script/testcase execution results to detect false positives, classify fa
 │  └──────┘ └──────┘ └──────┘                                     │
 └─────────────────────────────────────────────────────────────────┘
                              ▲
-                             │ publish event
+                             │ TriggerHandler routes failed executions
 ┌────────────────────────────┴────────────────────────────────────┐
 │                        EVENT BUS                                 │
 │  ExecutionEvent { script_name, report_url, logs_url, ... }      │
 └─────────────────────────────────────────────────────────────────┘
                              ▲
-                             │ script completes
+                             │ script completes → publish event
 ┌────────────────────────────┴────────────────────────────────────┐
 │                     SCRIPT TOOLS                                 │
 │  execute_script() → polls → completion → publish event          │
@@ -54,6 +54,7 @@ Analyze script/testcase execution results to detect false positives, classify fa
 | Component | File | Purpose |
 |-----------|------|---------|
 | Event Bus | `agent/core/event_bus.py` | Pub/sub for execution events |
+| Trigger Handler | `agent/core/trigger_handler.py` | Routes events → queue, sets callback |
 | Analysis Queue | `agent/core/event_bus.py` | Background queue + worker thread |
 | ExecutionEvent | `agent/core/event_bus.py` | Event data with URLs |
 | Script Hook | `mcp/tools/script_tools.py` | Publishes event on completion |
@@ -66,11 +67,10 @@ Analyze script/testcase execution results to detect false positives, classify fa
 1. Select **Sherlock** (Result Analyzer) in chat
 2. Provide a report URL:
    - "Analyze this report: http://host/reports/123/report.html"
-   - "Check the last execution for false positives"
-   - "Validate the result at http://..."
+   - "What's in the analysis queue?"
 
 ### Key Points
-- **Always responsive** - Chat requests bypass the queue
+- **Always responsive** - Chat requests are immediate
 - **Immediate processing** - No waiting for background tasks
 - **Interactive** - Can ask follow-up questions
 
@@ -96,11 +96,12 @@ Recommendation: REVIEW - Selector may need updating
 ### How It Works
 1. Script/testcase completes
 2. `script_tools` publishes `ExecutionEvent` to event bus
-3. Event is queued in `AnalysisQueue`
+3. `TriggerHandler` receives event, routes failed executions to queue
 4. Background worker processes queue (FIFO)
 5. Results stored for retrieval
 
 ### Key Points
+- **Only failed executions** are queued for analysis
 - **Non-blocking** - Doesn't slow down script execution
 - **Ordered processing** - Queue ensures FIFO order
 - **Doesn't block chat** - Separate thread from chat requests
@@ -119,15 +120,20 @@ Sherlock: 📊 Analysis Queue Status:
 💡 Note: Chat requests bypass the queue and are processed immediately.
 ```
 
-## 🔧 TOOLS
+## 🔧 TOOLS (Router Mode)
 
 | Tool | Description |
 |------|-------------|
-| `fetch_execution_report` | Curl & parse HTML report from URL |
-| `fetch_execution_logs` | Curl logs file (50KB limit) |
 | `get_last_execution_event` | Get most recent execution context |
-| `get_execution_status` | Get status by task ID |
+| `fetch_execution_report` | Curl & parse HTML report from URL |
 | `get_analysis_queue_status` | Check background queue status |
+
+## 📚 SKILLS (Loaded Dynamically)
+
+| Skill | Tools | Purpose |
+|-------|-------|---------|
+| `validate` | fetch_execution_report, fetch_execution_logs, get_last_execution_event | Result validation |
+| `analyze` | fetch_execution_report, fetch_execution_logs, get_last_execution_event | Failure classification |
 
 ## 📊 ExecutionEvent Data
 
@@ -147,7 +153,7 @@ class ExecutionEvent:
     timestamp: datetime
 ```
 
-## 🔍 VALIDATION RULES
+## 🔍 VALIDATION RULES (validate skill)
 
 ### RELIABLE if:
 - Initial state OK (no black screen, no signal issues)
@@ -158,7 +164,7 @@ class ExecutionEvent:
 - Any validation check fails
 - Missing critical data
 
-## 🎯 FAILURE CLASSIFICATION
+## 🎯 FAILURE CLASSIFICATION (analyze skill)
 
 | Classification | Rule | Confidence |
 |---------------|------|------------|
@@ -169,14 +175,14 @@ class ExecutionEvent:
 
 ## 🛠️ CONFIGURATIONS
 
-### analyzer.yaml (v2.3.0)
+### analyzer.yaml (v2.4.0)
 ```yaml
 metadata:
   id: analyzer
   name: Result Analyzer
   nickname: Sherlock
   selectable: true  # Users CAN select in chat
-  version: 2.3.0
+  version: 2.4.0
 
 triggers:
   - type: chat.message
@@ -186,41 +192,39 @@ triggers:
   - type: testcase.completed
     priority: normal
 
-suggestions:
-  - "Analyze this report: http://..."
-  - "Check the last execution for false positives"
-  - "Validate the result at http://..."
-  - "What's in the analysis queue?"
+# Micro-skills (from skills/definitions/)
+available_skills:
+  - validate   # Result validation using report URLs
+  - analyze    # Failure classification using report URLs
 
+# Router mode MCP tools (minimal - for quick queries)
 skills:
-  - get_execution_status
   - get_last_execution_event
   - fetch_execution_report
-  - fetch_execution_logs
   - get_analysis_queue_status
 ```
 
-### AnalysisQueue
+### TriggerHandler
 ```python
-class AnalysisQueue:
+class TriggerHandler:
     """
-    Background queue for event-triggered analysis.
+    Routes execution events to analysis queue.
     
-    - Event bus → Queue (non-blocking)
-    - Background worker processes queue
-    - Chat requests bypass queue (immediate response)
+    - Subscribes to script.completed, testcase.completed
+    - Only queues FAILED executions
+    - Sets callback on AnalysisQueue
     """
     
-    def enqueue(event) → str           # Add to queue
-    def get_status() → Dict            # Queue status
-    def get_result(execution_id) → Dict # Get analysis result
+    def initialize():
+        event_bus.subscribe("script.completed", _handle_execution_event)
+        analysis_queue.set_callback(_process_analysis)
 ```
 
 ## 🎯 KEY BENEFITS
 
 ✅ **Chat always responsive** - Never blocked by background tasks
-✅ **Event-triggered analysis** - Automatic after execution
-✅ **Queue-based** - Ordered, non-blocking background processing
+✅ **Event-triggered analysis** - Automatic after failed execution
+✅ **Only failures queued** - No wasted analysis on passed tests
 ✅ **URL-based** - Works across hosts via HTTP
 ✅ **Self-contained** - Uses only report/logs data
 ✅ **Selectable** - Users can chat with analyzer directly
@@ -230,12 +234,14 @@ class AnalysisQueue:
 | File | Purpose |
 |------|---------|
 | `agent/core/event_bus.py` | Event bus + AnalysisQueue |
+| `agent/core/trigger_handler.py` | Wires event bus → queue → analyzer |
 | `mcp/tools/analysis_tools.py` | Report/logs fetching + queue status |
 | `mcp/tools/script_tools.py` | Publishes events on completion |
 | `mcp/tool_definitions/analysis_definitions.py` | Tool schemas |
 | `agent/skills/definitions/validate.yaml` | Validation skill |
 | `agent/skills/definitions/analyze.yaml` | Analysis skill |
 | `agent/registry/templates/analyzer.yaml` | Agent config |
+| `app.py` | Initializes TriggerHandler on startup |
 
 ## 🧪 TESTING
 
@@ -245,12 +251,12 @@ class AnalysisQueue:
 3. Verify immediate response
 
 ### Event Mode
-1. Execute a script via assistant
+1. Execute a failing script via assistant
 2. Check queue status: "What's in the analysis queue?"
 3. Verify event was queued
 4. Verify background processing
 
 ### Concurrent Test
-1. Start a script execution (queues analysis)
+1. Start a script execution (queues analysis if failed)
 2. Immediately ask Sherlock to analyze different report
 3. Verify chat response is immediate (not blocked)
