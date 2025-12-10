@@ -9,15 +9,11 @@ Multi-agent architecture for QA automation:
 - Maintainer: Self-healing, selector fixes
 """
 
-from .core.manager import QAManagerAgent
 from .core.session import Session, SessionManager
-from .core.tool_bridge import ToolBridge
 
 __all__ = [
-    'QAManagerAgent',
     'Session',
-    'SessionManager', 
-    'ToolBridge',
+    'SessionManager',
 ]
 
 

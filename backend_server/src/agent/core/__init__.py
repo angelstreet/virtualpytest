@@ -8,9 +8,8 @@ Agent Core Components
 - EventBus: Pub/sub for agent triggers
 """
 
-from .manager import QAManagerAgent
+# Lightweight imports only - no MCP dependencies
 from .session import Session, SessionManager
-from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent
 from .event_bus import (
     AgentEventBus,
@@ -20,14 +19,10 @@ from .event_bus import (
     AnalysisQueue,
     get_analysis_queue,
 )
-# Note: trigger_handler is NOT imported here to avoid circular imports
-# Import it directly where needed: from agent.core.trigger_handler import initialize_triggers
 
 __all__ = [
-    'QAManagerAgent',
     'Session',
     'SessionManager',
-    'ToolBridge',
     'EventType',
     'AgentEvent',
     'AgentEventBus',
