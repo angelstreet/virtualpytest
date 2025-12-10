@@ -178,13 +178,11 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
           throw new Error('No selectable agents found');
         }
         
-        // Sort agents: default agent first, then alphabetically
+        // Sort agents: default agent first, then others
         selectableAgents.sort((a: any, b: any) => {
-          // Default agent always first
-          if (a.isDefault === true && b.isDefault !== true) return -1;
-          if (b.isDefault === true && a.isDefault !== true) return 1;
-          // Then alphabetically by nickname
-          return (a.nickname || '').localeCompare(b.nickname || '');
+          if (a.isDefault) return -1;
+          if (b.isDefault) return 1;
+          return 0;
         });
         
         setAvailableAgents(selectableAgents);

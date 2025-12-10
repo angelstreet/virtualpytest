@@ -53,9 +53,6 @@ class QAManagerAgent:
         # Active skill (None = router mode)
         self._active_skill = None
         
-        # Delegated managers cache
-        self._delegated_managers = {}
-        
         # Queue worker state
         self._queue_worker_running = False
         self._queue_worker_thread: Optional[threading.Thread] = None
@@ -86,19 +83,6 @@ class QAManagerAgent:
         if config and hasattr(config, 'background_queues'):
             background_queues = config.background_queues or []
         
-        # Load sub-agent info from YAML for delegation
-        subagents_info = []
-        for subagent_ref in (agent_def.subagents or []):
-            subagent_def = registry.get(subagent_ref.id)
-            if subagent_def:
-                subagents_info.append({
-                    'id': subagent_ref.id,
-                    'nickname': subagent_def.metadata.nickname or subagent_ref.id,
-                    'description': subagent_def.metadata.description,
-                    'delegate_for': subagent_ref.delegate_for or [],
-                    'skills': subagent_def.skills or [],
-                })
-        
         return {
             'name': metadata.name,
             'nickname': metadata.nickname or metadata.name,
@@ -107,7 +91,6 @@ class QAManagerAgent:
             'skills': agent_def.skills or [],
             'available_skills': getattr(agent_def, 'available_skills', []) or [],
             'subagents': [s.id for s in (agent_def.subagents or [])],
-            'subagents_info': subagents_info,
             'background_queues': background_queues,
         }
     
@@ -149,57 +132,6 @@ class QAManagerAgent:
         match = re.search(r'LOAD\s+SKILL\s+([\w-]+)', text, re.IGNORECASE)
         return match.group(1).lower() if match else None
     
-    def _parse_delegation(self, text: str) -> Optional[str]:
-        """Parse 'DELEGATE TO [agent_id]' from Claude's response"""
-        match = re.search(r'DELEGATE\s+TO\s+([\w-]+)', text, re.IGNORECASE)
-        return match.group(1).lower() if match else None
-    
-    def _resolve_agent_id(self, identifier: str) -> Optional[str]:
-        """Resolve agent identifier (ID or nickname) to agent ID"""
-        identifier_lower = identifier.lower()
-        
-        # Check if it's already a valid agent ID
-        for sa_id in self.agent_config.get('subagents', []):
-            if sa_id.lower() == identifier_lower:
-                return sa_id
-        
-        # Check if it's a nickname
-        for sa in self.agent_config.get('subagents_info', []):
-            if sa['nickname'].lower() == identifier_lower:
-                return sa['id']
-        
-        return None
-    
-    def _get_subagent_info(self, agent_id: str) -> Dict[str, str]:
-        """Get nickname and description for a subagent by ID"""
-        for sa in self.agent_config.get('subagents_info', []):
-            if sa['id'] == agent_id:
-                return {
-                    'nickname': sa['nickname'],
-                    'description': sa.get('description', ''),
-                }
-        return {'nickname': agent_id, 'description': ''}
-    
-    def _get_delegated_manager(self, agent_id: str) -> Optional['QAManagerAgent']:
-        """Lazy-load delegated manager when needed"""
-        if agent_id in self._delegated_managers:
-            return self._delegated_managers[agent_id]
-        
-        try:
-            manager = QAManagerAgent(
-                api_key=self._get_api_key_safe(),
-                user_identifier=self.user_identifier,
-                agent_id=agent_id
-            )
-            # Share tool_bridge so MCP connections are reused
-            manager.tool_bridge = self.tool_bridge
-            self._delegated_managers[agent_id] = manager
-            self.logger.info(f"Loaded delegated manager: {manager.nickname} ({agent_id})")
-            return manager
-        except Exception as e:
-            self.logger.error(f"Failed to load delegated manager {agent_id}: {e}", exc_info=True)
-            return None
-    
     def get_system_prompt(self, context: Dict[str, Any] = None) -> str:
         """Build system prompt based on current mode"""
         if self._active_skill:
@@ -207,7 +139,7 @@ class QAManagerAgent:
         return self._build_router_prompt(context)
     
     def _build_router_prompt(self, ctx: Dict[str, Any] = None) -> str:
-        """Build router mode prompt - decides which skill to load or delegate"""
+        """Build router mode prompt - decides which skill to load"""
         from ..skills import SkillLoader
         
         config = self.agent_config
@@ -220,47 +152,23 @@ class QAManagerAgent:
         # Tools available in router mode
         tools_list = '\n'.join(f"- `{skill}`" for skill in config['skills'])
         
-        # Sub-agents for delegation
-        subagents_section = ""
-        if config.get('subagents_info'):
-            lines = []
-            for sa in config['subagents_info']:
-                delegate_str = ', '.join(sa['delegate_for']) if sa['delegate_for'] else 'specialist tasks'
-                lines.append(f"- **{sa['nickname']}** (`{sa['id']}`): {sa['description']} | For: {delegate_str}")
-            subagents_section = "\n".join(lines)
-        
-        prompt = f"""You are {config['nickname']}, {config['specialty']}.
+        return f"""You are {config['nickname']}, {config['specialty']}.
 
 ## Mode: Router
 
-Quick queries → use router tools. Complex tasks → load a skill or delegate.
+Quick queries → use router tools. Complex tasks → load a skill.
 
 ## Skills
 {skill_descriptions}
 
 ## Router Tools
 {tools_list}
-"""
-        
-        if subagents_section:
-            prompt += f"""
-## Sub-Agents (Specialists)
-{subagents_section}
 
 ## Rules
 - Quick query → use tool directly
-- Complex task matching a skill → respond ONLY: `LOAD SKILL [name]`
-- Specialist task (analysis, etc.) → respond ONLY: `DELEGATE TO [agent_id]`
-"""
-        else:
-            prompt += """
-## Rules
-- Quick query → use tool directly
 - Complex task → respond ONLY: `LOAD SKILL [name]`
-"""
-        
-        prompt += "\nBe concise."
-        return prompt
+
+Be concise."""
     
     def _build_skill_prompt(self, ctx: Dict[str, Any] = None) -> str:
         """Build skill mode prompt"""
@@ -490,46 +398,6 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                         yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=display_text, metrics=metrics)
                     else:
                         yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=response_text, metrics=metrics)
-                    break
-                
-                # Check for delegation command
-                delegate_identifier = self._parse_delegation(response_text)
-                if delegate_identifier:
-                    delegate_to = self._resolve_agent_id(delegate_identifier)
-                    if delegate_to:
-                        delegate_info = self._get_subagent_info(delegate_to)
-                        print(f"[AGENT] Delegating to {delegate_info['nickname']} ({delegate_to})")
-                        
-                        # Display delegation message
-                        display_text = re.sub(
-                            r'DELEGATE\s+TO\s+[\w-]+',
-                            f'Handing off to **{delegate_info["nickname"]}**',
-                            response_text,
-                            flags=re.IGNORECASE
-                        )
-                        yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=display_text, metrics=metrics)
-                        
-                        # Get delegated manager
-                        delegated_manager = self._get_delegated_manager(delegate_to)
-                        if delegated_manager:
-                            session.active_agent = delegate_to
-                            yield AgentEvent(type=EventType.AGENT_DELEGATED, agent=self.nickname, content=f"Delegating to {delegated_manager.nickname}...")
-                            yield AgentEvent(type=EventType.AGENT_STARTED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} taking over...")
-                            
-                            # Run delegated manager with original message
-                            async for event in delegated_manager.process_message(message, session, _is_delegated=True):
-                                if session.cancelled:
-                                    yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="Stopped by user.")
-                                    session.reset_cancellation()
-                                    break
-                                yield event
-                            
-                            yield AgentEvent(type=EventType.AGENT_COMPLETED, agent=delegated_manager.nickname, content=f"{delegated_manager.nickname} completed")
-                            session.active_agent = None
-                        else:
-                            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load {delegate_info['nickname']}")
-                    else:
-                        yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Cannot delegate to '{delegate_identifier}' - agent not found")
                     break
                 
                 # Normal response
