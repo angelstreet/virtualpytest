@@ -77,7 +77,6 @@ echo "==========================================================================
 kill_by_pattern "python.*app\.py" "Python app processes"
 kill_by_pattern "python.*backend_server" "Backend server processes"
 kill_by_pattern "python.*backend_host" "Backend host processes"
-kill_by_pattern "python.*backend_discard" "Backend discard processes"
 kill_by_pattern "python.*capture_monitor\.py" "Capture monitor processes"
 
 # Kill all VirtualPyTest Node/npm processes
@@ -98,7 +97,6 @@ echo "==========================================================================
 kill_port_processes "5109" "backend_server"
 kill_port_processes "6109" "backend_host"  
 kill_port_processes "5073" "frontend"
-kill_port_processes "6209" "backend_discard"
 kill_port_processes "3001" "grafana"
 
 echo ""
@@ -107,7 +105,7 @@ echo "🎯 PHASE 3: Clean up PID files and background jobs"
 echo "=================================================================================="
 
 echo -e "${YELLOW}🧹 Cleaning up PID files...${NC}"
-rm -f /tmp/backend_server.pid /tmp/backend_host.pid /tmp/backend_discard.pid /tmp/frontend.pid
+rm -f /tmp/backend_server.pid /tmp/backend_host.pid /tmp/frontend.pid
 echo -e "${GREEN}✅ PID files cleaned${NC}"
 
 echo -e "${YELLOW}🧹 Killing any remaining background jobs...${NC}"
@@ -135,7 +133,7 @@ fi
 
 # Check port status
 echo -e "\n${YELLOW}📊 Port Status:${NC}"
-for port in 5109 6109 5073 6209 3001; do
+for port in 5109 6109 5073 3001; do
     if lsof -ti:$port > /dev/null 2>&1; then
         echo -e "${RED}❌ Port $port: still in use${NC}"
     else

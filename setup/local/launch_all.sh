@@ -1,21 +1,14 @@
 #!/bin/bash
 
 # VirtualPyTest Launch Script - Real-time Unified Logging
-# Usage: ./launch_all.sh [--discard]
-#   --discard: Include the AI Discard Service (uses many tokens)
+# Usage: ./launch_all.sh
 # Note: Grafana is built into backend_server and accessible at /grafana/
 
 # Parse command line arguments
-INCLUDE_DISCARD=false
 for arg in "$@"; do
     case $arg in
-        --discard)
-            INCLUDE_DISCARD=true
-            shift
-            ;;
         -h|--help)
-            echo "Usage: $0 [--discard]"
-            echo "  --discard    Include the AI Discard Service (uses many tokens)"
+            echo "Usage: $0"
             echo "  -h, --help   Show this help message"
             echo ""
             echo "Note: Grafana monitoring is built into backend_server"
@@ -30,13 +23,7 @@ for arg in "$@"; do
     esac
 done
 
-SERVICES_MSG="🚀 Starting VirtualPyTest System with Real-time Unified Logging"
-if [ "$INCLUDE_DISCARD" = true ]; then
-    SERVICES_MSG="$SERVICES_MSG (with AI Discard)..."
-else
-    SERVICES_MSG="$SERVICES_MSG..."
-fi
-echo "$SERVICES_MSG"
+echo "🚀 Starting VirtualPyTest System with Real-time Unified Logging..."
 
 set -e
 
@@ -66,10 +53,6 @@ if [ ! -d "frontend/node_modules" ]; then
     MISSING_COMPONENTS="$MISSING_COMPONENTS frontend-deps"
 fi
 
-if [ "$INCLUDE_DISCARD" = true ] && [ ! -d "backend_discard/src" ]; then
-    MISSING_COMPONENTS="$MISSING_COMPONENTS backend_discard"
-fi
-
 if [ "$INCLUDE_GRAFANA" = true ] && [ ! -f "grafana/config/grafana.ini" ]; then
     MISSING_COMPONENTS="$MISSING_COMPONENTS grafana"
 fi
@@ -89,12 +72,6 @@ if [ -n "$MISSING_COMPONENTS" ]; then
         echo "   • Frontend Dependencies (frontend/node_modules/)"
         echo "     → Fix: cd frontend && npm install"
         echo "     → Or: ./setup/local/install_frontend_deps.sh"
-    fi
-    
-    if [[ "$MISSING_COMPONENTS" == *"backend_discard"* ]]; then
-        echo "   • AI Discard Service (backend_discard/src/)"
-        echo "     → Fix: ./setup/local/install_backend_discard.sh"
-        echo "     → Note: Required when using --discard flag"
     fi
     
     if [[ "$MISSING_COMPONENTS" == *"grafana"* ]]; then
@@ -204,7 +181,7 @@ cleanup() {
     jobs -p | xargs -r kill -9 2>/dev/null
     
     # Clean up PID files
-    rm -f /tmp/backend_server.pid /tmp/backend_host.pid /tmp/backend_discard.pid /tmp/frontend.pid
+    rm -f /tmp/backend_server.pid /tmp/backend_host.pid /tmp/frontend.pid
     
     echo -e "${RED}✅ All processes stopped${NC}"
     exit 0
@@ -235,16 +212,6 @@ if lsof -ti:5073 > /dev/null 2>&1; then
     sleep 1
 fi
 
-# Port for backend_discard (configurable via DISCARD_SERVER_PORT, default 6209)
-if [ "$INCLUDE_DISCARD" = true ]; then
-    DISCARD_PORT=${DISCARD_SERVER_PORT:-6209}
-    if lsof -ti:$DISCARD_PORT > /dev/null 2>&1; then
-        echo "🛑 Killing processes on port $DISCARD_PORT..."
-        lsof -ti:$DISCARD_PORT | xargs kill -9 2>/dev/null || true
-        sleep 1
-    fi
-fi
-
 # Port 3000 (Grafana) - only check if we're including Grafana
 if [ "$INCLUDE_GRAFANA" = true ]; then
     # We already checked port 3000 above for Frontend, but Grafana also uses 3000
@@ -264,9 +231,6 @@ echo "💡 Press Ctrl+C to stop all processes"
 
 # Build log prefixes message
 LOG_PREFIXES="[SERVER], [HOST], [FRONTEND]"
-if [ "$INCLUDE_DISCARD" = true ]; then
-    LOG_PREFIXES="$LOG_PREFIXES, [DISCARD]"
-fi
 if [ "$INCLUDE_GRAFANA" = true ]; then
     LOG_PREFIXES="$LOG_PREFIXES, [GRAFANA]"
 fi
@@ -287,12 +251,6 @@ echo -e "${YELLOW}🟡 Starting Frontend...${NC}"
 run_with_prefix "FRONTEND" "$YELLOW" "$PROJECT_ROOT/frontend" npm run dev
 sleep 3
 
-if [ "$INCLUDE_DISCARD" = true ]; then
-    echo -e "${RED}🔴 Starting backend_discard (AI analysis service)...${NC}"
-    run_with_prefix "DISCARD" "$RED" "$PROJECT_ROOT/backend_discard" python src/app.py
-    sleep 3
-fi
-
 # Grafana is managed by backend_server as a built-in service
 # No separate Grafana startup needed - it's accessible via backend_server proxy at /grafana/
 
@@ -304,9 +262,6 @@ echo -e "${NC}   Frontend: http://localhost:5073${NC}"
 echo -e "${NC}   backend_server: http://localhost:5109${NC}"
 echo -e "${NC}   backend_host: http://localhost:6109${NC}"
 echo -e "${NC}   Grafana : http://localhost:3000/${NC}"
-if [ "$INCLUDE_DISCARD" = true ]; then
-    echo -e "${NC}   backend_discard: AI analysis service (port ${DISCARD_PORT:-6209})${NC}"
-fi
 echo "=================================================================================="
 
 # Wait for all background jobs

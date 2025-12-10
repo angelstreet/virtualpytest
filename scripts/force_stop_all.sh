@@ -105,7 +105,7 @@ echo "🎯 PHASE 3: Clean up PID files and background jobs"
 echo "=================================================================================="
 
 echo -e "${YELLOW}🧹 Cleaning up PID files...${NC}"
-rm -f /tmp/backend_server.pid /tmp/backend_host.pid /tmp/backend_discard.pid /tmp/frontend.pid
+rm -f /tmp/backend_server.pid /tmp/backend_host.pid /tmp/frontend.pid
 echo -e "${GREEN}✅ PID files cleaned${NC}"
 
 echo -e "${YELLOW}🧹 Killing any remaining background jobs...${NC}"
@@ -133,7 +133,7 @@ fi
 
 # Check port status
 echo -e "\n${YELLOW}📊 Port Status:${NC}"
-for port in 5109 6109 3000 6209 3001; do
+for port in 5109 6109 3000 3001; do
     if lsof -ti:$port > /dev/null 2>&1; then
         echo -e "${RED}❌ Port $port: still in use${NC}"
     else
