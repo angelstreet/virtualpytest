@@ -309,20 +309,30 @@ export const useAgentChat = () => {
 
   // --- Sherlock Event Handler ---
   
+  // Track active Sherlock analysis session
+  const sherlockSessionRef = useRef<{ conversationId: string; taskId: string; scriptName: string } | null>(null);
+  
   const handleSherlockEvent = useCallback((event: AgentEvent) => {
-    // Extract script info from event
+    console.log('[Sherlock] Handling event:', event.type, event.content?.slice(0, 50));
+    
+    // Extract script info from event if present
     const scriptIdMatch = event.content?.match(/SCRIPT_RESULT_ID:\s*([a-f0-9-]+)/);
     const scriptNameMatch = event.content?.match(/SCRIPT:\s*([^\n]+)/);
     
-    if (!scriptIdMatch || !scriptNameMatch) return;
+    let conversationId: string;
+    let taskId: string;
+    let scriptName: string;
     
-    const taskId = scriptIdMatch[1];
-    const scriptName = scriptNameMatch[1].trim();
-    const conversationId = `sherlock_${taskId}`;
-    
-    // Check if this is a new analysis starting
-    if (event.type === 'message' && event.content.includes('Analyze this script')) {
-      console.log(`[Sherlock] New analysis started: ${scriptName}`);
+    // If we have script info in this event, use it to create/update session
+    if (scriptIdMatch && scriptNameMatch) {
+      taskId = scriptIdMatch[1];
+      scriptName = scriptNameMatch[1].trim();
+      conversationId = `sherlock_${taskId}`;
+      
+      // Store session info for subsequent events
+      sherlockSessionRef.current = { conversationId, taskId, scriptName };
+      
+      console.log(`[Sherlock] Detected script: ${scriptName}, task: ${taskId}`);
       
       // Create conversation for this analysis
       const newConvo: Conversation = {
@@ -335,7 +345,12 @@ export const useAgentChat = () => {
       
       setConversations(prev => {
         const exists = prev.find(c => c.id === conversationId);
-        return exists ? prev : [newConvo, ...prev];
+        if (exists) {
+          console.log('[Sherlock] Conversation already exists:', conversationId);
+          return prev;
+        }
+        console.log('[Sherlock] Created new conversation:', conversationId);
+        return [newConvo, ...prev];
       });
       
       // Add to in-progress
@@ -348,56 +363,84 @@ export const useAgentChat = () => {
           startedAt: new Date().toISOString(),
         }, ...prev.inProgress]
       }));
-    }
-    
-    // Check if analysis is complete
-    if (event.type === 'message' && event.content.includes('ANALYSIS RESULT')) {
-      console.log(`[Sherlock] Analysis complete: ${scriptName}`);
+    } else if (sherlockSessionRef.current) {
+      // Use stored session info from previous event
+      conversationId = sherlockSessionRef.current.conversationId;
+      taskId = sherlockSessionRef.current.taskId;
+      scriptName = sherlockSessionRef.current.scriptName;
+      console.log('[Sherlock] Using stored session:', conversationId);
+    } else {
+      // No script info yet and no stored session - create temporary conversation
+      conversationId = `sherlock_temp_${Date.now()}`;
+      console.log('[Sherlock] Creating temporary conversation:', conversationId);
       
-      // Extract classification
-      const classMatch = event.content.match(/Classification:\s*([A-Z_]+)/);
-      const classification = classMatch ? classMatch[1] : 'UNKNOWN';
+      const tempConvo: Conversation = {
+        id: conversationId,
+        title: '🔍 Analysis in progress...',
+        messages: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
       
-      // Move from in-progress to recent
-      setSherlockTasks(prev => {
-        const task = prev.inProgress.find(t => t.id === taskId);
-        if (!task) return prev;
-        
-        return {
-          inProgress: prev.inProgress.filter(t => t.id !== taskId),
-          recent: [{
-            id: taskId,
-            scriptName,
-            conversationId,
-            classification,
-            completedAt: new Date().toISOString(),
-            viewed: false,
-          }, ...prev.recent].slice(0, 3) // Keep only last 3
-        };
+      setConversations(prev => {
+        const exists = prev.find(c => c.id === conversationId);
+        return exists ? prev : [tempConvo, ...prev];
       });
     }
     
+    // Check if analysis is complete
+    if (event.type === 'tool_call' && event.tool_name === 'update_execution_analysis') {
+      console.log(`[Sherlock] Analysis complete for ${scriptName || 'unknown'}`);
+      
+      // Extract classification from tool params
+      const classification = event.tool_params?.classification || 'UNKNOWN';
+      
+      // Move from in-progress to recent
+      if (taskId) {
+        setSherlockTasks(prev => {
+          const task = prev.inProgress.find(t => t.id === taskId);
+          if (!task) return prev;
+          
+          return {
+            inProgress: prev.inProgress.filter(t => t.id !== taskId),
+            recent: [{
+              id: taskId,
+              scriptName: scriptName || task.scriptName,
+              conversationId,
+              classification: classification as string,
+              completedAt: new Date().toISOString(),
+              viewed: false,
+            }, ...prev.recent].slice(0, 3) // Keep only last 3
+          };
+        });
+      }
+    }
+    
     // Add event to Sherlock conversation
+    console.log('[Sherlock] Adding event to conversation:', conversationId);
     setConversations(prev => prev.map(c => {
       if (c.id !== conversationId) return c;
       
+      console.log('[Sherlock] Found conversation, adding event');
+      
       // Add event to last message or create new message
       const lastMsg = c.messages[c.messages.length - 1];
-      if (lastMsg && lastMsg.role === 'agent') {
-        // Append to existing message events
+      if (lastMsg && lastMsg.role === 'agent' && event.type !== 'session_ended') {
+        // Append to existing message events (except session_ended)
         return {
           ...c,
           messages: [
             ...c.messages.slice(0, -1),
             {
               ...lastMsg,
+              content: event.type === 'message' ? event.content : lastMsg.content,
               events: [...(lastMsg.events || []), event]
             }
           ],
           updatedAt: new Date().toISOString(),
         };
-      } else {
-        // Create new agent message
+      } else if (event.type !== 'session_ended') {
+        // Create new agent message (except for session_ended)
         return {
           ...c,
           messages: [
@@ -405,7 +448,7 @@ export const useAgentChat = () => {
             {
               id: `${Date.now()}-${Math.random()}`,
               role: 'agent',
-              content: event.content,
+              content: event.content || `${event.type} event`,
               agent: 'Sherlock',
               timestamp: new Date().toISOString(),
               events: [event],
@@ -414,7 +457,15 @@ export const useAgentChat = () => {
           updatedAt: new Date().toISOString(),
         };
       }
+      
+      return c;
     }));
+    
+    // Clear session on completion
+    if (event.type === 'session_ended') {
+      console.log('[Sherlock] Session ended, clearing session ref');
+      sherlockSessionRef.current = null;
+    }
   }, []);
 
   const connectSocket = useCallback((sessionId: string) => {
