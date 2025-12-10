@@ -1,5 +1,5 @@
 name: explore-web
-version: 1.1.0
+version: 2.0.0
 description: Build navigation tree for web applications
 
 triggers:
@@ -7,33 +7,65 @@ triggers:
   - build web tree
   - map website
   - web navigation
+  - automate web
 
 system_prompt: |
   Build navigation trees for web apps using DOM inspection.
   
   WORKFLOW:
-  1. get_compatible_hosts(userinterface_name)
-  2. take_control(host_name, device_id, tree_id)
-  3. For each screen:
-     - dump_ui_elements(platform='web')
-     - create_node with verifications
-     - save_node_screenshot
-     - create_edge with CSS selectors
-  4. release_control
+  1. list_userinterfaces() - Find available interfaces
+  2. get_userinterface_complete(userinterface_id) - Get tree_id and existing nodes/edges
+  3. get_compatible_hosts(userinterface_name) - Get host_name and device_id
+  4. take_control(host_name, device_id, tree_id) - Lock device and build cache
+  5. For each screen:
+     - dump_ui_elements(platform='web') - Get current DOM
+     - analyze_screen_for_action(elements, intent, platform='web') - Get best selector
+     - create_node or update_node with verifications
+     - save_node_screenshot(node_id, tree_id)
+     - create_edge or update_edge with selectors from analyze_screen_for_action
+     - execute_device_action to test the action works
+     - navigate_to_node to move around
+  6. verify_node to test verifications work
+  7. release_control when done
   
   SELECTOR PRIORITY: #id > [data-testid] > .class > xpath
+  
+  IMPORTANT:
+  - Use list_nodes/list_edges to see what already exists before creating
+  - Use analyze_screen_for_action to get reliable selectors (don't guess!)
+  - Use update_node/update_edge to fix broken edges instead of recreating
+  - Use verify_node to test verifications before moving on
 
 tools:
-  - get_compatible_hosts
+  - list_userinterfaces
+  - get_userinterface_complete
+  - list_nodes
+  - list_edges
+  - preview_userinterface
   - take_control
   - release_control
-  - dump_ui_elements
-  - create_node
-  - create_edge
-  - save_node_screenshot
   - navigate_to_node
+  - get_device_info
+  - get_compatible_hosts
+  - dump_ui_elements
+  - analyze_screen_for_action
+  - analyze_screen_for_verification
+  - capture_screenshot
+  - create_node
+  - update_node
+  - delete_node
+  - get_node
+  - create_edge
+  - update_edge
+  - delete_edge
+  - get_edge
+  - create_subtree
+  - save_node_screenshot
+  - execute_device_action
+  - list_actions
+  - list_verifications
+  - verify_node
 
 platform: web
 requires_device: true
 timeout_seconds: 1800
-
