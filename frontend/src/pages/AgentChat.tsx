@@ -669,7 +669,7 @@ useEffect(() => {
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 1,
+            gap: 0.5,
             px: 1.5,
             py: 0.75,
             borderRadius: 1.5,
@@ -680,6 +680,16 @@ useEffect(() => {
             transition: 'background-color 0.15s',
           }}
         >
+          {/* Accordion chevron indicator */}
+          <ExpandIcon 
+            sx={{ 
+              fontSize: 16, 
+              color: PALETTE.textMuted,
+              transform: sherlockExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s',
+            }} 
+          />
+          
           <Typography 
             variant="body2" 
             sx={{ 
@@ -715,7 +725,7 @@ useEffect(() => {
         {/* Expandable Content - simplified list (last 3 + in progress) */}
         {totalActive > 0 && (
           <Fade in={sherlockExpanded}>
-            <Box sx={{ pl: 3, pr: 1, mt: 0.5 }}>
+            <Box sx={{ pl: 2, pr: 1, mt: 0.5 }}>
               {allTasks.map(task => {
                 const icon = task.isInProgress ? null : getStatusIcon((task as any).classification || 'UNKNOWN');
                 
@@ -729,9 +739,9 @@ useEffect(() => {
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 1,
-                      px: 1.5,
-                      py: 0.75,
+                      gap: 0.75,
+                      px: 1,
+                      py: 0.5,
                       borderRadius: 1,
                       cursor: 'pointer',
                       bgcolor: task.conversationId === activeConversationId
@@ -743,13 +753,14 @@ useEffect(() => {
                       transition: 'background-color 0.15s',
                     }}
                   >
-                    {/* Pulsing dot for in-progress, icon for completed */}
+                    {/* Checkmark for completed, pulsing dot for in-progress */}
                     {task.isInProgress ? (
                       <Box sx={{ 
-                        width: 8, 
-                        height: 8, 
+                        width: 6, 
+                        height: 6, 
                         borderRadius: '50%',
                         bgcolor: PALETTE.accent,
+                        flexShrink: 0,
                         animation: 'pulse 2s ease-in-out infinite',
                         '@keyframes pulse': {
                           '0%, 100%': { opacity: 1, transform: 'scale(1)' },
@@ -757,14 +768,14 @@ useEffect(() => {
                         },
                       }} />
                     ) : (
-                      <Box sx={{ fontSize: 12, minWidth: 16, textAlign: 'center' }}>{icon}</Box>
+                      <Box sx={{ fontSize: 11, minWidth: 12, textAlign: 'center', flexShrink: 0 }}>{icon}</Box>
                     )}
                     
                     <Typography 
                       variant="caption" 
                       sx={{ 
                         flex: 1,
-                        fontSize: '0.8rem',
+                        fontSize: '0.75rem',
                         color: task.isInProgress ? 'text.primary' : 'text.secondary',
                         fontWeight: task.isInProgress ? 500 : 400,
                       }}
@@ -779,7 +790,7 @@ useEffect(() => {
           </Fade>
         )}
         
-        <Divider sx={{ mt: 0, mb: 0 }} />
+        <Divider sx={{ mt: 0.5, mb: 0 }} />
       </Box>
     );
   };
