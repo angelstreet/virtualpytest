@@ -28,7 +28,8 @@ import {
   MenuItem,
   FormControl,
   Switch,
-  Divider,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   ArrowUpward as SendIcon,
@@ -109,6 +110,9 @@ const AgentChat: React.FC = () => {
   const [showHistory, setShowHistory] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [showDevice, setShowDevice] = useState(false);
+  
+  // Sidebar tab state: 'system' for background agents, 'chats' for conversations
+  const [sidebarTab, setSidebarTab] = useState<'system' | 'chats'>('chats');
   
   // Track if we've processed URL params
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
@@ -795,6 +799,7 @@ useEffect(() => {
                     )}
                     
                     <Box sx={{ flex: 1, minWidth: 0 }}>
+                      {/* Line 1: title - subtitle (e.g., sunri-pi1 - S21x - freeze) */}
                       <Typography 
                         variant="caption" 
                         sx={{ 
@@ -805,22 +810,9 @@ useEffect(() => {
                         }}
                         noWrap
                       >
-                        {task.title}
+                        {task.subtitle ? `${task.title} - ${task.subtitle}` : task.title}
                       </Typography>
-                      {task.subtitle && (
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            display: 'block',
-                            fontSize: '0.65rem',
-                            color: 'text.disabled',
-                          }}
-                          noWrap
-                        >
-                          {task.subtitle}
-                        </Typography>
-                      )}
-                      {/* Date like Sherlock */}
+                      {/* Line 2: date */}
                       <Typography 
                         variant="caption" 
                         sx={{ 
@@ -846,6 +838,12 @@ useEffect(() => {
     );
   };
 
+  // Count total tasks for System tab badge
+  const totalSystemTasks = backgroundAgents.reduce((sum, agent) => {
+    const agentTasks = backgroundTasks[agent.id] || { inProgress: [], recent: [] };
+    return sum + agentTasks.inProgress.length + agentTasks.recent.length;
+  }, 0);
+
   // --- Left Sidebar ---
   const renderLeftSidebar = () => (
     <Box
@@ -869,7 +867,10 @@ useEffect(() => {
             <Button
               fullWidth
               startIcon={<AddIcon />}
-              onClick={createNewConversation}
+              onClick={() => {
+                createNewConversation();
+                setSidebarTab('chats'); // Switch to chats tab when creating new
+              }}
               sx={{
                 justifyContent: 'flex-start',
                 color: 'text.primary',
@@ -890,30 +891,93 @@ useEffect(() => {
             </Button>
           </Box>
 
-          {/* Background Agents Section - renders all agents with background_queues */}
+          {/* Tabs for System vs Chats */}
           {backgroundAgents.length > 0 && (
-            <>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  px: 2, 
-                  color: PALETTE.textMuted,
-                  fontWeight: 600,
-                  fontSize: '0.7rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  display: 'block',
-                  mb: 0.5,
+            <Tabs
+              value={sidebarTab}
+              onChange={(_, newValue) => setSidebarTab(newValue)}
+              sx={{
+                minHeight: 36,
+                px: 1,
+                mb: 0.5,
+                '& .MuiTabs-indicator': {
+                  backgroundColor: PALETTE.accent,
+                  height: 2,
+                },
+              }}
+            >
+              <Tab
+                value="chats"
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <ChatIcon sx={{ fontSize: 14 }} />
+                    <span>Chats</span>
+                    {regularConversations.length > 0 && (
+                      <Chip
+                        label={regularConversations.length}
+                        size="small"
+                        sx={{
+                          height: 16,
+                          minWidth: 16,
+                          fontSize: '0.65rem',
+                          bgcolor: sidebarTab === 'chats' ? PALETTE.accent : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
+                          color: sidebarTab === 'chats' ? '#fff' : 'text.secondary',
+                          '& .MuiChip-label': { px: 0.5 },
+                        }}
+                      />
+                    )}
+                  </Box>
+                }
+                sx={{
+                  minHeight: 36,
+                  py: 0.5,
+                  px: 1.5,
+                  textTransform: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: sidebarTab === 'chats' ? 600 : 400,
+                  color: sidebarTab === 'chats' ? 'text.primary' : 'text.secondary',
+                  minWidth: 0,
+                  flex: 1,
                 }}
-              >
-                SYSTEM
-              </Typography>
-              {backgroundAgents.map(agent => renderBackgroundAgentSection(agent))}
-              <Divider sx={{ mb: 1 }} />
-            </>
+              />
+              <Tab
+                value="system"
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <DevicesIcon sx={{ fontSize: 14 }} />
+                    <span>System</span>
+                    {totalSystemTasks > 0 && (
+                      <Chip
+                        label={totalSystemTasks}
+                        size="small"
+                        sx={{
+                          height: 16,
+                          minWidth: 16,
+                          fontSize: '0.65rem',
+                          bgcolor: sidebarTab === 'system' ? PALETTE.accent : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
+                          color: sidebarTab === 'system' ? '#fff' : 'text.secondary',
+                          '& .MuiChip-label': { px: 0.5 },
+                        }}
+                      />
+                    )}
+                  </Box>
+                }
+                sx={{
+                  minHeight: 36,
+                  py: 0.5,
+                  px: 1.5,
+                  textTransform: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: sidebarTab === 'system' ? 600 : 400,
+                  color: sidebarTab === 'system' ? 'text.primary' : 'text.secondary',
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              />
+            </Tabs>
           )}
 
-          {/* Conversation History */}
+          {/* Tab Content */}
           <Box
             sx={{
               flex: 1,
@@ -931,112 +995,138 @@ useEffect(() => {
               },
             }}
           >
-            {groupedConversations.map((group) => (
-              <Box key={group.label} sx={{ mb: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'block',
-                    px: 1,
-                    pt: 0,
-                    pb: 0,
-                    color: PALETTE.textMuted,
-                    fontWeight: 600,
-                    fontSize: '0.7rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {group.label}
-                </Typography>
-                {group.items.map((conv) => (
-                  <Box
-                    key={conv.id}
-                    onClick={() => switchConversation(conv.id)}
+            {/* System Tab Content */}
+            {sidebarTab === 'system' && backgroundAgents.length > 0 && (
+              <Box sx={{ pt: 1 }}>
+                {backgroundAgents.map(agent => renderBackgroundAgentSection(agent))}
+                
+                {totalSystemTasks === 0 && (
+                  <Typography
+                    variant="caption"
                     sx={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 1,
-                      px: 1.5,
-                      py: 1,
-                      borderRadius: 1.5,
-                      cursor: 'pointer',
-                      bgcolor: conv.id === activeConversationId 
-                        ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
-                        : 'transparent',
-                      '&:hover': {
-                        bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
-                      },
-                      transition: 'background-color 0.15s',
+                      display: 'block',
+                      textAlign: 'center',
+                      color: PALETTE.textMuted,
+                      py: 4,
                     }}
                   >
-                    <ChatIcon sx={{ fontSize: 14, color: PALETTE.textMuted, flexShrink: 0, mt: 0.3 }} />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography
-                        variant="body2"
+                    No active system tasks
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            {/* Chats Tab Content */}
+            {(sidebarTab === 'chats' || backgroundAgents.length === 0) && (
+              <>
+                {groupedConversations.map((group) => (
+                  <Box key={group.label} sx={{ mb: 1 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'block',
+                        px: 1,
+                        pt: 0.5,
+                        pb: 0,
+                        color: PALETTE.textMuted,
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {group.label}
+                    </Typography>
+                    {group.items.map((conv) => (
+                      <Box
+                        key={conv.id}
+                        onClick={() => switchConversation(conv.id)}
                         sx={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          color: conv.id === activeConversationId ? 'text.primary' : 'text.secondary',
-                          fontSize: '0.85rem',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: 1,
+                          px: 1.5,
+                          py: 1,
+                          borderRadius: 1.5,
+                          cursor: 'pointer',
+                          bgcolor: conv.id === activeConversationId 
+                            ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
+                            : 'transparent',
+                          '&:hover': {
+                            bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
+                          },
+                          transition: 'background-color 0.15s',
                         }}
                       >
-                        {conv.title}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          display: 'block',
-                          color: PALETTE.textMuted,
-                          fontSize: '0.65rem',
-                          opacity: 0.7,
-                          mt: -0.25,
-                        }}
-                      >
-                        {(() => {
-                          const d = new Date(conv.createdAt);
-                          const time = `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}m${d.getSeconds().toString().padStart(2, '0')}s`;
-                          const date = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(-2)}`;
-                          return `${time} - ${date}`;
-                        })()}
-                      </Typography>
-                    </Box>
-                    {conv.id === activeConversationId && (
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteConversation(conv.id);
-                          }}
-                          sx={{
-                            p: 0.25,
-                            opacity: 0.5,
-                            '&:hover': { opacity: 1, color: 'error.main' },
-                          }}
-                        >
-                          <ClearIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                        <ChatIcon sx={{ fontSize: 14, color: PALETTE.textMuted, flexShrink: 0, mt: 0.3 }} />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              color: conv.id === activeConversationId ? 'text.primary' : 'text.secondary',
+                              fontSize: '0.85rem',
+                            }}
+                          >
+                            {conv.title}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              display: 'block',
+                              color: PALETTE.textMuted,
+                              fontSize: '0.65rem',
+                              opacity: 0.7,
+                              mt: -0.25,
+                            }}
+                          >
+                            {(() => {
+                              const d = new Date(conv.createdAt);
+                              const time = `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}m${d.getSeconds().toString().padStart(2, '0')}s`;
+                              const date = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(-2)}`;
+                              return `${time} - ${date}`;
+                            })()}
+                          </Typography>
+                        </Box>
+                        {conv.id === activeConversationId && (
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteConversation(conv.id);
+                              }}
+                              sx={{
+                                p: 0.25,
+                                opacity: 0.5,
+                                '&:hover': { opacity: 1, color: 'error.main' },
+                              }}
+                            >
+                              <ClearIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    ))}
                   </Box>
                 ))}
-              </Box>
-            ))}
 
-            {conversations.length === 0 && (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  textAlign: 'center',
-                  color: PALETTE.textMuted,
-                  py: 4,
-                }}
-              >
-                No conversations yet
-              </Typography>
+                {regularConversations.length === 0 && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: 'block',
+                      textAlign: 'center',
+                      color: PALETTE.textMuted,
+                      py: 4,
+                    }}
+                  >
+                    No conversations yet
+                  </Typography>
+                )}
+              </>
             )}
           </Box>
         </>
