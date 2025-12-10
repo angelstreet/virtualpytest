@@ -57,6 +57,7 @@ import {
   ThumbDown,
 } from '@mui/icons-material';
 import { useSearchParams, useLocation } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
 import { useAIContext } from '../contexts/AIContext';
@@ -1095,16 +1096,33 @@ useEffect(() => {
                       {/* Errors now shown inline with their tool calls via mergeToolEvents */}
                       {/* Show actual response - message/result events */}
                       {msg.events.filter(e => e.type === 'message' || e.type === 'result').length > 0 && (
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem' }}>
-                          {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
-                        </Typography>
+                        <Box sx={{ 
+                          '& p': { m: 0, mb: 1, '&:last-child': { mb: 0 } },
+                          '& a': { color: PALETTE.accent, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
+                          '& strong': { fontWeight: 600 },
+                          '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
+                          fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
+                        }}>
+                          <ReactMarkdown>
+                            {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
+                          </ReactMarkdown>
+                        </Box>
                       )}
                     </Box>
                   ) : (
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'text.primary', fontSize: '0.9rem', flex: 1, minWidth: 0 }}>
-                        {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
-                      </Typography>
+                      <Box sx={{ 
+                        flex: 1, minWidth: 0,
+                        '& p': { m: 0, mb: 1, '&:last-child': { mb: 0 } },
+                        '& a': { color: PALETTE.accent, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
+                        '& strong': { fontWeight: 600 },
+                        '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
+                        fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
+                      }}>
+                        <ReactMarkdown>
+                          {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
+                        </ReactMarkdown>
+                      </Box>
                       <Tooltip title="Copy message">
                         <IconButton 
                           size="small" 

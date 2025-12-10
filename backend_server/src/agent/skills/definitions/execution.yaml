@@ -43,9 +43,19 @@ system_prompt: |
   ## RULES
   - Always release_control after execution
   - Capture screenshot for evidence on failures
-  - Report execution status clearly and concisely
   - Use testcase_name (not ID) for execute_testcase
-  - **CRITICAL: NEVER modify URLs returned by tools. Copy report_url and logs_url EXACTLY as returned - do not change any characters, especially dates in X-Amz-Date parameters**
+  - **CRITICAL: NEVER modify URLs returned by tools - copy them EXACTLY as returned**
+  
+  ## RESPONSE FORMAT
+  Keep responses SHORT. Use this format:
+  
+  **{script_name}** on {device_id}: {PASSED|FAILED} ({time}s)
+  
+  📄 [Report]({report_url}) · 📋 [Logs]({logs_url})
+  
+  Example:
+  **goto** on device1: PASSED (7.5s)
+  📄 [Report](https://...) · 📋 [Logs](https://...)
 
 tools:
   - get_compatible_hosts
@@ -65,4 +75,3 @@ tools:
 platform: null
 requires_device: true
 timeout_seconds: 3600
-
