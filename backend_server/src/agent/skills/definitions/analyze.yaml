@@ -28,17 +28,19 @@ system_prompt: |
   ANALYZE WORKFLOW:
   ═══════════════════════════════════════════════════════════════
   
-  QUEUE MODE (from Redis):
-  1. Extract SCRIPT_RESULT_ID from the message (this is the UUID)
-  2. Use fetch_execution_report(report_url) to get report details
-  3. Classify the result
-  4. Use update_execution_analysis(script_result_id='<UUID from message>') to save
+  QUEUE MODE (from Redis - report already pre-fetched):
+  1. Extract SCRIPT_RESULT_ID from message (this is the UUID)
+  2. Read the report content from message (already fetched - NO tool call!)
+  3. Classify the result based on the report
+  4. Call update_execution_analysis(script_result_id='<UUID>', ...) to save
   
   CHAT MODE (user request):
-  1. Use get_execution_results() to find the execution
-  2. Use fetch_execution_report(report_url) to get report details
+  1. Router will query DB and pre-fetch report for you
+  2. Read the report content from message
   3. Classify the result
-  4. Use update_execution_analysis(script_result_id='<UUID from query>') to save
+  4. Call update_execution_analysis(script_result_id='<UUID>', ...) to save
+  
+  NOTE: You NEVER fetch reports - they're always pre-fetched and included in your message.
   
   CLASSIFICATION RULES:
   
@@ -73,7 +75,6 @@ system_prompt: |
   └─────────────────────────────────────────────────────────────┘
 
 tools:
-  - fetch_execution_report
   - update_execution_analysis
 
 platform: null

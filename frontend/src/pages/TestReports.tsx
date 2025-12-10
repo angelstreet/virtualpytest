@@ -8,8 +8,6 @@ import {
   Person as ManualIcon,
   Help as UnknownIcon,
   Comment as CommentIcon,
-  Check as ValidIcon,
-  Warning as DiscardedIcon,
   Visibility as DetailsIcon,
   VisibilityOff as HideDetailsIcon,
   CheckCircle as CheckedIcon,
@@ -256,18 +254,21 @@ const TestReports: React.FC = () => {
       );
     }
     return (
-      <Tooltip title={result.discard ? 'Discarded' : 'Valid'}>
-        <IconButton
-          size="small"
+      <Tooltip title={result.discard ? 'Discarded (Invalid/False Positive)' : 'Valid (Legitimate Result)'}>
+        <Typography
+          variant="body2"
           onClick={() => handleDiscardToggle(result)}
-          sx={{ p: 0.5 }}
+          sx={{
+            fontWeight: 'bold',
+            color: result.discard ? 'error.main' : 'success.main',
+            cursor: 'pointer',
+            '&:hover': {
+              opacity: 0.7,
+            },
+          }}
         >
-          {result.discard ? (
-            <DiscardedIcon fontSize="small" color="warning" />
-          ) : (
-            <ValidIcon fontSize="small" color="success" />
-          )}
-        </IconButton>
+          {result.discard ? 'YES' : 'NO'}
+        </Typography>
       </Tooltip>
     );
   };
@@ -280,10 +281,10 @@ const TestReports: React.FC = () => {
         </Typography>
       );
     }
-    const isAI = result.check_type === 'ai' || result.check_type === 'ai_and_human';
+    const isAI = result.check_type === 'ai' || result.check_type === 'ai_agent' || result.check_type === 'ai_and_human';
     const isHuman = result.check_type === 'ai_and_human';
     return (
-      <Tooltip title={isHuman ? 'AI & Human' : isAI ? 'AI' : 'Manual'}>
+      <Tooltip title={isHuman ? 'AI & Human' : isAI ? 'AI Agent' : 'Manual'}>
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
           {isAI && <AiIcon fontSize="small" color="primary" />}
           {(result.check_type === 'manual' || isHuman) && <ManualIcon fontSize="small" color="primary" />}
@@ -461,7 +462,7 @@ const TestReports: React.FC = () => {
                         <strong>Discard</strong>
                       </TableCell>
                       <TableCell sx={{ py: 1 }}>
-                        <strong>Checked By</strong>
+                        <strong>Analyzed By</strong>
                       </TableCell>
                       <TableCell sx={{ py: 1 }}>
                         <strong>Comment</strong>
@@ -614,7 +615,7 @@ const TestReports: React.FC = () => {
                 Script: {selectedDiscardComment.result.script_name}
               </Typography>
               <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary' }}>
-                Analysis Type: {selectedDiscardComment.result.check_type === 'ai' ? 'AI Analysis' : 'Manual Review'}
+                Analysis Type: {(selectedDiscardComment.result.check_type === 'ai' || selectedDiscardComment.result.check_type === 'ai_agent') ? 'AI Agent Analysis' : selectedDiscardComment.result.check_type === 'ai_and_human' ? 'AI & Human Review' : 'Manual Review'}
                 {selectedDiscardComment.result.discard_type && ` • Category: ${selectedDiscardComment.result.discard_type}`}
               </Typography>
               <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>

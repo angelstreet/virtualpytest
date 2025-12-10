@@ -676,7 +676,7 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             print(f"[{self.nickname}] ❌❌❌ END OF ERROR")
     
     def _build_task_message(self, task_type: str, task_id: str, task_data: Dict[str, Any]) -> str:
-        """Build agent message from queue task. All data comes from queue, no DB fetch."""
+        """Build agent message from queue task. Pre-fetches report to save tokens."""
         if task_type == 'script':
             script_name = task_data.get('script_name', 'Unknown')
             success = task_data.get('success', False)
@@ -693,19 +693,37 @@ RESULT: {'PASSED' if success else 'FAILED'}
 ERROR: {error_msg}
 DURATION: {execution_time_ms}ms
 """
-            if report_url:
-                msg += f"""
-Use fetch_execution_report(report_url='{report_url}'"""
-                if logs_url:
-                    msg += f", logs_url='{logs_url}'"
-                msg += f") to get the detailed report, then call update_execution_analysis(script_result_id='{task_id}', ...) to save your classification."
             
-            msg += """
+            # Pre-fetch report content (no LLM tokens needed!)
+            if report_url:
+                try:
+                    from backend_server.src.lib.report_fetcher import fetch_execution_report
+                    report_data = fetch_execution_report(report_url, logs_url)
+                    
+                    # Include parsed report directly in message
+                    if report_data.get('summary'):
+                        msg += f"\n\n{report_data['summary']}"
+                    else:
+                        msg += f"\n\nReport URL: {report_url}"
+                        if logs_url:
+                            msg += f"\nLogs URL: {logs_url}"
+                except Exception as e:
+                    print(f"[{self.nickname}] ⚠️  Failed to pre-fetch report: {e}")
+                    msg += f"\n\nReport URL: {report_url}"
+                    if logs_url:
+                        msg += f"\nLogs URL: {logs_url}"
+            
+            msg += f"""
 
-Classify as:
-- BUG: Real application issue
-- SCRIPT_ISSUE: Test/automation problem  
-- SYSTEM_ISSUE: Infrastructure problem"""
+Based on the report above, classify this execution and call:
+update_execution_analysis(script_result_id='{task_id}', discard=<true/false>, classification=<CLASSIFICATION>, explanation=<brief explanation>)
+
+CLASSIFICATIONS:
+- VALID_PASS: Test passed, legitimate success (discard=false)
+- VALID_FAIL: Test failed, real bug detected (discard=false)
+- BUG: Screenshot shows element BUT error says "not found" (discard=false)
+- SCRIPT_ISSUE: Test automation problem - bad selector/timing/expected value (discard=true)
+- SYSTEM_ISSUE: Infrastructure problem - black screen/no signal/device disconnected (discard=true)"""
             
             return msg
         

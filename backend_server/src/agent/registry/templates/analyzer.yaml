@@ -8,13 +8,14 @@
 # 1. QUEUE MODE (Redis trigger - background processing)
 # ═══════════════════════════════════════════════════════════════
 #    - Triggered by: redis.queue.script (p2_scripts queue)
-#    - Input: Message contains SCRIPT_RESULT_ID (UUID) + report_url
+#    - Input: Message contains SCRIPT_RESULT_ID (UUID) + PRE-FETCHED REPORT
 #    - Workflow:
 #      1. Extract SCRIPT_RESULT_ID from message (this is the UUID)
-#      2. fetch_execution_report(report_url) - from message
+#      2. Analyze the report content (already in message - NO tool call!)
 #      3. Classify result
 #      4. update_execution_analysis(script_result_id='<UUID>') - save to DB
-#    - NO need to call get_execution_results() - use ID from message
+#    - NO fetch_execution_report() call needed - report already included
+#    - NO get_execution_results() call needed - ID in message
 #
 # ═══════════════════════════════════════════════════════════════
 # 2. FETCH MODE (Chat - user wants to VIEW results)
@@ -22,7 +23,7 @@
 #    - Triggered by: "fetch/show/get last result"
 #    - Workflow:
 #      1. get_execution_results() - query DB (includes existing analysis)
-#      2. fetch_execution_report() - (optional) show report content
+#      2. Router pre-fetches report and includes in response
 #    - DO NOT call update_execution_analysis()
 #
 # ═══════════════════════════════════════════════════════════════
@@ -31,9 +32,9 @@
 #    - Triggered by: "analyze/classify this result"
 #    - Workflow:
 #      1. get_execution_results() - find execution in DB
-#      2. fetch_execution_report() - get report details
-#      3. Classify: BUG | SCRIPT_ISSUE | SYSTEM_ISSUE | VALID_PASS | VALID_FAIL
-#      4. update_execution_analysis() - save to DB
+#      2. Router pre-fetches report and includes in message (no tool call!)
+#      3. Delegate to analyze skill with pre-fetched content
+#      4. Analyze skill classifies and saves
 #
 ---
 metadata:
@@ -63,10 +64,10 @@ available_skills:
 
 # Router tools:
 # - get_execution_results: Query DB (for chat FETCH/ANALYZE modes)
-# - fetch_execution_report: Parse report URL (for all modes)
 # - get_analysis_queue_status: Show Redis queue + session stats
+# 
+# NOTE: fetch_execution_report removed - router pre-fetches using Python function
 skills:
-  - fetch_execution_report
   - get_analysis_queue_status
 
 permissions:
