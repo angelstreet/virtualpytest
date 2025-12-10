@@ -103,7 +103,7 @@ def update_script_execution_result(
             print(f"  - metadata keys: {list(metadata.keys()) if isinstance(metadata, dict) else 'N/A'}")
             print(f"  - metadata value: {metadata}")
         else:
-            print(f"[@db:script_results:update_script_execution_result] ⚠️ No metadata provided for storage")
+            print(f"[@db:script_results:update_script_execution_result] No metadata provided for storage")
         
         print(f"[@db:script_results:update_script_execution_result] Updating script execution:")
         print(f"  - script_result_id: {script_result_id}")

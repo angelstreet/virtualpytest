@@ -54,6 +54,7 @@ available_skills:
 skills:
   - list_userinterfaces
   - list_hosts
+  - get_analysis_queue_status
 
 permissions:
   devices:
