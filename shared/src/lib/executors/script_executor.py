@@ -114,17 +114,8 @@ class ScriptExecutionContext:
                     shutil.copy2(screenshot_path, cold_path)
                 screenshot_path = cold_path
             
-            # DEBUG: Log who's adding screenshots to context
-            import traceback
-            caller_stack = traceback.extract_stack()
-            # Get the last 3 stack frames (excluding this function)
-            caller_info = []
-            for frame in caller_stack[-4:-1]:  # -4 to -1 excludes this function
-                caller_info.append(f"{frame.filename.split('/')[-1]}:{frame.lineno} in {frame.name}")
-            
             screenshot_name = os.path.basename(screenshot_path)
             print(f"📸 [Context] add_screenshot called: {screenshot_name} (total: {len(self.screenshot_paths)+1})")
-            print(f"   └─ Call stack: {' ← '.join(reversed(caller_info))}")
             
             self.screenshot_paths.append(screenshot_path)
     
@@ -692,10 +683,7 @@ class ScriptExecutor:
         stdout = ''.join(stdout_lines)
         
         print(f"[@script_executor] === SCRIPT OUTPUT END ===")
-        print(f"[@script_executor] Process completed with exit code: {exit_code}")
-        print(f"[@script_executor] DEBUG: Total stdout lines captured: {len(stdout_lines)}")
-        print(f"[@script_executor] DEBUG: Final stdout length: {len(stdout)}")
-        
+               
         total_execution_time = int((time.time() - start_time) * 1000)
         
         print(f"[@script_executor] PREPARE RETURN: Creating return dictionary...")
@@ -704,9 +692,6 @@ class ScriptExecutor:
         
         # Extract SCRIPT_SUCCESS marker from stdout (critical for frontend result accuracy)
         script_success = None
-        print(f"[@script_executor] DEBUG: Checking for SCRIPT_SUCCESS marker in stdout...")
-        print(f"[@script_executor] DEBUG: stdout length: {len(stdout) if stdout else 0}")
-        print(f"[@script_executor] DEBUG: stdout contains 'SCRIPT_SUCCESS:': {'SCRIPT_SUCCESS:' in stdout if stdout else False}")
         
         if stdout and 'SCRIPT_SUCCESS:' in stdout:
             import re

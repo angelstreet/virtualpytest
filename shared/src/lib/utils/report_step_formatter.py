@@ -594,11 +594,6 @@ def format_analysis_results(step: Dict) -> str:
         if motion_images:
             import json
             
-            # DEBUG: Log motion_images structure
-            print(f"🔍 [ReportFormatter] DEBUG: Processing {len(motion_images)} motion_analysis_images")
-            for i, img in enumerate(motion_images):
-                print(f"🔍 [ReportFormatter] DEBUG: motion_image[{i}]: path={img.get('path')}, filename={img.get('filename')}")
-            
             # Convert motion images to modal format
             images = []
             for motion_img in motion_images:
@@ -639,7 +634,6 @@ def format_analysis_results(step: Dict) -> str:
                 # Use actual newline character and HTML formatting
                 label = f"{first_line}<br>{second_line_html}"
                 images.append({'url': image_url, 'label': label})
-                print(f"🔍 [ReportFormatter] DEBUG: Added image to modal: url={image_url}, filename={filename}")
             
             modal_data = {
                 'title': 'Motion Analysis - 3 Recent Captures',

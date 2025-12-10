@@ -203,8 +203,6 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
           const edgesParam = selectedEdgeIds.join(',');
           parameters += ` --edges "${edgesParam}"`;
           console.log(`[@hook:useValidation] Running validation with ${selectedEdgeIds.length} selected transitions`);
-          console.log(`[@hook:useValidation] DEBUG: Sample edge IDs:`, selectedEdgeIds.slice(0, 3));
-          console.log(`[@hook:useValidation] DEBUG: Edges parameter:`, edgesParam.substring(0, 200));
         } else {
           console.log(`[@hook:useValidation] Running validation with ALL transitions (no selection)`);
         }
@@ -217,7 +215,6 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         );
 
         console.log(`[@hook:useValidation] Validation script completed:`, scriptResult);
-        console.log(`[@hook:useValidation] DEBUG: script_success=${scriptResult.script_success}, success=${scriptResult.success}, exit_code=${scriptResult.exit_code}`);
 
         // Calculate duration
         const duration = state.startTime ? (Date.now() - state.startTime) / 1000 : 0;

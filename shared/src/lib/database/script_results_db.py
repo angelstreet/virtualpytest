@@ -124,11 +124,20 @@ def update_script_execution_result(
                 from shared.src.lib.utils.redis_queue import get_queue_processor
                 queue_processor = get_queue_processor()
                 
-                # Pass the script_result_id with report URL - Sherlock will analyze it
+                # Get script_name from the updated record
+                record = result.data[0] if result.data else {}
+                script_name = record.get('script_name', 'unknown')
+                
+                # Pass all data Sherlock expects (from manager.py _build_task_message)
                 queue_processor.add_script_to_queue(script_result_id, {
                     'id': script_result_id,
                     'type': 'script_result',
-                    'report_url': html_report_r2_url
+                    'script_name': script_name,
+                    'success': success,
+                    'error_msg': error_msg or 'None',
+                    'execution_time_ms': execution_time_ms or 0,
+                    'html_report_r2_url': html_report_r2_url or '',
+                    'logs_url': logs_r2_url or ''
                 })
                 print(f"[@db:script_results:update_script_execution_result] Added to analysis queue: {script_result_id}")
             except Exception as e:

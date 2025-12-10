@@ -790,10 +790,6 @@ class ZapExecutor:
                     with open(last_zapping_path, 'r') as f:
                         zapping_data = json.load(f)
                     
-                    # 🔍 DEBUG: Print full zapping data to understand mismatch
-                    print(f"🔍 [ZapExecutor] last_zapping.json content:")
-                    print(f"    {json.dumps(zapping_data, indent=2)}")
-                    
                     # ✅ CHECK: Is detection in progress?
                     status = zapping_data.get('status')
                     if status == 'in_progress':

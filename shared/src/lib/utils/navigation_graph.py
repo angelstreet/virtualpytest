@@ -42,10 +42,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         
         print(f"[@navigation:graph:create_networkx_graph] Adding node: {label} ({node_id})")
         
-        # DEBUG: Log verifications for Home node
         verifications = node.get('verifications', [])
-        if label == 'home':
-            print(f"[@DEBUG:graph] Home node from DB has verifications: {verifications}")
         
         G.add_node(node_id, **{
             'label': label,
@@ -82,8 +79,6 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         # Check if nodes exist
         if source_id not in G.nodes or target_id not in G.nodes:
             print(f"[@navigation:graph:create_networkx_graph] Warning: Edge references non-existent nodes {source_id} -> {target_id}, skipping")
-            print(f"[@navigation:graph:create_networkx_graph] DEBUG: Available nodes: {list(G.nodes)}")
-            print(f"[@navigation:graph:create_networkx_graph] DEBUG: Source exists: {source_id in G.nodes}, Target exists: {target_id in G.nodes}")
             edges_skipped += 1
             continue
         

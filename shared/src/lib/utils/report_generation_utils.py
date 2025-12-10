@@ -163,17 +163,12 @@ def generate_and_upload_script_report(
         Dict with 'report_url', 'report_path', and 'success' keys
     """
     try:
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Starting report generation...")
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Parameters - script_name: {script_name}")
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Parameters - device_info: {device_info}")
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Parameters - screenshot_paths length: {len(screenshot_paths) if screenshot_paths else 0}")
-        
+       
         from .cloudflare_utils import upload_script_report, upload_validation_screenshots, upload_script_logs, upload_test_video
         from datetime import datetime
         
         execution_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Timestamp generated: {execution_timestamp}")
-        
+       
         # Handle simple script execution (no step_results)
         # Don't include script output here - it's available via "Execution Logs" link
         if not step_results:
@@ -236,10 +231,7 @@ def generate_and_upload_script_report(
             else:
                 print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshot upload failed: {screenshot_result.get('error', 'Unknown error')}")
         elif url_mapping:
-            print(f"[@utils:report_utils:generate_and_upload_script_report] Using provided mapping with {len(url_mapping)} local->R2 URL pairs")
-        else:
-            print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: No screenshots to upload")
-        
+            print(f"[@utils:report_utils:generate_and_upload_script_report] Using provided mapping with {len(url_mapping)} local->R2 URL pairs") 
         # Update step_results to use R2 URLs instead of local paths
         updated_step_results = update_step_results_with_r2_urls(step_results, url_mapping)
         
@@ -305,11 +297,6 @@ def generate_and_upload_script_report(
         calculated_start_time = start_datetime.strftime('%Y%m%d%H%M%S')
         calculated_end_time = execution_timestamp  # This is already the end time
         
-        print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Calculated timing:")
-        print(f"  - Execution duration: {execution_time_seconds:.1f}s ({execution_time}ms)")
-        print(f"  - Start time: {calculated_start_time} ({start_datetime.strftime('%H:%M:%S')})")
-        print(f"  - End time: {calculated_end_time} ({end_datetime.strftime('%H:%M:%S')})")
-
         # Prepare report data (same structure as validation.py) - now with R2 URLs and correct timestamps
         report_data = {
             'script_name': script_name,
