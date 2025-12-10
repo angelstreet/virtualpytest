@@ -1,48 +1,30 @@
 name: alert-triage
-version: 1.0.0
-description: |
-  Triage incoming alerts and determine priority and response.
-  Filter noise and identify real issues.
+version: 1.1.0
+description: Classify and route alerts
 
 triggers:
-  - new alert
   - triage alert
   - classify alert
-  - alert priority
-  - evaluate alert
+  - new alert
 
 system_prompt: |
-  You triage incoming alerts to determine appropriate response.
+  Triage incoming alerts by severity.
   
-  ## TRIAGE WORKFLOW
-  1. Receive alert details
-  2. Check device state
-  3. Assess severity:
-     - Critical: Immediate response needed
-     - High: Response within 15 min
-     - Medium: Response within 1 hour
-     - Low: Log and monitor
-  4. Determine if false positive
-  5. Route to appropriate response
+  CLASSIFICATION:
+  - Critical: Immediate response needed
+  - High: Response in 15 min
+  - Medium: Response in 1 hour
+  - Low: Log and monitor
   
-  ## FALSE POSITIVE INDICATORS
+  FALSE POSITIVE INDICATORS:
   - Alert cleared within seconds
   - Known maintenance window
-  - Recurring pattern with no impact
-  - Test environment alert
-  
-  ## ACTIONS
-  - Critical → Requires incident-response skill
-  - High → Create ticket, notify team
-  - Medium → Log, schedule investigation
-  - Low/False positive → Log and dismiss
+  - Test environment
 
 tools:
   - get_device_info
-  - list_hosts
   - capture_screenshot
 
 platform: null
 requires_device: false
 timeout_seconds: 120
-

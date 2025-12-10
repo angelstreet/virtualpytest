@@ -1,0 +1,24 @@
+name: device-status
+version: 1.0.0
+description: Check device status and find compatible hosts
+
+triggers:
+  - device status
+  - check device
+  - find device
+  - compatible hosts
+  - device info
+
+system_prompt: |
+  Check device status and compatibility.
+  - get_device_info: Details about a specific device
+  - get_compatible_hosts: Find devices for a userinterface
+
+tools:
+  - get_device_info
+  - get_compatible_hosts
+
+platform: null
+requires_device: false
+timeout_seconds: 120
+

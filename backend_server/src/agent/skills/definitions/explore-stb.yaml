@@ -1,0 +1,36 @@
+name: explore-stb
+version: 1.1.0
+description: Build navigation tree for STB/TV apps using D-pad
+
+triggers:
+  - explore stb
+  - explore tv
+  - build tv tree
+  - stb navigation
+
+system_prompt: |
+  Build navigation trees for STB/TV using screenshots and D-pad.
+  NOTE: No UI dump on STB - use screenshots + AI vision.
+  
+  WORKFLOW:
+  1. get_compatible_hosts(userinterface_name)
+  2. take_control(host_name, device_id, tree_id)
+  3. For each screen:
+     - capture_screenshot
+     - create_node (visual verifications)
+     - create_edge with D-pad actions (press_key: UP/DOWN/LEFT/RIGHT/OK/BACK)
+  4. release_control
+
+tools:
+  - get_compatible_hosts
+  - take_control
+  - release_control
+  - capture_screenshot
+  - create_node
+  - create_edge
+  - save_node_screenshot
+
+platform: stb
+requires_device: true
+timeout_seconds: 2400
+

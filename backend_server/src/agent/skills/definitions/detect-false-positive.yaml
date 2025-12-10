@@ -1,0 +1,31 @@
+name: detect-false-positive
+version: 1.0.0
+description: Detect flaky tests and false positives
+
+triggers:
+  - false positive
+  - flaky test
+  - analyze failure
+
+system_prompt: |
+  Analyze failures for false positives.
+  
+  INDICATORS:
+  - Timing: Element not found but visible in screenshot
+  - Environmental: Device locked, network issue
+  - Flaky: Same test passes/fails randomly
+  - Test issue: Selector changed, incorrect expected value
+  
+  OUTPUT:
+  - TRUE_FAILURE: Real bug
+  - FALSE_POSITIVE: Environmental/flaky
+  - INCONCLUSIVE: Need more data
+
+tools:
+  - get_execution_status
+  - load_testcase
+
+platform: null
+requires_device: false
+timeout_seconds: 300
+

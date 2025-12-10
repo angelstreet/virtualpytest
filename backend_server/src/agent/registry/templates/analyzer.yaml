@@ -1,9 +1,10 @@
 # Agent Configuration: Result Analyzer
-# Version: 2.0.0
+# Version: 2.1.0
 # Author: system
 #
 # Analyzes script and test results to detect false positives.
 # Not user-selectable, triggered by execution completion.
+# Token-optimized micro-skills.
 #
 ---
 metadata:
@@ -12,7 +13,7 @@ metadata:
   nickname: Sherlock
   selectable: false
   default: false
-  version: 2.0.0
+  version: 2.1.0
   author: system
   description: "Analyzes script and test results"
   tags:
@@ -37,18 +38,15 @@ event_pools:
 
 subagents: []
 
-# Skills this agent can dynamically load
+# Micro-skills (2-3 tools each)
 available_skills:
-  - result-validation
-  - false-positive-detection
-  - report-generation
+  - validate-result
+  - detect-false-positive
+  - generate-report
 
-# Minimal tools for initial analysis
+# Router mode tools (minimal)
 skills:
   - get_execution_status
-  - list_testcases
-  - load_testcase
-  - capture_screenshot
 
 permissions:
   devices:
@@ -68,4 +66,3 @@ config:
   auto_retry: true
   feedback_collection: false
   timeout_seconds: 300
-

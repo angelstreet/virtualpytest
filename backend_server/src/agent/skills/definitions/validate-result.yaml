@@ -1,0 +1,29 @@
+name: validate-result
+version: 1.0.0
+description: Validate execution results
+
+triggers:
+  - validate results
+  - check execution
+  - verify test
+
+system_prompt: |
+  Validate execution results for accuracy.
+  
+  WORKFLOW:
+  1. get_execution_status for details
+  2. load_testcase to compare expected vs actual
+  
+  OUTPUT:
+  - VALID: Results match expectations
+  - INVALID: Specific issues found
+  - NEEDS_REVIEW: Ambiguous results
+
+tools:
+  - get_execution_status
+  - load_testcase
+
+platform: null
+requires_device: false
+timeout_seconds: 300
+

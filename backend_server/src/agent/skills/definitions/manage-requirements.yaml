@@ -1,0 +1,28 @@
+name: manage-requirements
+version: 1.0.0
+description: Create requirements and track coverage
+
+triggers:
+  - create requirement
+  - coverage report
+  - link testcase
+  - requirements
+  - coverage
+
+system_prompt: |
+  Manage requirements and coverage tracking.
+  - create_requirement: Define what to test
+  - link_testcase_to_requirement: Connect test to requirement
+  - get_coverage_summary: Overall coverage stats
+
+tools:
+  - create_requirement
+  - list_requirements
+  - link_testcase_to_requirement
+  - get_coverage_summary
+  - get_uncovered_requirements
+
+platform: null
+requires_device: false
+timeout_seconds: 600
+

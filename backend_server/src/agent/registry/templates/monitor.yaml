@@ -1,9 +1,10 @@
 # Agent Configuration: QA Monitor
-# Version: 2.0.0
+# Version: 2.1.0
 # Author: system
 #
 # Autonomous monitor that responds to system events.
 # Not user-selectable, triggered by alerts and webhooks.
+# Token-optimized micro-skills.
 #
 ---
 metadata:
@@ -12,7 +13,7 @@ metadata:
   nickname: Guardian
   selectable: false
   default: false
-  version: 2.0.0
+  version: 2.1.0
   author: system
   description: "Monitors system"
   tags:
@@ -47,17 +48,15 @@ event_pools:
 
 subagents: []
 
-# Skills this agent can dynamically load
+# Micro-skills (2-4 tools each)
 available_skills:
   - incident-response
   - health-check
   - alert-triage
 
-# Minimal tools for initial assessment
+# Router mode tools (minimal)
 skills:
-  - get_device_info
   - list_hosts
-  - capture_screenshot
 
 permissions:
   devices:
@@ -79,4 +78,3 @@ config:
   auto_retry: true
   feedback_collection: false
   timeout_seconds: 600
-

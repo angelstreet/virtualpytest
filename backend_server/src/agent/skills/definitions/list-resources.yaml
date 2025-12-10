@@ -1,0 +1,30 @@
+name: list-resources
+version: 1.0.0
+description: List available scripts, testcases, devices, and interfaces
+
+triggers:
+  - list scripts
+  - list testcases
+  - list devices
+  - show devices
+  - what scripts
+  - available tests
+  - show hosts
+
+system_prompt: |
+  List available resources based on user request:
+  - list_scripts: Python scripts
+  - list_testcases: Test cases
+  - list_hosts: Devices/hosts
+  - list_userinterfaces: Apps/interfaces
+
+tools:
+  - list_scripts
+  - list_testcases
+  - list_hosts
+  - list_userinterfaces
+
+platform: null
+requires_device: false
+timeout_seconds: 120
+

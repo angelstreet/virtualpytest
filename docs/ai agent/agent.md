@@ -1,42 +1,48 @@
-# VirtualPyTest Agent Architecture
+# VirtualPyTest Agent Architecture v2.1
 
 ## Overview
 
-VirtualPyTest uses a **skill-based agent architecture** where 3 purpose-driven agents dynamically load specialized skills based on user requests and system events.
+VirtualPyTest uses a **token-optimized skill-based agent architecture** where 3 purpose-driven agents dynamically load micro-skills (2-8 tools each) with prompt caching for 90% cost reduction.
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        AGENT LAYER                               │
-├──────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐         │
-│  │  Assistant   │   │   Monitor    │   │   Analyzer   │         │
-│  │  Atlas       │   │  Guardian    │   │  Sherlock    │         │
-│  │              │   │              │   │              │         │
-│  │  Trigger:    │   │  Trigger:    │   │  Trigger:    │         │
-│  │  User Chat   │   │  Events      │   │  Script Done │         │
-│  │              │   │              │   │              │         │
-│  │  Mode:       │   │  Mode:       │   │  Mode:       │         │
-│  │  Interactive │   │  Autonomous  │   │  Autonomous  │         │
-│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘         │
-│         │                  │                  │                  │
-│         ▼                  ▼                  ▼                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                     SKILL LAYER                          │   │
-│  ├──────────────────────────────────────────────────────────┤   │
-│  │  exploration-mobile │ incident-response │ result-validation│  │
-│  │  exploration-web    │ health-check      │ false-positive   │  │
-│  │  exploration-stb    │ alert-triage      │ report-generation│  │
-│  │  execution          │                   │                  │  │
-│  │  design             │                   │                  │  │
-│  │  monitoring-read    │                   │                  │  │
-│  └──────────────────────────────────────────────────────────┘   │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                     TOOL LAYER (MCP)                     │   │
-│  │  70+ tools: take_control, create_node, execute_testcase  │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           AGENT LAYER                                        │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐                      │
+│  │  Assistant   │   │   Monitor    │   │   Analyzer   │                      │
+│  │  Atlas       │   │  Guardian    │   │  Sherlock    │                      │
+│  │              │   │              │   │              │                      │
+│  │  Interactive │   │  Autonomous  │   │  Autonomous  │                      │
+│  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘                      │
+│         │                  │                  │                              │
+│         ▼                  ▼                  ▼                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                      MICRO-SKILL LAYER (2-8 tools each)              │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │   │
+│  │  │ run-script  │ │run-testcase │ │list-resources│ │device-status│    │   │
+│  │  │  2 tools    │ │   2 tools   │ │   4 tools   │ │   2 tools   │    │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │   │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │   │
+│  │  │explore-web  │ │explore-mobile│ │ explore-stb │ │create-testcase│  │   │
+│  │  │  8 tools    │ │   8 tools   │ │   7 tools   │ │   4 tools   │    │   │
+│  │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                              │                                               │
+│                              ▼                                               │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                    PROMPT CACHE LAYER                                │   │
+│  │  ┌────────────────────────────────────────────────────────────┐     │   │
+│  │  │  Cached: System Prompt + Tool Definitions (5 min TTL)      │     │   │
+│  │  │  First call: Full price | Subsequent: 90% discount         │     │   │
+│  │  └────────────────────────────────────────────────────────────┘     │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                              │                                               │
+│                              ▼                                               │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                       TOOL LAYER (MCP)                               │   │
+│  │  70+ tools available, only loaded when skill requests them           │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -55,25 +61,28 @@ VirtualPyTest uses a **skill-based agent architecture** where 3 purpose-driven a
 | Trigger | User chat messages |
 | Mode | Interactive |
 
-**Available Skills:**
-- `exploration-mobile` - Build navigation trees for Android apps
-- `exploration-web` - Build navigation trees for web apps
-- `exploration-stb` - Build navigation trees for STB/TV apps
-- `execution` - Run testcases and scripts
-- `design` - Create testcases and manage requirements
-- `monitoring-read` - Check device status (read-only)
+**Available Skills (9 micro-skills):**
+
+| Skill | Tools | Purpose |
+|-------|-------|---------|
+| `run-script` | 2 | Execute Python scripts |
+| `run-testcase` | 2 | Execute testcases |
+| `list-resources` | 4 | List scripts/testcases/devices |
+| `device-status` | 2 | Check device health |
+| `explore-mobile` | 8 | Build Android navigation trees |
+| `explore-web` | 8 | Build web navigation trees |
+| `explore-stb` | 7 | Build STB navigation trees |
+| `create-testcase` | 4 | Create testcases |
+| `manage-requirements` | 5 | Track requirements/coverage |
 
 **Example Interactions:**
 ```
-User: "Explore the sauce-demo web app"
-Atlas: Loading skill: exploration-web
-       [OK] Loaded skill: exploration-web
-       [Proceeds with web exploration workflow]
-
-User: "Run testcase TC_AUTH_01"
-Atlas: Loading skill: execution
-       [OK] Loaded skill: execution
-       [Executes the testcase]
+User: "Run goto script on google_tv"
+Atlas: [Loads run-script skill - 2 tools]
+       Calling: get_compatible_hosts
+       Calling: execute_script
+       **goto** on device1: PASSED (7.5s)
+       [Report](url) | [Logs](url)
 ```
 
 ---
@@ -98,10 +107,13 @@ Atlas: Loading skill: execution
 - `webhook.ci_failure` (high)
 - `schedule.health_check` (normal)
 
-**Available Skills:**
-- `incident-response` - Handle critical incidents
-- `health-check` - Perform scheduled system checks
-- `alert-triage` - Classify and route alerts
+**Available Skills (3 micro-skills):**
+
+| Skill | Tools | Purpose |
+|-------|-------|---------|
+| `incident-response` | 4 | Handle critical incidents |
+| `health-check` | 2 | System health verification |
+| `alert-triage` | 2 | Classify and route alerts |
 
 ---
 
@@ -122,86 +134,80 @@ Atlas: Loading skill: execution
 - `testcase.completed` (normal)
 - `deployment.execution_done` (normal)
 
-**Available Skills:**
-- `result-validation` - Validate execution results
-- `false-positive-detection` - Identify flaky tests
-- `report-generation` - Generate execution reports
+**Available Skills (3 micro-skills):**
+
+| Skill | Tools | Purpose |
+|-------|-------|---------|
+| `validate-result` | 2 | Validate execution results |
+| `detect-false-positive` | 2 | Identify flaky tests |
+| `generate-report` | 3 | Generate execution reports |
 
 ---
 
-## How Skill Loading Works
+## Prompt Caching
 
-### Router Mode vs Skill Mode
+The agent uses Anthropic's prompt caching to reduce costs by up to 90%.
 
-Each agent operates in one of two modes:
-
-#### Router Mode (Default)
-- Agent has minimal tools for quick queries
-- Analyzes user request to determine which skill to load
-- Responds with `LOAD SKILL [skill-name]` when specialized work is needed
-
-#### Skill Mode (After Loading)
-- Agent has full tool access from the loaded skill
-- Follows the skill's workflow instructions
-- Can unload skill with `UNLOAD SKILL` command
-
-### Skill Loading Flow
+### How It Works
 
 ```
-┌─────────────────┐
-│  User Message   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Router Mode    │◄─────────────────────┐
-│  (minimal tools)│                      │
-└────────┬────────┘                      │
-         │                               │
-         ▼                               │
-┌─────────────────┐     No skill needed  │
-│ Quick query?    │──────────────────────┤
-│ (list, status)  │                      │
-└────────┬────────┘                      │
-         │ Yes, complex task             │
-         ▼                               │
-┌─────────────────┐                      │
-│ LOAD SKILL      │                      │
-│ [skill-name]    │                      │
-└────────┬────────┘                      │
-         │                               │
-         ▼                               │
-┌─────────────────┐                      │
-│  Skill Mode     │                      │
-│  (full tools)   │                      │
-└────────┬────────┘                      │
-         │                               │
-         ▼                               │
-┌─────────────────┐                      │
-│ Task complete   │──────────────────────┘
-│ UNLOAD SKILL    │
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    API CALL #1 (First)                      │
+├─────────────────────────────────────────────────────────────┤
+│  System Prompt     [cache_control: ephemeral]  -> CACHED    │
+│  Tool Definitions  [cache_control: ephemeral]  -> CACHED    │
+│  User Message                                               │
+│  ───────────────────────────────────────────────────────    │
+│  Cost: Full price (creates cache)                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    API CALL #2 (Cached)                     │
+├─────────────────────────────────────────────────────────────┤
+│  System Prompt     <- READ FROM CACHE (90% cheaper)         │
+│  Tool Definitions  <- READ FROM CACHE (90% cheaper)         │
+│  User Message                                               │
+│  Tool Result #1                                             │
+│  ───────────────────────────────────────────────────────    │
+│  Cost: 90% discount on cached portions                      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Example: Web Exploration
+### Cache Metrics
 
+The system logs cache performance:
 ```
-1. User: "Explore the sauce-demo app"
-
-2. Atlas (Router Mode):
-   - Has tools: list_userinterfaces, get_device_info, list_testcases
-   - Matches "explore" + "web app" to exploration-web skill
-   - Response: "Loading skill: exploration-web"
-
-3. Atlas loads exploration-web skill
-
-4. Atlas (Skill Mode):
-   - Has tools: take_control, dump_ui_elements, create_node, create_edge, etc.
-   - Follows exploration workflow from skill's system_prompt
-   - Executes web exploration
-
-5. Task complete -> UNLOAD SKILL -> Back to Router Mode
+[CACHE] Created cache with 1200 tokens
+[CACHE] Read 1200 tokens from cache (90% cheaper)
 ```
+
+### Cache TTL
+
+- **Duration:** 5 minutes (ephemeral)
+- **Scope:** Per skill (system prompt + tools)
+- **Requirement:** Minimum 1024 tokens to cache
+
+---
+
+## Token Optimization
+
+### Before vs After
+
+| Scenario | Before (Broad Skills) | After (Micro-Skills + Cache) | Savings |
+|----------|----------------------|------------------------------|---------|
+| Run script | ~18,000 tokens | ~1,600 tokens | **91%** |
+| Run testcase | ~18,000 tokens | ~1,600 tokens | **91%** |
+| List resources | ~5,000 tokens | ~1,400 tokens | **72%** |
+
+### Why Micro-Skills Save Tokens
+
+| Factor | Broad Skill | Micro-Skill |
+|--------|-------------|-------------|
+| Tools per skill | 13-21 | 2-8 |
+| Tool definition tokens | ~3,000 | ~600 |
+| Sent on every API call | Yes | Yes |
+| With caching | 10% of 3,000 = 300 | 10% of 600 = 60 |
 
 ---
 
@@ -221,17 +227,17 @@ triggers:                           # Keywords for auto-matching
   - keyword phrase 1
   - keyword phrase 2
 
-system_prompt: |                    # Workflow instructions for LLM
-  You are doing X.
+system_prompt: |                    # Workflow instructions (keep concise!)
+  Execute X on devices.
   
-  ## WORKFLOW
-  1. Step one
-  2. Step two
+  WORKFLOW:
+  1. get_compatible_hosts(userinterface_name)
+  2. execute_X(params)
   
-  ## RULES
-  - Important rule
+  RESPONSE FORMAT:
+  **{name}** on {device}: {PASSED|FAILED} ({time}s)
 
-tools:                              # MCP tools to expose
+tools:                              # MCP tools (2-8 max for token efficiency)
   - tool_name_1
   - tool_name_2
 
@@ -240,91 +246,85 @@ requires_device: false              # Needs device control?
 timeout_seconds: 1800               # Default timeout
 ```
 
-### Available Skills
+### All 15 Micro-Skills
 
-#### Assistant Skills
+#### Execution Skills (4)
 
-| Skill | Platform | Device Required | Description |
-|-------|----------|-----------------|-------------|
-| `exploration-mobile` | mobile | Yes | Build Android navigation trees using ADB |
-| `exploration-web` | web | Yes | Build web app navigation trees using DOM |
-| `exploration-stb` | stb | Yes | Build TV navigation trees using D-pad |
-| `execution` | all | Yes | Run testcases and scripts |
-| `design` | all | No | Create testcases, manage requirements |
-| `monitoring-read` | all | No | Check device status (read-only) |
+| Skill | Tools | Triggers |
+|-------|-------|----------|
+| `run-script` | get_compatible_hosts, execute_script | "run script", "execute script" |
+| `run-testcase` | get_compatible_hosts, execute_testcase | "run testcase", "execute test" |
+| `list-resources` | list_scripts, list_testcases, list_hosts, list_userinterfaces | "list scripts", "list testcases" |
+| `device-status` | get_device_info, get_compatible_hosts | "device status", "check device" |
 
-#### Monitor Skills
+#### Exploration Skills (3)
 
-| Skill | Platform | Device Required | Description |
-|-------|----------|-----------------|-------------|
-| `incident-response` | all | Yes | Handle critical system incidents |
-| `health-check` | all | No | Scheduled system health verification |
-| `alert-triage` | all | No | Classify alerts and determine response |
+| Skill | Tools | Triggers |
+|-------|-------|----------|
+| `explore-mobile` | 8 tools (take_control, dump_ui_elements, create_node, etc.) | "explore mobile", "android" |
+| `explore-web` | 8 tools (take_control, dump_ui_elements, create_node, etc.) | "explore web", "website" |
+| `explore-stb` | 7 tools (take_control, capture_screenshot, create_node, etc.) | "explore stb", "tv" |
 
-#### Analyzer Skills
+#### Design Skills (2)
 
-| Skill | Platform | Device Required | Description |
-|-------|----------|-----------------|-------------|
-| `result-validation` | all | No | Validate execution results |
-| `false-positive-detection` | all | No | Detect flaky tests |
-| `report-generation` | all | No | Generate execution reports |
+| Skill | Tools | Triggers |
+|-------|-------|----------|
+| `create-testcase` | list_userinterfaces, generate_and_save_testcase, save_testcase, list_testcases | "create testcase" |
+| `manage-requirements` | create_requirement, list_requirements, link_testcase_to_requirement, get_coverage_summary, get_uncovered_requirements | "requirements", "coverage" |
+
+#### Monitor Skills (3)
+
+| Skill | Tools | Triggers |
+|-------|-------|----------|
+| `incident-response` | take_control, release_control, capture_screenshot, get_device_info | "alert.blackscreen" |
+| `health-check` | list_hosts, get_device_info | "health check" |
+| `alert-triage` | get_device_info, capture_screenshot | "triage alert" |
+
+#### Analyzer Skills (3)
+
+| Skill | Tools | Triggers |
+|-------|-------|----------|
+| `validate-result` | get_execution_status, load_testcase | "validate results" |
+| `detect-false-positive` | get_execution_status, load_testcase | "false positive", "flaky" |
+| `generate-report` | get_execution_status, list_testcases, get_coverage_summary | "generate report" |
 
 ---
 
-## Agent Definitions
+## How Skill Loading Works
 
-Agents are defined in YAML files at `backend_server/src/agent/registry/templates/`.
+### Router Mode vs Skill Mode
 
-### Agent YAML Structure
+| Mode | Tools | Purpose |
+|------|-------|---------|
+| Router | 2 (list_userinterfaces, list_hosts) | Quick queries, skill selection |
+| Skill | 2-8 (from loaded skill) | Execute specialized task |
 
-```yaml
-metadata:
-  id: assistant
-  name: QA Assistant
-  nickname: Atlas
-  selectable: true          # Appears in UI dropdown
-  default: true             # Default selection
-  version: 2.0.0
-  author: system
-  description: "Interactive QA assistant"
-  tags: [qa, assistant]
-  suggestions:              # Example prompts in chat UI
-    - "Explore the sauce-demo web app"
-    - "Run testcase TC_AUTH_01"
+### Skill Loading Flow
 
-triggers:
-  - type: chat.message
-    priority: normal
-
-event_pools:
-  - own.assistant-tasks
-
-available_skills:           # Skills this agent can load
-  - exploration-mobile
-  - exploration-web
-  - exploration-stb
-  - execution
-  - design
-  - monitoring-read
-
-skills:                     # Router mode tools (minimal)
-  - list_userinterfaces
-  - get_device_info
-  - list_testcases
-  - list_hosts
-
-permissions:
-  devices:
-    - read
-    - take_control
-  database:
-    - read
-    - write.testcases
-
-config:
-  enabled: true
-  max_parallel_tasks: 1
-  timeout_seconds: 3600
+```
+User: "Run goto script on google_tv"
+         │
+         ▼
+┌─────────────────────────────────────┐
+│  Router Mode (2 tools)              │
+│  Matches "run script" -> run-script │
+│  Response: LOAD SKILL run-script    │
+└─────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│  Load run-script (2 tools)          │
+│  - get_compatible_hosts             │
+│  - execute_script                   │
+└─────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│  Execute with cached tools          │
+│  1. get_compatible_hosts            │
+│  2. execute_script                  │
+│  3. Return result                   │
+└─────────────────────────────────────┘
 ```
 
 ---
@@ -335,33 +335,36 @@ config:
 backend_server/src/agent/
 ├── skills/
 │   ├── __init__.py
-│   ├── skill_schema.py         # Pydantic model for skills
+│   ├── skill_schema.py         # Pydantic model
 │   ├── skill_loader.py         # YAML loader
 │   ├── skill_registry.py       # Tool validation
-│   └── definitions/            # Skill YAML files
-│       ├── exploration-mobile.yaml
-│       ├── exploration-web.yaml
-│       ├── exploration-stb.yaml
-│       ├── execution.yaml
-│       ├── design.yaml
-│       ├── monitoring-read.yaml
+│   └── definitions/            # 15 micro-skill YAML files
+│       ├── run-script.yaml
+│       ├── run-testcase.yaml
+│       ├── list-resources.yaml
+│       ├── device-status.yaml
+│       ├── explore-mobile.yaml
+│       ├── explore-web.yaml
+│       ├── explore-stb.yaml
+│       ├── create-testcase.yaml
+│       ├── manage-requirements.yaml
 │       ├── incident-response.yaml
 │       ├── health-check.yaml
 │       ├── alert-triage.yaml
-│       ├── result-validation.yaml
-│       ├── false-positive-detection.yaml
-│       └── report-generation.yaml
+│       ├── validate-result.yaml
+│       ├── detect-false-positive.yaml
+│       └── generate-report.yaml
 ├── registry/
 │   ├── config_schema.py        # Agent Pydantic model
 │   ├── registry.py             # Agent loading
-│   └── templates/              # Agent YAML files
-│       ├── assistant.yaml
-│       ├── monitor.yaml
-│       └── analyzer.yaml
+│   └── templates/              # 3 agent YAML files
+│       ├── assistant.yaml      # 9 available skills
+│       ├── monitor.yaml        # 3 available skills
+│       └── analyzer.yaml       # 3 available skills
 ├── core/
-│   ├── manager.py              # QAManagerAgent (main orchestrator)
-│   ├── session.py              # Chat session management
-│   ├── tool_bridge.py          # MCP tool execution
+│   ├── manager.py              # With prompt caching
+│   ├── session.py              # Chat session
+│   ├── tool_bridge.py          # MCP execution
 │   └── message_types.py        # Event types
 └── runtime/
     └── runtime.py              # Event handling
@@ -369,109 +372,78 @@ backend_server/src/agent/
 
 ---
 
-## Adding a New Skill
+## Adding a New Micro-Skill
 
-### Step 1: Create Skill YAML
-
-Create `skills/definitions/my-new-skill.yaml`:
+### Step 1: Create Skill YAML (2-8 tools max)
 
 ```yaml
-name: my-new-skill
+# skills/definitions/my-skill.yaml
+name: my-skill
 version: 1.0.0
-description: |
-  What this skill does in one sentence.
+description: Short description
 
 triggers:
   - keyword 1
   - keyword 2
 
 system_prompt: |
-  You perform [task description].
-  
-  ## WORKFLOW
-  1. First step
-  2. Second step
-  
-  ## RULES
-  - Important rule
+  Execute task.
+  1. tool_1(param)
+  2. tool_2(param)
 
 tools:
   - tool_1
   - tool_2
-  - tool_3
 
 platform: null
 requires_device: false
-timeout_seconds: 1800
+timeout_seconds: 600
 ```
 
 ### Step 2: Add to Agent
 
-Edit the agent's YAML file and add to `available_skills`:
-
 ```yaml
+# registry/templates/assistant.yaml
 available_skills:
   - existing-skill
-  - my-new-skill    # Add here
+  - my-skill    # Add here
 ```
 
 ### Step 3: Restart Server
-
-The skill will be loaded automatically on server startup.
 
 ---
 
 ## Event Types
 
-The agent system emits these events via WebSocket:
-
 | Event | Description |
 |-------|-------------|
-| `thinking` | Agent is reasoning |
+| `thinking` | Agent reasoning |
 | `tool_call` | Tool being called |
-| `tool_result` | Tool execution result |
-| `message` | Agent message to user |
-| `skill_loaded` | Skill dynamically loaded |
-| `skill_unloaded` | Skill unloaded |
-| `session_ended` | Chat session complete |
+| `tool_result` | Tool result |
+| `message` | Agent response |
+| `skill_loaded` | Skill loaded |
+| `session_ended` | Session complete |
 | `error` | Error occurred |
 
 ---
 
 ## API Endpoints
 
-### REST Endpoints
+### REST
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/server/agent/health` | Health check |
-| POST | `/server/agent/api-key` | Save Anthropic API key |
-| POST | `/server/agent/sessions` | Create chat session |
-| GET | `/server/agent/sessions` | List sessions |
+| POST | `/server/agent/api-key` | Save API key |
+| POST | `/server/agent/sessions` | Create session |
 | GET | `/server/agent/sessions/<id>` | Get session |
-| DELETE | `/server/agent/sessions/<id>` | Delete session |
 
-### WebSocket Events (namespace: `/agent`)
+### WebSocket (namespace: `/agent`)
 
 | Event | Direction | Description |
 |-------|-----------|-------------|
-| `join_session` | Client -> Server | Join session room |
-| `send_message` | Client -> Server | Send chat message |
-| `stop_generation` | Client -> Server | Stop agent |
-| `agent_event` | Server -> Client | Agent response events |
-
-### Send Message Payload
-
-```json
-{
-  "session_id": "uuid",
-  "message": "User message",
-  "team_id": "team-uuid",
-  "agent_id": "assistant",
-  "allow_auto_navigation": false,
-  "current_page": "/dashboard"
-}
-```
+| `send_message` | Client -> Server | Send message |
+| `agent_event` | Server -> Client | Agent events |
 
 ---
 
@@ -481,87 +453,52 @@ The agent system emits these events via WebSocket:
 
 | Variable | Description |
 |----------|-------------|
-| `ANTHROPIC_API_KEY` | Anthropic API key (or set per-user) |
-| `DEFAULT_MODEL` | Claude model to use (default: claude-sonnet-4-20250514) |
-| `LANGFUSE_ENABLED` | Enable observability (default: false) |
+| `ANTHROPIC_API_KEY` | API key |
+| `DEFAULT_MODEL` | Claude model |
 
-### Agent Config Options
+### Agent Config
 
 ```yaml
 config:
-  enabled: true              # Auto-start on server startup
-  max_parallel_tasks: 1      # Concurrent task limit
-  approval_required_for: []  # Actions needing approval
-  auto_retry: true           # Retry failed tasks
-  timeout_seconds: 3600      # Task timeout
-```
-
----
-
-## Skill Matching Logic
-
-When a user sends a message, the assistant uses this logic to select a skill:
-
-1. **Trigger Matching:** Each skill has `triggers` (keyword phrases)
-2. **Score Calculation:** For each trigger found in the message, score += trigger length
-3. **Best Match:** Skill with highest score wins
-4. **No Match:** Use router tools for simple queries
-
-```python
-# Example matching
-message = "explore the sauce-demo web application"
-
-# exploration-web triggers: ["explore web", "map web app", "web tree"]
-# Score: "explore web" not found, "map web app" not found
-# -> Score = 0
-
-# But "web" is in multiple triggers, so partial matching helps
-# The LLM uses the skill descriptions to make the final decision
+  enabled: true
+  max_parallel_tasks: 1
+  timeout_seconds: 3600
 ```
 
 ---
 
 ## Best Practices
 
+### For Token Efficiency
+
+1. **Keep skills focused:** 2-8 tools per skill
+2. **Short system prompts:** No verbose examples
+3. **Use prompt caching:** Enabled by default
+4. **Match triggers precisely:** Better skill selection
+
 ### For Users
 
-1. **Be Specific:** "Explore the sauce-demo web app" is better than "explore"
-2. **One Task at a Time:** Complete current task before switching
-3. **Use Suggestions:** Click the example prompts in the chat UI
-4. **Check Status:** "Show device status" before running tests
-
-### For Developers
-
-1. **Keep Skills Focused:** Each skill should do one thing well
-2. **Document Workflows:** Clear system_prompt with step-by-step instructions
-3. **Minimal Tools:** Only include tools the skill actually needs
-4. **Test Triggers:** Ensure triggers match expected user phrases
+1. **Be specific:** "Run goto script on google_tv"
+2. **One task at a time:** Complete before switching
+3. **Use suggestions:** Click example prompts
 
 ---
 
 ## Troubleshooting
 
+### "High token usage"
+
+- Check skill has 2-8 tools (not 13+)
+- Verify prompt caching is working (check logs for `[CACHE]`)
+- Review system_prompt length
+
 ### "Skill not loading"
 
-- Check skill name is in agent's `available_skills`
-- Verify skill YAML exists in `skills/definitions/`
-- Check server logs for YAML parsing errors
+- Check skill name in `available_skills`
+- Verify YAML exists in `skills/definitions/`
 
-### "Tool not found"
+### "Cache not working"
 
-- Verify tool name in skill's `tools` list
-- Check tool exists in MCP tool definitions
-- Restart server to reload tools
-
-### "Empty response from agent"
-
-- Too many tools can overwhelm the model
-- Check `max_tokens` setting
-- Review server logs for API errors
-
-### "Skill stuck in loop"
-
-- Add clear completion criteria to system_prompt
-- Use `UNLOAD SKILL` to return to router mode
-- Clear session with "clear session" command
-
+- Minimum 1024 tokens required
+- Cache TTL is 5 minutes
+- Check `anthropic-beta` header

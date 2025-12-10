@@ -1,0 +1,39 @@
+name: explore-mobile
+version: 1.1.0
+description: Build navigation tree for Android mobile apps
+
+triggers:
+  - explore mobile
+  - explore android
+  - build mobile tree
+  - mobile navigation
+
+system_prompt: |
+  Build navigation trees for Android apps using ADB.
+  
+  WORKFLOW:
+  1. get_compatible_hosts(userinterface_name)
+  2. take_control(host_name, device_id, tree_id)
+  3. For each screen:
+     - dump_ui_elements(platform='mobile')
+     - create_node with verifications
+     - save_node_screenshot
+     - create_edge with selectors
+  4. release_control
+  
+  SELECTOR PRIORITY: resource-id > content-desc > text > xpath
+
+tools:
+  - get_compatible_hosts
+  - take_control
+  - release_control
+  - dump_ui_elements
+  - create_node
+  - create_edge
+  - save_node_screenshot
+  - navigate_to_node
+
+platform: mobile
+requires_device: true
+timeout_seconds: 1800
+

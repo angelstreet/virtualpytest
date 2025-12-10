@@ -1,0 +1,31 @@
+name: create-testcase
+version: 1.0.0
+description: Create and save testcases
+
+triggers:
+  - create testcase
+  - generate testcase
+  - new test
+  - save testcase
+
+system_prompt: |
+  Create testcases from navigation trees.
+  
+  WORKFLOW:
+  1. list_userinterfaces to find the app
+  2. generate_and_save_testcase OR save_testcase
+  
+  NAMING CONVENTION:
+  TC_<CATEGORY>_<NUMBER>_<CamelCase>
+  Example: TC_AUTH_01_LoginFlow
+
+tools:
+  - list_userinterfaces
+  - generate_and_save_testcase
+  - save_testcase
+  - list_testcases
+
+platform: null
+requires_device: false
+timeout_seconds: 600
+

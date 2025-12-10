@@ -1,9 +1,10 @@
 """
-QA Manager Agent - Skill-Based Architecture
+QA Manager Agent - Skill-Based Architecture with Prompt Caching
 
 The orchestrator dynamically loads skills based on user requests:
 - Router mode: Minimal tools, decides which skill to load
 - Skill mode: Full tool access from loaded skill
+- Prompt Caching: System prompt and tools are cached for 90% cost reduction
 
 Skills are defined in YAML files and provide focused capabilities.
 """
@@ -11,7 +12,7 @@ Skills are defined in YAML files and provide focused capabilities.
 import re
 import logging
 import time
-from typing import Dict, Any, AsyncGenerator, Optional
+from typing import Dict, Any, AsyncGenerator, Optional, List
 
 import anthropic
 
@@ -24,14 +25,15 @@ from .message_types import EventType, AgentEvent
 
 class QAManagerAgent:
     """
-    QA Manager - Skill-Based Orchestrator
+    QA Manager - Skill-Based Orchestrator with Prompt Caching
     
     Operates in two modes:
     1. Router Mode: Uses minimal tools, decides which skill to load
     2. Skill Mode: Uses tools from the loaded skill
     
-    Skills are loaded dynamically based on user requests.
+    Uses Anthropic's prompt caching for 90% cost reduction on repeated calls.
     """
+    
     def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
         self.logger = logging.getLogger(__name__)
         self.user_identifier = user_identifier
@@ -86,12 +88,7 @@ class QAManagerAgent:
         return self._active_skill
     
     def load_skill(self, skill_name: str) -> bool:
-        """
-        Load a skill by name
-        
-        Returns:
-            True if skill was loaded, False if not available
-        """
+        """Load a skill by name"""
         from ..skills import SkillLoader
         
         available = self.agent_config.get('available_skills', [])
@@ -141,50 +138,53 @@ class QAManagerAgent:
         
         return f"""You are {config['nickname']}, {config['specialty']}.
 
-## Mode: Router (Skill Selection)
+## Mode: Router
 
-You have minimal tools for quick queries. For complex tasks, load a skill.
+Quick queries → use router tools. Complex tasks → load a skill.
 
-## Available Skills
+## Skills
 {skill_descriptions}
 
-## Router Tools (for quick queries)
+## Router Tools
 {tools_list}
 
-## Instructions
-1. Quick queries (list, status, info) → use router tools directly
-2. Specialized work → respond with ONLY: `LOAD SKILL [skill-name]`
-   NO explanations. NO "I'll help you". JUST the command.
+## Rules
+- Quick query → use tool directly
+- Complex task → respond ONLY: `LOAD SKILL [name]`
 
-Examples:
-- "List testcases" → Use list_testcases tool
-- "Run goto script" → LOAD SKILL execution
-- "Explore sauce-demo" → LOAD SKILL exploration-web
-
-Be extremely concise. No fluff."""
+Be concise."""
     
     def _build_skill_prompt(self, ctx: Dict[str, Any] = None) -> str:
-        """Build skill mode prompt - use loaded skill's system prompt"""
+        """Build skill mode prompt"""
         config = self.agent_config
         skill = self._active_skill
-        ctx = ctx or {}
         
-        tools_list = '\n'.join(f"- `{tool}`" for tool in skill.tools)
-        
-        return f"""You are {config['nickname']}, executing the **{skill.name}** skill.
+        return f"""You are {config['nickname']} executing **{skill.name}** skill.
 
 {skill.system_prompt}
 
-## Available Tools
-{tools_list}
+Tools: {', '.join(skill.tools)}
 
-## Session Commands
-- Say "UNLOAD SKILL" when task is complete to return to router mode
-- Stay in this skill until task is done or user asks for something else
-
-Be thorough with this skill's workflow. Use the tools systematically.
-
-**CRITICAL: NEVER modify URLs returned by tools. Copy URLs EXACTLY as returned - do not change any characters, especially dates.**"""
+CRITICAL: Never modify URLs from tools. Copy exactly."""
+    
+    def _build_cached_system(self, context: Dict[str, Any] = None) -> List[Dict]:
+        """Build system prompt with cache control for Anthropic prompt caching"""
+        prompt_text = self.get_system_prompt(context)
+        return [{
+            "type": "text",
+            "text": prompt_text,
+            "cache_control": {"type": "ephemeral"}
+        }]
+    
+    def _build_cached_tools(self, tool_names: List[str]) -> List[Dict]:
+        """Build tool definitions with cache control on the last tool"""
+        tools = self.tool_bridge.get_tool_definitions(tool_names)
+        
+        # Add cache_control to last tool (caches everything up to and including it)
+        if tools:
+            tools[-1]["cache_control"] = {"type": "ephemeral"}
+        
+        return tools
     
     @property
     def tool_names(self) -> list[str]:
@@ -213,22 +213,15 @@ Be thorough with this skill's workflow. Use the tools systematically.
         return self._get_api_key_safe() is not None
     
     async def process_message(self, message: str, session: Session, _is_delegated: bool = False) -> AsyncGenerator[AgentEvent, None]:
-        """Process user message with skill-based routing
-        
-        Args:
-            message: User message to process
-            session: Session object
-            _is_delegated: Internal flag - True when called from parent agent
-        """
+        """Process user message with skill-based routing and prompt caching"""
         print(f"\n{'='*60}")
-        print(f"[AGENT DEBUG] {self.nickname} process_message START")
-        print(f"[AGENT DEBUG] _is_delegated={_is_delegated}, active_skill={self._active_skill.name if self._active_skill else 'None'}")
-        print(f"[AGENT DEBUG] message={message[:50]}...")
+        print(f"[AGENT] {self.nickname} | skill={self._active_skill.name if self._active_skill else 'router'}")
+        print(f"[AGENT] message={message[:50]}...")
         print(f"{'='*60}")
         self.logger.info(f"[{self.nickname}] Processing: {message[:100]}...")
         
         if not self.api_key_configured:
-            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="⚠️ API key not configured.")
+            yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="API key not configured.")
             if not _is_delegated:
                 yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Session ended")
             return
@@ -245,7 +238,6 @@ Be thorough with this skill's workflow. Use the tools systematically.
                         messages=[*api_msgs, {"role": "user", "content": "Summarize key actions/results concisely."}]
                     )
                     session.apply_summary(resp.content[0].text)
-                    yield AgentEvent(type=EventType.MESSAGE, agent="System", content="🧹 History compacted.")
                 except Exception as e:
                     self.logger.error(f"Compaction failed: {e}")
         
@@ -262,7 +254,7 @@ Be thorough with this skill's workflow. Use the tools systematically.
             if self._active_skill:
                 skill_name = self._active_skill.name
                 self.unload_skill()
-                yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=f"✓ Unloaded skill: {skill_name}. Back in router mode.")
+                yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=f"Unloaded {skill_name}. Back in router mode.")
             else:
                 yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content="Already in router mode.")
             if not _is_delegated:
@@ -270,7 +262,6 @@ Be thorough with this skill's workflow. Use the tools systematically.
             return
         
         mode_str = f"[{self._active_skill.name}]" if self._active_skill else "[router]"
-        print(f"[AGENT DEBUG] {self.nickname} {mode_str} yielding THINKING event")
         yield AgentEvent(type=EventType.THINKING, agent=self.nickname, content=f"Analyzing... {mode_str}")
         
         # Build message history
@@ -284,14 +275,11 @@ Be thorough with this skill's workflow. Use the tools systematically.
                     "content": msg["content"]
                 })
         
-        tools = self.tool_bridge.get_tool_definitions(self.tool_names)
+        # Build cached system prompt and tools
+        cached_system = self._build_cached_system(session.context)
+        cached_tools = self._build_cached_tools(self.tool_names)
         
-        # Estimate token count
-        tools_chars = sum(len(str(t)) for t in tools)
-        estimated_tool_tokens = tools_chars // 4
-        
-        if len(tools) > 20 or estimated_tool_tokens > 6000:
-            print(f"[AGENT WARNING] {self.nickname} has {len(tools)} tools (~{estimated_tool_tokens:,} tokens)")
+        print(f"[AGENT] Tools: {len(cached_tools)} | System: {len(cached_system[0]['text'])} chars")
         
         if "session_id" not in session.context:
             session.set_context("session_id", session.id)
@@ -301,16 +289,36 @@ Be thorough with this skill's workflow. Use the tools systematically.
         # Tool loop
         while True:
             start = time.time()
+            
+            # Use prompt caching via extra_headers
             response = self.client.messages.create(
-                model=DEFAULT_MODEL, max_tokens=4096,
-                system=self.get_system_prompt(session.context),
-                messages=turn_messages, tools=tools
+                model=DEFAULT_MODEL,
+                max_tokens=4096,
+                system=cached_system,
+                messages=turn_messages,
+                tools=cached_tools,
+                extra_headers={
+                    "anthropic-beta": "prompt-caching-2024-07-31"
+                }
             )
+            
+            # Extract cache metrics if available
+            cache_creation = getattr(response.usage, 'cache_creation_input_tokens', 0)
+            cache_read = getattr(response.usage, 'cache_read_input_tokens', 0)
+            
             metrics = {
                 "duration_ms": int((time.time() - start) * 1000),
                 "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens
+                "output_tokens": response.usage.output_tokens,
+                "cache_creation_tokens": cache_creation,
+                "cache_read_tokens": cache_read,
             }
+            
+            # Log cache performance
+            if cache_read > 0:
+                print(f"[CACHE] Read {cache_read} tokens from cache (90% cheaper)")
+            if cache_creation > 0:
+                print(f"[CACHE] Created cache with {cache_creation} tokens")
             
             if LANGFUSE_ENABLED:
                 track_generation(self.nickname, DEFAULT_MODEL, turn_messages, response, session.id, session.context.get("user_id"))
@@ -345,38 +353,18 @@ Be thorough with this skill's workflow. Use the tools systematically.
                     output_tokens = metrics.get('output_tokens', 0)
                     stop_reason = getattr(response, 'stop_reason', 'unknown')
                     
-                    print(f"[AGENT DEBUG] {self.nickname} EMPTY RESPONSE:")
-                    print(f"  - stop_reason: {stop_reason}")
-                    print(f"  - input_tokens: {input_tokens}")
-                    print(f"  - output_tokens: {output_tokens}")
-                    
-                    error_msg = f"Agent returned empty response (stop_reason: {stop_reason}, input: {input_tokens:,}, output: {output_tokens})."
-                    
-                    if stop_reason == "max_tokens":
-                        error_msg += " Model hit output token limit mid-response."
-                    elif stop_reason == "end_turn" and output_tokens < 10:
-                        error_msg += f" Model ended turn with minimal output ({len(tools)} tools). Try simplifying."
-                    elif input_tokens > 50000:
-                        error_msg += " Very high input tokens - consider reducing context."
-                    
+                    error_msg = f"Empty response (stop: {stop_reason}, in: {input_tokens}, out: {output_tokens})"
                     yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=error_msg, error="empty_response", metrics=metrics)
                     break
                 
                 # Check for skill load command
                 skill_to_load = self._parse_skill_command(response_text)
                 if skill_to_load:
-                    print(f"[AGENT DEBUG] {self.nickname} loading skill: {skill_to_load}")
-                    
-                    # Silent skill loading - don't emit verbose router message
-                    # Just emit a minimal skill loading indicator
+                    print(f"[AGENT] Loading skill: {skill_to_load}")
                     yield AgentEvent(type=EventType.SKILL_LOADED, agent=self.nickname, content=skill_to_load)
                     
-                    # Load the skill
                     if self.load_skill(skill_to_load):
-                        pass  # Skill loaded, continue to re-process
-                        
                         # Re-process with loaded skill
-                        print(f"[AGENT DEBUG] {self.nickname} re-processing with skill {skill_to_load}")
                         async for event in self.process_message(message, session, _is_delegated=True):
                             yield event
                     else:
@@ -388,14 +376,13 @@ Be thorough with this skill's workflow. Use the tools systematically.
                     if self._active_skill:
                         skill_name = self._active_skill.name
                         self.unload_skill()
-                        display_text = response_text.replace("UNLOAD SKILL", f"✓ Unloaded skill: {skill_name}")
+                        display_text = response_text.replace("UNLOAD SKILL", f"Unloaded {skill_name}")
                         yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=display_text, metrics=metrics)
                     else:
                         yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=response_text, metrics=metrics)
                     break
                 
                 # Normal response
-                print(f"[AGENT DEBUG] {self.nickname} yielding MESSAGE: {response_text[:100]}...")
                 yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=response_text, metrics=metrics)
                 break
         
@@ -408,10 +395,7 @@ Be thorough with this skill's workflow. Use the tools systematically.
         
         # Only root agent emits SESSION_ENDED
         if not _is_delegated:
-            print(f"[AGENT DEBUG] {self.nickname} yielding SESSION_ENDED (root)")
             yield AgentEvent(type=EventType.SESSION_ENDED, agent=self.nickname, content="Done")
-        
-        print(f"[AGENT DEBUG] {self.nickname} process_message END")
     
     async def handle_approval(self, session: Session, approved: bool, modifications: Dict[str, Any] = None) -> AsyncGenerator[AgentEvent, None]:
         """Handle approval response"""

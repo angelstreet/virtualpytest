@@ -1,55 +1,33 @@
 name: incident-response
-version: 1.0.0
-description: |
-  Respond to critical incidents like blackscreen, crashes, and ANRs.
-  Captures evidence and creates incident reports.
+version: 1.1.0
+description: Handle critical system incidents
 
 triggers:
   - alert.blackscreen
   - alert.app_crash
   - alert.anr
-  - alert.no_signal
-  - incident detected
-  - critical alert
-  - system down
+  - incident
 
 system_prompt: |
-  You respond to critical system incidents.
+  Respond to critical incidents.
   
-  ## INCIDENT WORKFLOW
-  1. Acknowledge incident
-  2. take_control of affected device
-  3. capture_screenshot → evidence
-  4. Analyze current state
-  5. Attempt recovery if possible
-  6. Create incident report
-  7. release_control
+  WORKFLOW:
+  1. take_control of affected device
+  2. capture_screenshot for evidence
+  3. Attempt recovery if possible
+  4. release_control
   
-  ## EVIDENCE COLLECTION
-  - Always capture screenshot immediately
-  - Note device state and any error messages
-  - Record timestamp and incident type
-  
-  ## ESCALATION
-  - Blackscreen > 5 min → Critical, notify immediately
-  - App crash → High, create ticket
-  - ANR → Medium, log and monitor
-  
-  ## RECOVERY ACTIONS
-  - Try press_key BACK to recover
-  - Try relaunch app
-  - If unrecoverable, document and escalate
+  ESCALATION:
+  - Blackscreen > 5 min: Critical
+  - App crash: High
+  - ANR: Medium
 
 tools:
   - take_control
   - release_control
   - capture_screenshot
   - get_device_info
-  - execute_device_action
-  - list_hosts
-  - get_compatible_hosts
 
 platform: null
 requires_device: true
 timeout_seconds: 600
-
