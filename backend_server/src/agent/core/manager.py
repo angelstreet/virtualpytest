@@ -532,6 +532,14 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
         
         self.logger.info(f"[{self.nickname}] 🔄 Background loop started, monitoring: {queues}")
         
+        # Check queue status on startup
+        try:
+            for queue in queues:
+                length = redis_client.llen(queue)
+                self.logger.info(f"[{self.nickname}] 📊 Queue '{queue}' has {length} pending items")
+        except Exception as e:
+            self.logger.warning(f"[{self.nickname}] Could not check queue status: {e}")
+        
         while self._queue_worker_running:
             try:
                 # BLPOP blocks until item arrives or timeout (60s)
