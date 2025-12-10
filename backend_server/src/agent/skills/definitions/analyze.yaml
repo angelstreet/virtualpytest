@@ -25,13 +25,20 @@ system_prompt: |
   ❌ User says: "fetch last result", "show me the last execution", "get results"
   
   ═══════════════════════════════════════════════════════════════
-  ANALYZE WORKFLOW (only when analyzing):
+  ANALYZE WORKFLOW:
   ═══════════════════════════════════════════════════════════════
   
+  QUEUE MODE (from Redis):
+  1. Extract SCRIPT_RESULT_ID from the message (this is the UUID)
+  2. Use fetch_execution_report(report_url) to get report details
+  3. Classify the result
+  4. Use update_execution_analysis(script_result_id='<UUID from message>') to save
+  
+  CHAT MODE (user request):
   1. Use get_execution_results() to find the execution
   2. Use fetch_execution_report(report_url) to get report details
   3. Classify the result
-  4. Use update_execution_analysis() to save classification
+  4. Use update_execution_analysis(script_result_id='<UUID from query>') to save
   
   CLASSIFICATION RULES:
   

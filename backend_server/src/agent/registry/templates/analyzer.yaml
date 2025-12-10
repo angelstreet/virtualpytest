@@ -8,12 +8,13 @@
 # 1. QUEUE MODE (Redis trigger - background processing)
 # ═══════════════════════════════════════════════════════════════
 #    - Triggered by: redis.queue.script (p2_scripts queue)
-#    - Input: Redis provides report_url + script_result_id directly
+#    - Input: Message contains SCRIPT_RESULT_ID (UUID) + report_url
 #    - Workflow:
-#      1. fetch_execution_report(report_url) - from Redis message
-#      2. Classify result
-#      3. update_execution_analysis(script_result_id) - save to DB
-#    - NO need to call get_execution_results() - Redis gives us the data
+#      1. Extract SCRIPT_RESULT_ID from message (this is the UUID)
+#      2. fetch_execution_report(report_url) - from message
+#      3. Classify result
+#      4. update_execution_analysis(script_result_id='<UUID>') - save to DB
+#    - NO need to call get_execution_results() - use ID from message
 #
 # ═══════════════════════════════════════════════════════════════
 # 2. FETCH MODE (Chat - user wants to VIEW results)

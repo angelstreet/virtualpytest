@@ -121,6 +121,13 @@ export const CustomThemeProvider: React.FC<CustomThemeProviderProps> = ({ childr
           },
         },
       },
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            borderRadius: 0,
+          },
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {

@@ -582,14 +582,20 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                     for queue in queues:
                         result = self._redis_command(redis_config, ['LPOP', queue])
                         
+                        # Always log when we get something from queue
                         if result and result.get('result'):
                             task_json = result['result']
+                            print(f"[{self.nickname}] 🎯 GOT TASK from {queue}: {task_json[:100]}...")
+                            
                             task = json.loads(task_json)
                             task_found = True
                             
-                            print(f"[{self.nickname}] 📥 Task from {queue}: {task.get('type', 'unknown')}")
-                            self.logger.info(f"[{self.nickname}] 📥 Task from {queue}: {task.get('type', 'unknown')}")
+                            task_type = task.get('type', 'unknown')
+                            task_id = task.get('id', 'unknown')
+                            print(f"[{self.nickname}] 📥 Processing task: type={task_type}, id={task_id}")
+                            self.logger.info(f"[{self.nickname}] 📥 Task from {queue}: {task_type}")
                             self._process_background_task(task, queue)
+                            print(f"[{self.nickname}] ✅ Task {task_id} processed")
                             break  # Process one task then restart loop
                     
                     # If no task found, sleep before next poll
@@ -612,22 +618,34 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             self.logger.info(f"[{self.nickname}] 👋 Background loop ended")
     
     def _process_background_task(self, task: Dict[str, Any], queue_name: str):
-        """Process a single background task"""
+        """Process a single background task - NEVER FAIL SILENTLY"""
+        task_id = 'unknown'
         try:
+            print(f"[{self.nickname}] 🔧 _process_background_task START")
+            print(f"[{self.nickname}] 🔧 Task keys: {list(task.keys())}")
+            
             task_type = task.get('type', 'unknown')
             task_id = task.get('id', 'unknown')
             task_data = task.get('data', {})
             
+            print(f"[{self.nickname}] 🔧 task_type={task_type}, task_id={task_id}")
+            print(f"[{self.nickname}] 🔧 task_data keys: {list(task_data.keys())}")
+            
             # Build message for agent based on task type
+            print(f"[{self.nickname}] 🔧 Building task message...")
             message = self._build_task_message(task_type, task_id, task_data)
+            print(f"[{self.nickname}] 🔧 Message built: {message[:100]}...")
             
             # Create session for this task
+            print(f"[{self.nickname}] 🔧 Creating session...")
             session = self._session_manager.create_session()
             session.set_context('task_id', task_id)
             session.set_context('task_type', task_type)
             session.set_context('queue_name', queue_name)
+            print(f"[{self.nickname}] 🔧 Session created")
             
             # Process with agent (run async in sync context)
+            print(f"[{self.nickname}] 🔧 Starting async processing...")
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
@@ -642,15 +660,20 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                 loop.run_until_complete(process())
                 
                 result = '\n'.join(responses)
+                print(f"[{self.nickname}] ✅ Task {task_id} completed successfully")
                 self.logger.info(f"[{self.nickname}] ✅ Task {task_id} complete")
                 
             finally:
                 loop.close()
+                print(f"[{self.nickname}] 🔧 Event loop closed")
                 
         except Exception as e:
+            print(f"[{self.nickname}] ❌❌❌ TASK PROCESSING FAILED for task {task_id}")
+            print(f"[{self.nickname}] ❌ Error: {e}")
             self.logger.error(f"[{self.nickname}] ❌ Task processing error: {e}")
             import traceback
             traceback.print_exc()
+            print(f"[{self.nickname}] ❌❌❌ END OF ERROR")
     
     def _build_task_message(self, task_type: str, task_id: str, task_data: Dict[str, Any]) -> str:
         """Build agent message from queue task. All data comes from queue, no DB fetch."""
@@ -665,6 +688,7 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             msg = f"""Analyze this script execution for false positive detection:
 
 SCRIPT: {script_name}
+SCRIPT_RESULT_ID: {task_id}
 RESULT: {'PASSED' if success else 'FAILED'}
 ERROR: {error_msg}
 DURATION: {execution_time_ms}ms
@@ -674,7 +698,7 @@ DURATION: {execution_time_ms}ms
 Use fetch_execution_report(report_url='{report_url}'"""
                 if logs_url:
                     msg += f", logs_url='{logs_url}'"
-                msg += ") to get the detailed report, then call update_execution_analysis() to save your classification."
+                msg += f") to get the detailed report, then call update_execution_analysis(script_result_id='{task_id}', ...) to save your classification."
             
             msg += """
 
