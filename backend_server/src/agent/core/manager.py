@@ -611,10 +611,10 @@ DURATION: {execution_time_ms}ms
 """
             if report_url:
                 msg += f"""
-Use get_last_execution_result(report_url='{report_url}'"""
+Use fetch_execution_report(report_url='{report_url}'"""
                 if logs_url:
                     msg += f", logs_url='{logs_url}'"
-                msg += ") to get the detailed report."
+                msg += ") to get the detailed report, then call update_execution_analysis() to save your classification."
             
             msg += """
 

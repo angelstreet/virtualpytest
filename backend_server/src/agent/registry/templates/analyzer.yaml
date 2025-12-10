@@ -1,36 +1,37 @@
 # Agent Configuration: Result Analyzer
-# Version: 2.5.0
+# Version: 3.0.0
 # Author: system
 #
-# Analyzes script execution results to detect false positives.
+# Autonomous execution result analyzer - replaces backend_discard worker.
+# Analyzes script execution results, classifies them, and saves to database.
 #
 # TWO MODES:
-# 1. Chat Mode: User provides report URL directly
+# 1. Chat Mode: User asks to analyze results (by interface, device, etc.)
 # 2. Queue Mode: Background processing from p2_scripts queue
 #
-# Queue Flow:
-# 1. Task arrives: {type: 'script', id: '<script_id>', data: {...}}
-# 2. Agent fetches full script data from database (html_report_r2_url, logs, etc.)
-# 3. Agent uses fetch_execution_report/fetch_execution_logs tools
-# 4. Agent classifies: BUG | SCRIPT_ISSUE | SYSTEM_ISSUE | UNKNOWN
+# Workflow:
+# 1. get_execution_results() - Find executions to analyze
+# 2. fetch_execution_report() - Get detailed report content
+# 3. Classify: BUG | SCRIPT_ISSUE | SYSTEM_ISSUE | VALID_PASS | VALID_FAIL
+# 4. update_execution_analysis() - Save classification to database
 #
 ---
 metadata:
   id: analyzer
   name: Result Analyzer
   nickname: Sherlock
-  selectable: false
+  selectable: true
   default: false
-  version: 2.5.0
+  version: 3.0.0
   author: system
-  description: "Analyzes script and test results"
+  description: "Analyzes and classifies execution results"
   tags:
     - analysis
     - scripts
     - validation
+    - autonomous
 
 triggers:
-
   - type: redis.queue.script
     priority: normal
 
@@ -40,9 +41,11 @@ available_skills:
   - validate
   - analyze
 
-# Router mode tools
+# Router mode tools - autonomous analysis capability
 skills:
-  - get_last_execution_result
+  - get_execution_results
+  - fetch_execution_report
+  - update_execution_analysis
 
 permissions:
   devices:
@@ -50,14 +53,14 @@ permissions:
 
   database:
     - read
-    - write.analysis_results
+    - write.script_results
 
   external:
     - http
 
 config:
   enabled: true
-  background_queues: ['p2_scripts']  # Only scripts, alerts handled by different agent
+  background_queues: ['p2_scripts']
   max_parallel_tasks: 5
   approval_required_for: []
   auto_retry: true
