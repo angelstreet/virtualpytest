@@ -413,32 +413,67 @@ export const useAgentChat = () => {
       }));
     }
     
-    // Check if analysis is complete
+    // Check if analysis is complete (detect update_execution_analysis tool call)
     if (event.type === 'tool_call' && event.tool_name === 'update_execution_analysis') {
-      console.log(`[Sherlock] Analysis complete for ${scriptName || 'unknown'}`);
+      console.log(`[Sherlock] ✅ Analysis complete - tool call detected`);
+      console.log(`[Sherlock] taskId=${taskId}, conversationId=${conversationId}`);
       
       // Extract classification from tool params
       const classification = event.tool_params?.classification || 'UNKNOWN';
+      console.log(`[Sherlock] Classification: ${classification}`);
       
-      // Move from in-progress to recent
-      if (taskId) {
-        setSherlockTasks(prev => {
-          const task = prev.inProgress.find(t => t.id === taskId);
-          if (!task) return prev;
-          
-          return {
-            inProgress: prev.inProgress.filter(t => t.id !== taskId),
-            recent: [{
-              id: taskId,
-              scriptName: scriptName || task.scriptName,
-              conversationId,
-              classification: classification as string,
-              completedAt: new Date().toISOString(),
-              viewed: false,
-            }, ...prev.recent].slice(0, 3) // Keep only last 3
-          };
-        });
-      }
+      // Move from in-progress to recent (search by conversationId to handle temp IDs)
+      setSherlockTasks(prev => {
+        // Find task by conversation ID (more reliable than task ID for temp tasks)
+        const task = prev.inProgress.find(t => t.conversationId === conversationId);
+        if (!task) {
+          console.log('[Sherlock] ⚠️ Task not found in inProgress:', conversationId);
+          console.log('[Sherlock] Current inProgress:', prev.inProgress.map(t => t.conversationId));
+          return prev;
+        }
+        
+        console.log(`[Sherlock] Moving task ${task.scriptName} to recent`);
+        
+        return {
+          inProgress: prev.inProgress.filter(t => t.conversationId !== conversationId),
+          recent: [{
+            id: taskId || task.id,
+            scriptName: scriptName || task.scriptName,
+            conversationId,
+            classification: classification as string,
+            completedAt: new Date().toISOString(),
+            viewed: false,
+          }, ...prev.recent].slice(0, 3) // Keep only last 3
+        };
+      });
+    }
+    
+    // Also handle session_ended to ensure task is moved
+    if (event.type === 'session_ended' && sherlockSessionRef.current) {
+      console.log('[Sherlock] Session ended, ensuring task is moved to recent');
+      const sessionInfo = sherlockSessionRef.current;
+      
+      setSherlockTasks(prev => {
+        const task = prev.inProgress.find(t => t.conversationId === sessionInfo.conversationId);
+        if (!task) {
+          console.log('[Sherlock] Task already moved or not found');
+          return prev;
+        }
+        
+        // Move to recent with default classification if not already moved
+        console.log(`[Sherlock] Moving ${task.scriptName} to recent on session end`);
+        return {
+          inProgress: prev.inProgress.filter(t => t.conversationId !== sessionInfo.conversationId),
+          recent: [{
+            id: sessionInfo.taskId,
+            scriptName: sessionInfo.scriptName,
+            conversationId: sessionInfo.conversationId,
+            classification: 'COMPLETED',
+            completedAt: new Date().toISOString(),
+            viewed: false,
+          }, ...prev.recent].slice(0, 3)
+        };
+      });
     }
     
     // Add event to Sherlock conversation

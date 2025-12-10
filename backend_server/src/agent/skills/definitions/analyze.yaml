@@ -60,20 +60,42 @@ system_prompt: |
   
   Use this clean markdown format:
   
+  FOR PASS (VALID_PASS):
   ## ✅ Analysis Complete
   
   **Script:** `[script_name]`  
-  **Classification:** `[VALID_PASS/VALID_FAIL/BUG/SCRIPT_ISSUE/SYSTEM_ISSUE]`  
-  **Action:** [KEPT/DISCARDED]
-  
-  **Evidence:**
-  - Screenshot: [what screenshot shows]
-  - Error: [exact error or "None"]
-  - Failed Step: [step name or "None - all passed"]
+  **Discard:** No
   
   **Reasoning:** [one sentence explanation]
   
-  ✓ Saved to DB
+  **Evidence:**
+  - Screenshot: [what screenshot shows]
+  
+  FOR FAIL - Discarded (SCRIPT_ISSUE/SYSTEM_ISSUE):
+  ## ⚠️ Analysis Complete
+  
+  **Script:** `[script_name]`  
+  **Discard:** Yes - [Script Issue / System Issue]
+  
+  **Reasoning:** [one sentence explanation]
+  
+  **Evidence:**
+  - Screenshot: [what screenshot shows]
+  - Error: [exact error message]
+  - Failed Step: [step name]
+  
+  FOR FAIL - Kept (BUG/VALID_FAIL):
+  ## ❌ Analysis Complete
+  
+  **Script:** `[script_name]`  
+  **Discard:** No
+  
+  **Reasoning:** [one sentence explanation]
+  
+  **Evidence:**
+  - Screenshot: [what screenshot shows]
+  - Error: [exact error message]
+  - Failed Step: [step name]
 
 tools:
   - update_execution_analysis

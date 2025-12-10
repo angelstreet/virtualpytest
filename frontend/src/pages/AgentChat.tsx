@@ -620,17 +620,27 @@ useEffect(() => {
 
   // --- Sherlock Section ---
   const renderSherlockSection = () => {
-    const totalActive = sherlockTasks.inProgress.length + 
-      sherlockTasks.recent.filter(t => !t.viewed).length;
+    // Combine in-progress and last 3 recent tasks
+    const allTasks = [
+      ...sherlockTasks.inProgress.map(t => ({ ...t, isInProgress: true })),
+      ...sherlockTasks.recent.slice(0, 3).map(t => ({ ...t, isInProgress: false }))
+    ];
+    
+    const totalActive = allTasks.length;
     
     const getStatusIcon = (classification: string) => {
+      // Simple: ✓ for pass, ✗ for fail/issues
       switch (classification) {
-        case 'VALID_PASS': return '✓';
-        case 'BUG': return '🐛';
-        case 'SCRIPT_ISSUE': return '⚠';
-        case 'SYSTEM_ISSUE': return '💥';
-        case 'VALID_FAIL': return '✗';
-        default: return '✓';
+        case 'VALID_PASS':
+        case 'COMPLETED':
+          return '✓';
+        case 'VALID_FAIL':
+        case 'BUG':
+        case 'SCRIPT_ISSUE':
+        case 'SYSTEM_ISSUE':
+          return '✗';
+        default: 
+          return '✓';
       }
     };
     
@@ -702,153 +712,69 @@ useEffect(() => {
           )}
         </Box>
         
-        {/* Expandable Content - only show if there are items */}
+        {/* Expandable Content - simplified list (last 3 + in progress) */}
         {totalActive > 0 && (
           <Fade in={sherlockExpanded}>
             <Box sx={{ pl: 3, pr: 1, mt: 0.5 }}>
-              {/* In Progress */}
-              {sherlockTasks.inProgress.length > 0 && (
-                <Box sx={{ mb: 1.5 }}>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      px: 1,
-                      display: 'block',
-                      color: PALETTE.textMuted,
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      mb: 0.5,
+              {allTasks.map(task => {
+                const icon = task.isInProgress ? null : getStatusIcon((task as any).classification || 'UNKNOWN');
+                
+                return (
+                  <Box
+                    key={task.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      switchConversation(task.conversationId);
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.5,
+                      py: 0.75,
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      bgcolor: task.conversationId === activeConversationId
+                        ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
+                        : 'transparent',
+                      '&:hover': {
+                        bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
+                      },
+                      transition: 'background-color 0.15s',
                     }}
                   >
-                    IN PROGRESS
-                  </Typography>
-                  
-                  {sherlockTasks.inProgress.map(task => (
-                    <Box
-                      key={task.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        switchConversation(task.conversationId);
-                      }}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        px: 1.5,
-                        py: 0.75,
-                        borderRadius: 1,
-                        cursor: 'pointer',
-                        bgcolor: task.conversationId === activeConversationId
-                          ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
-                          : 'transparent',
-                        '&:hover': {
-                          bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
-                        },
-                        transition: 'background-color 0.15s',
-                        animation: 'pulse 2s ease-in-out infinite',
-                        '@keyframes pulse': {
-                          '0%, 100%': { opacity: 1 },
-                          '50%': { opacity: 0.7 },
-                        },
-                      }}
-                    >
+                    {/* Pulsing dot for in-progress, icon for completed */}
+                    {task.isInProgress ? (
                       <Box sx={{ 
-                        width: 6, 
-                        height: 6, 
+                        width: 8, 
+                        height: 8, 
                         borderRadius: '50%',
                         bgcolor: PALETTE.accent,
+                        animation: 'pulse 2s ease-in-out infinite',
+                        '@keyframes pulse': {
+                          '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                          '50%': { opacity: 0.5, transform: 'scale(0.8)' },
+                        },
                       }} />
-                      
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          flex: 1,
-                          fontSize: '0.8rem',
-                          color: 'text.primary',
-                        }}
-                        noWrap
-                      >
-                        {task.scriptName}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-              
-              {/* Recent (Last 3) */}
-              {sherlockTasks.recent.length > 0 && (
-                <Box>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      px: 1,
-                      display: 'block',
-                      color: PALETTE.textMuted,
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      mb: 0.5,
-                    }}
-                  >
-                    RECENT
-                  </Typography>
-                  
-                  {sherlockTasks.recent.map(task => {
-                    const icon = getStatusIcon(task.classification);
+                    ) : (
+                      <Box sx={{ fontSize: 12, minWidth: 16, textAlign: 'center' }}>{icon}</Box>
+                    )}
                     
-                    return (
-                      <Box
-                        key={task.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          switchConversation(task.conversationId);
-                        }}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          px: 1.5,
-                          py: 0.75,
-                          borderRadius: 1,
-                          cursor: 'pointer',
-                          bgcolor: task.conversationId === activeConversationId
-                            ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
-                            : 'transparent',
-                          opacity: task.viewed ? 0.6 : 1,
-                          '&:hover': {
-                            bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
-                            opacity: 1,
-                          },
-                          transition: 'all 0.15s',
-                        }}
-                      >
-                        <Box sx={{ fontSize: 11, minWidth: 14 }}>{icon}</Box>
-                        
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            flex: 1,
-                            fontSize: '0.8rem',
-                            color: task.viewed ? 'text.secondary' : 'text.primary',
-                          }}
-                          noWrap
-                        >
-                          {task.scriptName}
-                        </Typography>
-                        
-                        {/* Unread dot */}
-                        {!task.viewed && (
-                          <Box sx={{ 
-                            width: 6, 
-                            height: 6, 
-                            borderRadius: '50%',
-                            bgcolor: PALETTE.accent,
-                          }} />
-                        )}
-                      </Box>
-                    );
-                  })}
-                </Box>
-              )}
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        flex: 1,
+                        fontSize: '0.8rem',
+                        color: task.isInProgress ? 'text.primary' : 'text.secondary',
+                        fontWeight: task.isInProgress ? 500 : 400,
+                      }}
+                      noWrap
+                    >
+                      {task.scriptName}
+                    </Typography>
+                  </Box>
+                );
+              })}
             </Box>
           </Fade>
         )}
