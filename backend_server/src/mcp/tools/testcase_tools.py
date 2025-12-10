@@ -354,8 +354,11 @@ class TestCaseTools:
             
             elif current_status in ['pending', 'running']:
                 progress = status.get('progress', {})
-                current_block = progress.get('current_block', 'unknown')
-                print(f"[@MCP:poll_testcase] Status: {current_status}, block: {current_block} - {elapsed}s elapsed")
+                current_block = progress.get('current_block')
+                if current_block:
+                    print(f"[@MCP:poll_testcase] Status: {current_status}, block: {current_block} - {elapsed}s elapsed")
+                else:
+                    print(f"[@MCP:poll_testcase] Status: {current_status} - {elapsed}s elapsed")
             
             # Sleep AFTER checking status
             time.sleep(poll_interval)
