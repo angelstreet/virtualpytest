@@ -184,7 +184,9 @@ Be direct. Max 2 sentences unless asked for details."""
 - Say "UNLOAD SKILL" when task is complete to return to router mode
 - Stay in this skill until task is done or user asks for something else
 
-Be thorough with this skill's workflow. Use the tools systematically."""
+Be thorough with this skill's workflow. Use the tools systematically.
+
+**CRITICAL: NEVER modify URLs returned by tools. Copy URLs EXACTLY as returned - do not change any characters, especially dates.**"""
     
     @property
     def tool_names(self) -> list[str]:
