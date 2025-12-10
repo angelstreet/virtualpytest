@@ -197,13 +197,14 @@ class VerificationTools:
                 f"[HOST] Remote[ANDROID_MOBILE]: Element: {name} | Index: {element_id} | Order: {i+1} | X: {x} | Y: {y} | Width: {width} | Height: {height}"
             )
         
-        raw_output = '\n'.join(formatted_lines)
+        # Compact text: just count and clickable element names
+        clickable = [e for e in elements if e.get('clickable')]
+        text_summary = f"{len(elements)} elements ({len(clickable)} clickable)"
         
         return {
-            "content": [{"type": "text", "text": raw_output}],
+            "content": [{"type": "text", "text": text_summary}],
             "isError": False,
-            "elements": elements,
-            "raw_result": result
+            "elements": elements  # Full elements, no raw_result duplicate
         }
     
     def _poll_verification_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 30) -> Dict[str, Any]:

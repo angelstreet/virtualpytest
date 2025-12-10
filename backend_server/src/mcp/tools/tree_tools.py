@@ -163,13 +163,8 @@ class TreeTools:
             
             if result.get('success'):
                 node = result.get('node', {})
-                # Return the node_id string (NOT the database UUID!)
                 node_id_str = node.get('node_id') or node_data.get('node_id')
-                
-                return self.formatter.format_success(
-                    f"✅ Node created: {node.get('label')} (node_id: '{node_id_str}')\n"
-                    f"   Use node_id='{node_id_str}' when creating edges (NOT the database UUID!)"
-                )
+                return {"content": [{"type": "text", "text": f"created node:{node_id_str}"}], "isError": False}
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -300,11 +295,7 @@ class TreeTools:
             )
             
             if result.get('success'):
-                node = result.get('node', {})
-                
-                return self.formatter.format_success(
-                    f"✅ Node updated: {node.get('label')}"
-                )
+                return {"content": [{"type": "text", "text": f"updated node:{node_id}"}], "isError": False}
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -341,9 +332,7 @@ class TreeTools:
             )
             
             if result.get('success'):
-                return self.formatter.format_success(
-                    f"✅ Node deleted: {node_id}"
-                )
+                return {"content": [{"type": "text", "text": f"deleted node:{node_id}"}], "isError": False}
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -742,12 +731,7 @@ class TreeTools:
                 # Return permanent database IDs for both source and target nodes
                 permanent_edge_id = edge.get('edge_id') or edge.get('id')
                 
-                return self.formatter.format_success(
-                    f"✅ Edge created: {edge.get('source_node_id')} → {edge.get('target_node_id')} (ID: {permanent_edge_id})\n\n"
-                    f"⚠️ NEXT STEP REQUIRED: Test this edge before creating more!\n"
-                    f"1. Get edge: get_edge(edge_id='{permanent_edge_id}', tree_id='{tree_id}')\n"
-                    f"2. Test: execute_device_action(actions=edge['action_sets'][0]['actions'], ...)"
-                )
+                return {"content": [{"type": "text", "text": f"created edge:{permanent_edge_id} {edge.get('source_node_id')}→{edge.get('target_node_id')}"}], "isError": False}
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -898,10 +882,7 @@ class TreeTools:
             
             if result.get('success'):
                 edge = result.get('edge', {})
-                
-                return self.formatter.format_success(
-                    f"✅ Edge updated: {edge.get('edge_id')}"
-                )
+                return {"content": [{"type": "text", "text": f"updated edge:{edge.get('edge_id')}"}], "isError": False}
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -938,9 +919,7 @@ class TreeTools:
             )
             
             if result.get('success'):
-                return self.formatter.format_success(
-                    f"✅ Edge deleted: {edge_id}"
-                )
+                return {"content": [{"type": "text", "text": f"deleted edge:{edge_id}"}], "isError": False}
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -990,10 +969,7 @@ class TreeTools:
             if result.get('success'):
                 subtree = result.get('tree', {})
                 subtree_id = subtree.get('id')
-                
-                return self.formatter.format_success(
-                    f"✅ Subtree created: {subtree_name} (ID: {subtree_id})"
-                )
+                return {"content": [{"type": "text", "text": f"created subtree:{subtree_id}"}], "isError": False}
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -1028,14 +1004,17 @@ class TreeTools:
             
             if result.get('success'):
                 node = result.get('node', {})
-                return self.formatter.format_success({
-                    'node_id': node.get('node_id'),
-                    'label': node.get('label'),
-                    'type': node.get('node_type'),
-                    'position': {'x': node.get('position_x'), 'y': node.get('position_y')},
-                    'data': node.get('data', {}),
-                    'verifications': node.get('verifications', [])
-                })
+                return {
+                    "content": [{"type": "text", "text": f"node:{node.get('node_id')}"}],
+                    "isError": False,
+                    "node": {
+                        'node_id': node.get('node_id'),
+                        'label': node.get('label'),
+                        'type': node.get('node_type'),
+                        'data': node.get('data', {}),
+                        'verifications': node.get('verifications', [])
+                    }
+                }
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -1070,16 +1049,16 @@ class TreeTools:
             
             if result.get('success'):
                 edge = result.get('edge', {})
-                return self.formatter.format_success({
-                    'edge_id': edge.get('edge_id'),
-                    'source_node_id': edge.get('source_node_id'),
-                    'target_node_id': edge.get('target_node_id'),
-                    'label': edge.get('label'),
-                    'action_sets': edge.get('action_sets', []),
-                    'default_action_set_id': edge.get('default_action_set_id'),
-                    'final_wait_time': edge.get('final_wait_time'),
-                    'data': edge.get('data', {})
-                })
+                return {
+                    "content": [{"type": "text", "text": f"edge:{edge.get('source_node_id')}→{edge.get('target_node_id')}"}],
+                    "isError": False,
+                    "edge": {
+                        'edge_id': edge.get('edge_id'),
+                        'source_node_id': edge.get('source_node_id'),
+                        'target_node_id': edge.get('target_node_id'),
+                        'action_sets': edge.get('action_sets', [])
+                    }
+                }
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
@@ -1201,13 +1180,7 @@ class TreeTools:
             )
             
             if update_result.get('success'):
-                return self.formatter.format_success(
-                    f"✅ Screenshot saved to node: {label}\n"
-                    f"   Node ID: {node_id}\n"
-                    f"   Screenshot URL: {screenshot_url}\n"
-                    f"   Tree ID: {tree_id}\n"
-                    f"\n💡 Screenshot attached to node and visible in UI"
-                )
+                return {"content": [{"type": "text", "text": f"screenshot saved:{node_id}"}], "isError": False}
             else:
                 error_msg = update_result.get('error', 'Unknown error')
                 return self.formatter.format_error(

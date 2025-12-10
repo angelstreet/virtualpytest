@@ -213,31 +213,18 @@ class UserInterfaceTools:
             metadata = tree.get('metadata', {})
             nodes = metadata.get('nodes', [])
             edges = metadata.get('edges', [])
-            metrics = result.get('metrics', {})
             
-            response_text = f"✅ Complete tree for userinterface {userinterface_id}:\n\n"
-            response_text += f"Tree ID: {tree.get('id')}\n"
-            response_text += f"Tree Name: {tree.get('name')}\n"
-            response_text += f"Nodes: {len(nodes)} (includes all subtrees)\n"
-            response_text += f"Edges: {len(edges)} (includes all subtrees)\n"
+            # Compact text summary
+            response_text = f"tree_id:{tree.get('id')} nodes:{len(nodes)} edges:{len(edges)}"
             
-            if include_metrics:
-                node_metrics = metrics.get('nodes', {})
-                edge_metrics = metrics.get('edges', {})
-                response_text += f"Node Metrics: {len(node_metrics)}\n"
-                response_text += f"Edge Metrics: {len(edge_metrics)}\n"
-            
-            response_text += f"\n💡 All nodes and edges are now available for inspection/modification"
-            
+            # Return tree_id + nodes + edges (no duplicate tree object with metadata)
             return {
                 "content": [{"type": "text", "text": response_text}],
                 "isError": False,
-                "tree": tree,
+                "tree_id": tree.get('id'),
+                "tree_name": tree.get('name'),
                 "nodes": nodes,
-                "edges": edges,
-                "metrics": metrics if include_metrics else None,
-                "total_nodes": len(nodes),
-                "total_edges": len(edges)
+                "edges": edges
             }
         
         except Exception as e:
@@ -284,25 +271,15 @@ class UserInterfaceTools:
             nodes = result.get('nodes', [])
             total = result.get('total', len(nodes))
             
-            response_text = f"📋 Nodes in tree {tree_id} ({total} total, showing {len(nodes)}):\n\n"
-            
-            for node in nodes:
-                node_id = node.get('node_id', 'unknown')
-                label = node.get('label', 'unnamed')
-                node_type = node.get('node_type', 'unknown')
-                verifications_count = len(node.get('verifications', []))
-                
-                response_text += f"• {label} (node_id: '{node_id}')\n"
-                response_text += f"    Type: {node_type}\n"
-                response_text += f"    Verifications: {verifications_count}\n"
+            # Compact text: node_ids only
+            node_ids = [n.get('node_id', '?') for n in nodes]
+            response_text = f"{len(nodes)} nodes: {' '.join(node_ids)}"
             
             return {
                 "content": [{"type": "text", "text": response_text}],
                 "isError": False,
                 "nodes": nodes,
-                "total": total,
-                "page": page,
-                "limit": limit
+                "total": total
             }
         
         except Exception as e:
@@ -346,21 +323,9 @@ class UserInterfaceTools:
             
             edges = result.get('edges', [])
             
-            response_text = f"📋 Edges in tree {tree_id} ({len(edges)} total):\n\n"
-            
-            for edge in edges:
-                edge_id = edge.get('edge_id', 'unknown')
-                source = edge.get('source_node_id', 'unknown')
-                target = edge.get('target_node_id', 'unknown')
-                action_sets = edge.get('action_sets', [])
-                
-                response_text += f"• {source} → {target} (edge_id: '{edge_id}')\n"
-                response_text += f"    Action Sets: {len(action_sets)}\n"
-                
-                for action_set in action_sets:
-                    set_id = action_set.get('id', 'unknown')
-                    actions = action_set.get('actions', [])
-                    response_text += f"      - {set_id}: {len(actions)} actions\n"
+            # Compact text: source→target only
+            edge_list = [f"{e.get('source_node_id')}→{e.get('target_node_id')}" for e in edges]
+            response_text = f"{len(edges)} edges: {' '.join(edge_list)}"
             
             return {
                 "content": [{"type": "text", "text": response_text}],
