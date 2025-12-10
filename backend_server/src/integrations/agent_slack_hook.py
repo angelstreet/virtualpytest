@@ -96,6 +96,7 @@ def on_user_message_websocket(session_id: str, user_name: str, content: str):
 def send_to_slack_channel(channel: str, message: str, agent_name: str = 'Agent'):
     """
     Send message to a specific Slack channel (e.g., #sherlock for background tasks)
+    Each call creates a NEW top-level message (not a thread reply).
     
     Args:
         channel: Channel name (e.g., '#sherlock', '#alerts')
@@ -110,14 +111,16 @@ def send_to_slack_channel(channel: str, message: str, agent_name: str = 'Agent')
         return
     
     try:
-        # Use a fixed conversation ID for the channel
-        conversation_id = f"channel_{channel.replace('#', '')}"
+        # Use a unique conversation ID for each message to avoid threading
+        # This makes each Sherlock analysis a separate message in #sherlock
+        import time
+        conversation_id = f"channel_{channel.replace('#', '')}_{int(time.time() * 1000)}"
         
         slack.post_message(
             conversation_id=conversation_id,
             agent=agent_name,
             content=message,
-            conversation_title=channel
+            conversation_title=f"{agent_name} Analysis"
         )
         
         print(f"[agent_slack_hook] ✅ Posted {agent_name} message to {channel}")
