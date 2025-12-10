@@ -1089,24 +1089,22 @@ useEffect(() => {
                             })()}
                           </Typography>
                         </Box>
-                        {conv.id === activeConversationId && (
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteConversation(conv.id);
-                              }}
-                              sx={{
-                                p: 0.25,
-                                opacity: 0.5,
-                                '&:hover': { opacity: 1, color: 'error.main' },
-                              }}
-                            >
-                              <ClearIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteConversation(conv.id);
+                            }}
+                            sx={{
+                              p: 0.25,
+                              opacity: 0.5,
+                              '&:hover': { opacity: 1, color: 'error.main' },
+                            }}
+                          >
+                            <ClearIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                     ))}
                   </Box>
