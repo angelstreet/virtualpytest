@@ -92,3 +92,35 @@ def on_user_message_websocket(session_id: str, user_name: str, content: str):
     except Exception as e:
         print(f"[agent_slack_hook] ❌ Error posting user message to Slack: {e}")
 
+
+def send_to_slack_channel(channel: str, message: str, agent_name: str = 'Agent'):
+    """
+    Send message to a specific Slack channel (e.g., #sherlock for background tasks)
+    
+    Args:
+        channel: Channel name (e.g., '#sherlock', '#alerts')
+        message: Message content (formatted markdown)
+        agent_name: Name of the agent sending the message
+    """
+    if not SLACK_AVAILABLE:
+        return
+    
+    slack = get_slack_sync()
+    if not slack.enabled:
+        return
+    
+    try:
+        # Use a fixed conversation ID for the channel
+        conversation_id = f"channel_{channel.replace('#', '')}"
+        
+        slack.post_message(
+            conversation_id=conversation_id,
+            agent=agent_name,
+            content=message,
+            conversation_title=channel
+        )
+        
+        print(f"[agent_slack_hook] ✅ Posted {agent_name} message to {channel}")
+    except Exception as e:
+        print(f"[agent_slack_hook] ❌ Error posting to {channel}: {e}")
+

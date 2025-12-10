@@ -618,7 +618,7 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             self.logger.info(f"[{self.nickname}] 👋 Background loop ended")
     
     def _process_background_task(self, task: Dict[str, Any], queue_name: str):
-        """Process a single background task - NEVER FAIL SILENTLY"""
+        """Process a single background task with Socket.IO and Slack notifications"""
         task_id = 'unknown'
         try:
             print(f"[{self.nickname}] 🔧 _process_background_task START")
@@ -636,13 +636,18 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             message = self._build_task_message(task_type, task_id, task_data)
             print(f"[{self.nickname}] 🔧 Message built: {message[:100]}...")
             
-            # Create session for this task
+            # Create session for this task (use background room for Socket.IO)
             print(f"[{self.nickname}] 🔧 Creating session...")
             session = self._session_manager.create_session()
             session.set_context('task_id', task_id)
             session.set_context('task_type', task_type)
             session.set_context('queue_name', queue_name)
-            print(f"[{self.nickname}] 🔧 Session created")
+            session.set_context('is_background', True)  # Mark as background task
+            print(f"[{self.nickname}] 🔧 Session created: {session.session_id}")
+            
+            # Get Socket.IO instance for emitting events
+            from flask import current_app
+            socketio = getattr(current_app, 'socketio', None) if hasattr(current_app, '_get_current_object') else None
             
             # Process with agent (run async in sync context)
             print(f"[{self.nickname}] 🔧 Starting async processing...")
@@ -656,12 +661,28 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                     async for event in self.process_message(message, session):
                         if event.type == EventType.MESSAGE:
                             responses.append(event.content)
+                        
+                        # Emit event to Socket.IO (background room)
+                        if socketio:
+                            try:
+                                event_dict = event.to_dict()
+                                socketio.emit('agent_event', 
+                                    event_dict, 
+                                    room='background_tasks',  # Dedicated room for background tasks
+                                    namespace='/agent'
+                                )
+                                print(f"[{self.nickname}] 📡 Emitted event: {event.type} to background_tasks room")
+                            except Exception as emit_error:
+                                print(f"[{self.nickname}] ⚠️  Failed to emit event: {emit_error}")
                 
                 loop.run_until_complete(process())
                 
                 result = '\n'.join(responses)
                 print(f"[{self.nickname}] ✅ Task {task_id} completed successfully")
                 self.logger.info(f"[{self.nickname}] ✅ Task {task_id} complete")
+                
+                # Send to Slack #sherlock channel
+                self._send_to_slack_sherlock(task_type, task_id, task_data, result, success=True)
                 
             finally:
                 loop.close()
@@ -729,3 +750,51 @@ CLASSIFICATIONS:
         
         else:
             return f"Unknown task type: {task_type}"
+    
+    def _send_to_slack_sherlock(self, task_type: str, task_id: str, task_data: Dict[str, Any], result: str, success: bool = True):
+        """Send analysis result to Slack #sherlock channel"""
+        try:
+            # Try to import Slack hook
+            try:
+                from backend_server.src.integrations.agent_slack_hook import send_to_slack_channel
+                SLACK_AVAILABLE = True
+            except ImportError:
+                SLACK_AVAILABLE = False
+                return
+            
+            if not SLACK_AVAILABLE:
+                return
+            
+            # Build Slack message
+            script_name = task_data.get('script_name', 'Unknown')
+            script_success = task_data.get('success', False)
+            error_msg = task_data.get('error_msg', 'None')
+            
+            status_emoji = "✅" if success else "❌"
+            result_emoji = "🟢" if script_success else "🔴"
+            
+            slack_message = f"""
+{status_emoji} *{self.nickname} Analysis Complete*
+
+*Script*: `{script_name}`
+*Result*: {result_emoji} {'PASSED' if script_success else 'FAILED'}
+*Error*: {error_msg}
+
+*Analysis*:
+```
+{result[:500]}...
+```
+
+*Task ID*: `{task_id}`
+"""
+            
+            # Send to #sherlock channel
+            send_to_slack_channel(
+                channel='#sherlock',
+                message=slack_message,
+                agent_name=self.nickname
+            )
+            print(f"[{self.nickname}] 📬 Sent result to Slack #sherlock")
+            
+        except Exception as e:
+            print(f"[{self.nickname}] ⚠️  Failed to send to Slack: {e}")

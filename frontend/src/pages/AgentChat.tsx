@@ -28,6 +28,7 @@ import {
   MenuItem,
   FormControl,
   Switch,
+  Divider,
 } from '@mui/material';
 import {
   ArrowUpward as SendIcon,
@@ -111,6 +112,9 @@ const AgentChat: React.FC = () => {
   
   // Track if we've processed URL params
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
+  
+  // Sherlock background tasks state
+  const [sherlockExpanded, setSherlockExpanded] = useState(true);
   
 // Selected agent - will be set from API (looks for agent with default: true)
 // Start empty to avoid MUI out-of-range while agents load
@@ -274,6 +278,7 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     conversations,
     activeConversationId,
     pendingConversationId,
+    sherlockTasks,
     setInput,
     setShowApiKey,
     setApiKeyInput,
@@ -612,6 +617,267 @@ useEffect(() => {
     );
   };
 
+  // --- Sherlock Section ---
+  const renderSherlockSection = () => {
+    const totalActive = sherlockTasks.inProgress.length + 
+      sherlockTasks.recent.filter(t => !t.viewed).length;
+    
+    const getStatusIcon = (classification: string) => {
+      switch (classification) {
+        case 'VALID_PASS': return '✓';
+        case 'BUG': return '🐛';
+        case 'SCRIPT_ISSUE': return '⚠';
+        case 'SYSTEM_ISSUE': return '💥';
+        case 'VALID_FAIL': return '✗';
+        default: return '✓';
+      }
+    };
+    
+    return (
+      <Box sx={{ px: 1, mb: 2 }}>
+        {/* Section Header */}
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            px: 1, 
+            color: PALETTE.textMuted,
+            fontWeight: 600,
+            fontSize: '0.7rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            display: 'block',
+            mb: 0.5,
+          }}
+        >
+          SYSTEM
+        </Typography>
+        
+        {/* Sherlock Expandable */}
+        <Box
+          onClick={() => setSherlockExpanded(!sherlockExpanded)}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 1.5,
+            py: 0.75,
+            borderRadius: 1.5,
+            cursor: 'pointer',
+            '&:hover': {
+              bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
+            },
+            transition: 'background-color 0.15s',
+          }}
+        >
+          <Box sx={{ fontSize: 14 }}>🔍</Box>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              flex: 1,
+              fontSize: '0.85rem',
+              fontWeight: 500,
+            }}
+          >
+            Sherlock
+          </Typography>
+          
+          {/* Badge or Expand Icon */}
+          {totalActive > 0 && !sherlockExpanded ? (
+            <Chip 
+              label={totalActive} 
+              size="small"
+              sx={{ 
+                height: 18,
+                minWidth: 18,
+                fontSize: '0.7rem',
+                bgcolor: PALETTE.accent,
+                color: '#fff',
+                '& .MuiChip-label': { px: 0.75 },
+              }} 
+            />
+          ) : (
+            <ExpandIcon 
+              sx={{ 
+                fontSize: 14,
+                color: 'text.disabled',
+                transform: sherlockExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+                transition: 'transform 0.2s',
+              }} 
+            />
+          )}
+        </Box>
+        
+        {/* Expandable Content */}
+        <Fade in={sherlockExpanded}>
+          <Box sx={{ pl: 3, pr: 1, mt: 0.5 }}>
+            {/* In Progress */}
+            {sherlockTasks.inProgress.length > 0 && (
+              <Box sx={{ mb: 1.5 }}>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    px: 1,
+                    display: 'block',
+                    color: PALETTE.textMuted,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    mb: 0.5,
+                  }}
+                >
+                  IN PROGRESS
+                </Typography>
+                
+                {sherlockTasks.inProgress.map(task => (
+                  <Box
+                    key={task.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      switchConversation(task.conversationId);
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.5,
+                      py: 0.75,
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      bgcolor: task.conversationId === activeConversationId
+                        ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
+                        : 'transparent',
+                      '&:hover': {
+                        bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
+                      },
+                      transition: 'background-color 0.15s',
+                      animation: 'pulse 2s ease-in-out infinite',
+                      '@keyframes pulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.7 },
+                      },
+                    }}
+                  >
+                    <Box sx={{ 
+                      width: 6, 
+                      height: 6, 
+                      borderRadius: '50%',
+                      bgcolor: PALETTE.accent,
+                    }} />
+                    
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        flex: 1,
+                        fontSize: '0.8rem',
+                        color: 'text.primary',
+                      }}
+                      noWrap
+                    >
+                      {task.scriptName}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+            
+            {/* Recent (Last 3) */}
+            {sherlockTasks.recent.length > 0 && (
+              <Box>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    px: 1,
+                    display: 'block',
+                    color: PALETTE.textMuted,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    mb: 0.5,
+                  }}
+                >
+                  RECENT
+                </Typography>
+                
+                {sherlockTasks.recent.map(task => {
+                  const icon = getStatusIcon(task.classification);
+                  
+                  return (
+                    <Box
+                      key={task.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        switchConversation(task.conversationId);
+                      }}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 1.5,
+                        py: 0.75,
+                        borderRadius: 1,
+                        cursor: 'pointer',
+                        bgcolor: task.conversationId === activeConversationId
+                          ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
+                          : 'transparent',
+                        opacity: task.viewed ? 0.6 : 1,
+                        '&:hover': {
+                          bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
+                          opacity: 1,
+                        },
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <Box sx={{ fontSize: 11, minWidth: 14 }}>{icon}</Box>
+                      
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          flex: 1,
+                          fontSize: '0.8rem',
+                          color: task.viewed ? 'text.secondary' : 'text.primary',
+                        }}
+                        noWrap
+                      >
+                        {task.scriptName}
+                      </Typography>
+                      
+                      {/* Unread dot */}
+                      {!task.viewed && (
+                        <Box sx={{ 
+                          width: 6, 
+                          height: 6, 
+                          borderRadius: '50%',
+                          bgcolor: PALETTE.accent,
+                        }} />
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+            
+            {/* Empty State */}
+            {sherlockTasks.inProgress.length === 0 && sherlockTasks.recent.length === 0 && (
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  display: 'block',
+                  px: 1.5,
+                  py: 1,
+                  color: 'text.disabled',
+                  fontSize: '0.75rem',
+                  fontStyle: 'italic',
+                }}
+              >
+                No analyses yet
+              </Typography>
+            )}
+          </Box>
+        </Fade>
+        
+        <Divider sx={{ mt: 1.5, mb: 1 }} />
+      </Box>
+    );
+  };
+
   // --- Left Sidebar ---
   const renderLeftSidebar = () => (
     <Box
@@ -655,6 +921,9 @@ useEffect(() => {
               New Chat
             </Button>
           </Box>
+
+          {/* Sherlock Section */}
+          {renderSherlockSection()}
 
           {/* Conversation History */}
           <Box
