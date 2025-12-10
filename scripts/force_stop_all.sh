@@ -77,7 +77,6 @@ echo "==========================================================================
 kill_by_pattern "python.*app\.py" "Python app processes"
 kill_by_pattern "python.*backend_server" "Backend server processes"
 kill_by_pattern "python.*backend_host" "Backend host processes"
-kill_by_pattern "python.*backend_discard" "Backend discard processes"
 kill_by_pattern "python.*capture_monitor\.py" "Capture monitor processes"
 
 # Kill all VirtualPyTest Node/npm processes
@@ -98,7 +97,6 @@ echo "==========================================================================
 kill_port_processes "5109" "backend_server"
 kill_port_processes "6109" "backend_host"  
 kill_port_processes "3000" "frontend"
-kill_port_processes "6209" "backend_discard"
 kill_port_processes "3001" "grafana"
 
 echo ""

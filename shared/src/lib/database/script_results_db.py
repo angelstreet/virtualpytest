@@ -119,19 +119,20 @@ def update_script_execution_result(
         if result.data:
             print(f"[@db:script_results:update_script_execution_result] Success")
             
-            # Add to discard processing queue
+            # Add to analysis queue for Sherlock to process
             try:
-                from backend_discard.src.queue_processor import get_queue_processor
+                from shared.src.lib.utils.redis_queue import get_queue_processor
                 queue_processor = get_queue_processor()
                 
-                # Simply pass the script_result_id with type - AI service will get data from database directly
+                # Pass the script_result_id with report URL - Sherlock will analyze it
                 queue_processor.add_script_to_queue(script_result_id, {
                     'id': script_result_id,
-                    'type': 'script_result'  # Specify this is from script_results table
+                    'type': 'script_result',
+                    'report_url': html_report_r2_url
                 })
-                print(f"[@db:script_results:update_script_execution_result] Added to discard queue: {script_result_id}")
+                print(f"[@db:script_results:update_script_execution_result] Added to analysis queue: {script_result_id}")
             except Exception as e:
-                print(f"[@db:script_results:update_script_execution_result] Warning: Failed to add to discard queue: {e}")
+                print(f"[@db:script_results:update_script_execution_result] Warning: Failed to add to analysis queue: {e}")
             
             return True
         else:

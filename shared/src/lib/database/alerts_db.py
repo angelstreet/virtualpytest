@@ -250,17 +250,17 @@ def create_alert(
         if result.data:
             print(f"[@db:alerts:create_alert] Success: {alert_id}")
             
-            # Add to discard processing queue
+            # Add to analysis queue for Sherlock to process
             try:
-                from backend_discard.src.queue_processor import get_queue_processor
+                from shared.src.lib.utils.redis_queue import get_queue_processor
                 queue_processor = get_queue_processor()
                 queue_processor.add_alert_to_queue(alert_id, {
                     'id': alert_id,
-                    'type': 'alert'  # Specify this is from alerts table
+                    'type': 'alert'
                 })
-                print(f"[@db:alerts:create_alert] Added to discard queue: {alert_id}")
+                print(f"[@db:alerts:create_alert] Added to analysis queue: {alert_id}")
             except Exception as e:
-                print(f"[@db:alerts:create_alert] Warning: Failed to add to discard queue: {e}")
+                print(f"[@db:alerts:create_alert] Warning: Failed to add to analysis queue: {e}")
             
             return {
                 'success': True,
