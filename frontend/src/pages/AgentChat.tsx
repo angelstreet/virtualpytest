@@ -852,7 +852,7 @@ useEffect(() => {
           </Fade>
         )}
         
-        <Divider sx={{ mt: 0.5, mb: 0.5 }} />
+        <Divider sx={{ mt: 0, mb: 0 }} />
       </Box>
     );
   };
@@ -929,7 +929,8 @@ useEffect(() => {
                   sx={{
                     display: 'block',
                     px: 1,
-                    py: 0.75,
+                    pt: 0,
+                    pb: 0,
                     color: PALETTE.textMuted,
                     fontWeight: 600,
                     fontSize: '0.7rem',
@@ -984,7 +985,12 @@ useEffect(() => {
                           mt: -0.25,
                         }}
                       >
-                        {new Date(conv.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {(() => {
+                          const d = new Date(conv.createdAt);
+                          const time = `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}m${d.getSeconds().toString().padStart(2, '0')}s`;
+                          const date = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(-2)}`;
+                          return `${time} - ${date}`;
+                        })()}
                       </Typography>
                     </Box>
                     {conv.id === activeConversationId && (

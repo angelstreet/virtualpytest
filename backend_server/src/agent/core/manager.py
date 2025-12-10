@@ -643,7 +643,7 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             session.set_context('task_type', task_type)
             session.set_context('queue_name', queue_name)
             session.set_context('is_background', True)  # Mark as background task
-            print(f"[{self.nickname}] 🔧 Session created: {session.session_id}")
+            print(f"[{self.nickname}] 🔧 Session created: {session.id}")
             
             # Get Socket.IO instance for emitting events
             from flask import current_app
