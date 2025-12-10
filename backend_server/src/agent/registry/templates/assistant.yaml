@@ -33,7 +33,13 @@ triggers:
 event_pools:
   - own.assistant-tasks
 
-subagents: []
+subagents:
+  - id: analyzer
+    delegate_for:
+      - analysis
+      - execution_result
+      - false_positive
+      - script_failure
 
 # Micro-skills this agent can load (2-8 tools each)
 available_skills:
