@@ -866,7 +866,12 @@ useEffect(() => {
               placeholder="How can I help you?"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
               sx={{ ml: 1.5, flex: 1 }}
               variant="standard"
               autoComplete="off"
@@ -1423,7 +1428,12 @@ useEffect(() => {
               placeholder="Message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
               sx={{ ml: 1.5, flex: 1, py: 0.25 }}
               variant="standard"
               autoComplete="off"
