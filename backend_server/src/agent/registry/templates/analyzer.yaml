@@ -23,13 +23,13 @@ metadata:
   suggestions: []
 
 triggers:
+  - type: chat.message
+    priority: normal
+
   - type: script.completed
     priority: normal
   
   - type: testcase.completed
-    priority: normal
-  
-  - type: deployment.execution_done
     priority: normal
 
 event_pools:
@@ -40,6 +40,8 @@ subagents: []
 
 # Micro-skills (2-3 tools each)
 available_skills:
+  - validate
+  - analyze
   - validate-result
   - detect-false-positive
   - generate-report

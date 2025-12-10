@@ -56,3 +56,33 @@ tests:
     agents:
       - ai-assistant
 
+  - id: bench_ana_005
+    name: Result Validation
+    description: Can the agent validate test result reliability using available data?
+    prompt: "Validate the test result using execution.txt and report.html data"
+    expected:
+      contains: ["RELIABLE", "validation_result"]
+    validation: contains
+    timeout: 45
+    points: 2.5
+    agents:
+      - analyzer
+    test_data:
+      execution_file: "/Users/cpeengineering/virtualpytest/backend_server/src/agent/benchmarks/tests/execution.txt"
+      report_file: "/Users/cpeengineering/virtualpytest/backend_server/src/agent/benchmarks/tests/report.html"
+
+  - id: bench_ana_006
+    name: Failure Analysis
+    description: Can the agent analyze test failures using simple rules?
+    prompt: "Analyze this test failure using the available execution data"
+    expected:
+      contains: ["classification", "evidence"]
+    validation: contains
+    timeout: 60
+    points: 3.0
+    agents:
+      - analyzer
+    test_data:
+      execution_file: "/Users/cpeengineering/virtualpytest/backend_server/src/agent/benchmarks/tests/execution.txt"
+      report_file: "/Users/cpeengineering/virtualpytest/backend_server/src/agent/benchmarks/tests/report.html"
+
