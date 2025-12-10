@@ -14,7 +14,7 @@ metadata:
   default: false
   version: 2.0.0
   author: system
-  description: "Analyzes script and test results to detect false positives"
+  description: "Analyzes script and test results"
   tags:
     - analysis
     - autonomous

@@ -14,7 +14,7 @@ metadata:
   default: false
   version: 2.0.0
   author: system
-  description: "Autonomous monitor that responds to system events"
+  description: "Monitors system"
   tags:
     - monitoring
     - autonomous
