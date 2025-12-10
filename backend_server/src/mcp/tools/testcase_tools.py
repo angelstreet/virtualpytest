@@ -166,10 +166,10 @@ class TestCaseTools:
         logs_url = result.get('logs_url', '')
         error_msg = result.get('error', '')
         
-        # Format response similar to execute_script for consistency (use HTML color tags)
+        # Format response similar to execute_script for consistency
         if result_success:
             response = f"✅ Test case '{testcase_name}' completed\n"
-            response += f"Result: <span style=\"color: #22c55e; font-weight: 600;\">PASSED</span> ({execution_time_s:.1f}s)\n"
+            response += f"Result: PASSED ({execution_time_s:.1f}s)\n"
             if report_url:
                 response += f"\n📄 Report: {report_url}"
             if logs_url:
@@ -177,7 +177,7 @@ class TestCaseTools:
             return {"content": [{"type": "text", "text": response}], "isError": False}
         else:
             response = f"✅ Test case '{testcase_name}' completed\n"
-            response += f"Result: <span style=\"color: #ef4444; font-weight: 600;\">FAILED</span> ({execution_time_s:.1f}s)\n"
+            response += f"Result: FAILED ({execution_time_s:.1f}s)\n"
             if error_msg:
                 response += f"Error: {error_msg}\n"
             if report_url:
@@ -316,9 +316,8 @@ class TestCaseTools:
                 # Format response similar to execute_script for consistency
                 if result_success:
                     print(f"[@MCP:poll_testcase] Test case completed successfully after {elapsed}s")
-                    # Use HTML color tags for green PASSED
                     response = f"✅ Test case '{testcase_name}' completed\n"
-                    response += f"Result: <span style=\"color: #22c55e; font-weight: 600;\">PASSED</span> ({execution_time_s:.1f}s)\n"
+                    response += f"Result: PASSED ({execution_time_s:.1f}s)\n"
                     if report_url:
                         response += f"\n📄 Report: {report_url}"
                     if logs_url:
@@ -328,9 +327,8 @@ class TestCaseTools:
                     # Execution completed but testcase FAILED
                     print(f"[@MCP:poll_testcase] Test case completed with FAILURES after {elapsed}s")
                     error_msg = result.get('error', 'Test case execution failed')
-                    # Use HTML color tags for red FAILED
                     response = f"✅ Test case '{testcase_name}' completed\n"
-                    response += f"Result: <span style=\"color: #ef4444; font-weight: 600;\">FAILED</span> ({execution_time_s:.1f}s)\n"
+                    response += f"Result: FAILED ({execution_time_s:.1f}s)\n"
                     if error_msg:
                         response += f"Error: {error_msg}\n"
                     if report_url:

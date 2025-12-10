@@ -70,6 +70,17 @@ import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming'
 
 const { sidebarWidth: SIDEBAR_WIDTH, rightPanelWidth: RIGHT_PANEL_WIDTH } = AGENT_CHAT_LAYOUT;
 
+// Colorize PASSED (green) and FAILED (red) in agent responses
+const colorizeStatus = (text: string): React.ReactNode => {
+  if (!text) return text;
+  const parts = text.split(/(PASSED|FAILED)/g);
+  return parts.map((part, i) => {
+    if (part === 'PASSED') return <span key={i} style={{ color: '#22c55e', fontWeight: 600 }}>PASSED</span>;
+    if (part === 'FAILED') return <span key={i} style={{ color: '#ef4444', fontWeight: 600 }}>FAILED</span>;
+    return part;
+  });
+};
+
 // --- Components ---
 
 const AgentChat: React.FC = () => {
@@ -1117,6 +1128,7 @@ useEffect(() => {
                             a: ({ href, children }) => (
                               <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
                             ),
+                            p: ({ children }) => <p>{typeof children === 'string' ? colorizeStatus(children) : children}</p>,
                           }}
                         >
                             {msg.events.filter(e => e.type === 'message' || e.type === 'result').map(e => e.content).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()}
@@ -1142,6 +1154,7 @@ useEffect(() => {
                             a: ({ href, children }) => (
                               <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
                             ),
+                            p: ({ children }) => <p>{typeof children === 'string' ? colorizeStatus(children) : children}</p>,
                           }}
                         >
                           {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
