@@ -267,6 +267,9 @@ class AnalysisTools:
                 
                 # Track last processed
                 script_name = result.data[0].get('script_name', 'unknown') if result.data else 'unknown'
+                script_type = result.data[0].get('script_type', '') if result.data else ''
+                userinterface = result.data[0].get('userinterface_name', '') if result.data else ''
+                
                 self.stats['last_processed'] = {
                     'id': script_result_id,
                     'script_name': script_name,
@@ -280,9 +283,32 @@ class AnalysisTools:
                 if len(self.stats['history']) > 20:
                     self.stats['history'] = self.stats['history'][-20:]
                 
-                action = "discarded (false positive)" if discard else "validated (kept)"
+                # Build rich markdown response
+                action_text = "DISCARDED" if discard else "KEPT"
+                action_icon = "❌" if discard else "✅"
+                
+                # Classification indicator
+                class_icon = "✅" if classification == 'VALID_PASS' else "❌" if classification in ('BUG', 'VALID_FAIL') else ""
+                class_display = f"{class_icon} **{classification}**" if class_icon else f"**{classification}**"
+                
+                markdown_response = f"""## {action_icon} Analysis Saved
+
+| Field | Value |
+|-------|-------|
+| **Script** | `{script_name}` |
+| **Type** | {script_type or 'N/A'} |
+| **Interface** | {userinterface or 'N/A'} |
+| **Classification** | {class_display} |
+| **Action** | {action_text} |
+
+### Reasoning
+> {explanation}
+
+---
+*Result ID: `{script_result_id[:8]}...`*"""
+
                 return {
-                    "content": [{"type": "text", "text": f"✅ Analysis saved: {classification} - Result {action}"}],
+                    "content": [{"type": "text", "text": markdown_response}],
                     "isError": False
                 }
             else:

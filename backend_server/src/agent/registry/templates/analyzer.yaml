@@ -1,19 +1,38 @@
 # Agent Configuration: Result Analyzer
-# Version: 3.0.0
+# Version: 3.0.2
 # Author: system
 #
-# Autonomous execution result analyzer - replaces backend_discard worker.
-# Analyzes script execution results, classifies them, and saves to database.
+# THREE OPERATING MODES:
 #
-# TWO MODES:
-# 1. Chat Mode: User asks to analyze results (by interface, device, etc.)
-# 2. Queue Mode: Background processing from p2_scripts queue
+# ═══════════════════════════════════════════════════════════════
+# 1. QUEUE MODE (Redis trigger - background processing)
+# ═══════════════════════════════════════════════════════════════
+#    - Triggered by: redis.queue.script (p2_scripts queue)
+#    - Input: Redis provides report_url + script_result_id directly
+#    - Workflow:
+#      1. fetch_execution_report(report_url) - from Redis message
+#      2. Classify result
+#      3. update_execution_analysis(script_result_id) - save to DB
+#    - NO need to call get_execution_results() - Redis gives us the data
 #
-# Workflow:
-# 1. get_execution_results() - Find executions to analyze
-# 2. fetch_execution_report() - Get detailed report content
-# 3. Classify: BUG | SCRIPT_ISSUE | SYSTEM_ISSUE | VALID_PASS | VALID_FAIL
-# 4. update_execution_analysis() - Save classification to database
+# ═══════════════════════════════════════════════════════════════
+# 2. FETCH MODE (Chat - user wants to VIEW results)
+# ═══════════════════════════════════════════════════════════════
+#    - Triggered by: "fetch/show/get last result"
+#    - Workflow:
+#      1. get_execution_results() - query DB (includes existing analysis)
+#      2. fetch_execution_report() - (optional) show report content
+#    - DO NOT call update_execution_analysis()
+#
+# ═══════════════════════════════════════════════════════════════
+# 3. ANALYZE MODE (Chat - user wants to ANALYZE a result)
+# ═══════════════════════════════════════════════════════════════
+#    - Triggered by: "analyze/classify this result"
+#    - Workflow:
+#      1. get_execution_results() - find execution in DB
+#      2. fetch_execution_report() - get report details
+#      3. Classify: BUG | SCRIPT_ISSUE | SYSTEM_ISSUE | VALID_PASS | VALID_FAIL
+#      4. update_execution_analysis() - save to DB
 #
 ---
 metadata:
@@ -22,9 +41,9 @@ metadata:
   nickname: Sherlock
   selectable: true
   default: false
-  version: 3.0.0
+  version: 3.0.2
   author: system
-  description: "Analyzes and classifies execution results"
+  description: "Fetches and analyzes execution results"
   tags:
     - analysis
     - scripts
@@ -41,11 +60,12 @@ available_skills:
   - validate
   - analyze
 
-# Router mode tools - autonomous analysis capability
+# Router tools:
+# - get_execution_results: Query DB (for chat FETCH/ANALYZE modes)
+# - fetch_execution_report: Parse report URL (for all modes)
+# - get_analysis_queue_status: Show Redis queue + session stats
 skills:
-  - get_execution_results
   - fetch_execution_report
-  - update_execution_analysis
   - get_analysis_queue_status
 
 permissions:

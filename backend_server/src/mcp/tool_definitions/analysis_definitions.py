@@ -8,13 +8,14 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "fetch_execution_report",
-            "description": """Fetch and parse execution report and logs from URLs.
+            "description": """Fetch and display execution report content from URL.
 
-Returns parsed content for analysis:
+Returns parsed content for viewing:
 - Report: steps, errors, raw text
 - Logs: content (truncated)
 
-Use this after get_execution_results to fetch detailed report content.
+NOTE: This is a READ-ONLY operation - it does NOT update/analyze the result.
+Use after get_execution_results when user wants to SEE report details.
 
 Example:
   fetch_execution_report(report_url='https://...', logs_url='https://...')""",
@@ -38,9 +39,10 @@ Example:
             "description": """Get execution results from database with filters.
 
 Query script_results table by userinterface, device, host, or success status.
-Returns the most recent results matching your criteria.
+Returns the most recent results INCLUDING any existing analysis (checked, classification, discard_comment).
 
-Use this to find executions to analyze, then use fetch_execution_report to get details.
+NOTE: This is a READ-ONLY operation - it does NOT trigger analysis.
+If result was already analyzed, the analysis fields will be populated.
 
 Example:
   get_execution_results(userinterface_name='google_tv', limit=1)
@@ -78,9 +80,14 @@ Example:
         },
         {
             "name": "update_execution_analysis",
-            "description": """Save analysis results to database.
+            "description": """Save analysis classification to database.
 
-After analyzing an execution result, use this to store your classification.
+ONLY use this when user EXPLICITLY asks to analyze/classify a result.
+DO NOT call this when user just wants to fetch/view results.
+
+When to use:
+✅ User says: "analyze this", "classify this failure", "what's wrong with this"
+❌ User says: "fetch last result", "show me results", "get execution"
 
 Classifications:
 - BUG: Real application issue found
@@ -121,14 +128,16 @@ Example:
         },
         {
             "name": "get_analysis_queue_status",
-            "description": """Get analysis queue status - pending items and processing stats.
+            "description": """Get analysis queue status and session processing stats.
 
 Returns:
-- Queue lengths: How many items pending in each priority queue
-- Processing stats: How many analyzed vs unanalyzed in database
-- Breakdown by classification type
+- Queue lengths: Items pending in Redis queues (p1_alerts, p2_scripts)
+- Session stats: How many analyzed THIS SESSION (in-memory)
+- Last processed: The last item analyzed in this session
+- Classification breakdown: Count by type for this session
 
-Use this to report queue status to users.
+NOTE: For last EXECUTION result (from DB), use get_execution_results instead.
+This tool shows QUEUE/SESSION state, not DB content.
 
 Example:
   get_analysis_queue_status()""",
