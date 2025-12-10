@@ -7,7 +7,7 @@ def get_tools() -> List[Dict[str, Any]]:
     """Get analysis tool definitions"""
     return [
         {
-            "name": "get_execution_result",
+            "name": "get_last_execution_result",
             "description": """Fetch and parse execution report and logs from URLs.
 
 Returns parsed content for analysis:
@@ -20,7 +20,7 @@ Use this to get detailed execution data, then classify as:
 - SYSTEM_ISSUE: Infrastructure problem
 
 Example:
-  get_execution_result(report_url='https://...', logs_url='https://...')""",
+  get_last_execution_result(report_url='https://...', logs_url='https://...')""",
             "inputSchema": {
                 "type": "object",
                 "properties": {

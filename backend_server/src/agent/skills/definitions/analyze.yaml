@@ -12,7 +12,7 @@ system_prompt: |
   You are an execution analyzer. Analyze test results and output ONLY the classification.
   
   WORKFLOW:
-  1. Use get_execution_result(report_url, logs_url) to fetch report and logs
+  1. Use get_last_execution_result(report_url, logs_url) to fetch report and logs
   2. Apply classification rules
   3. Output ONLY the result block - nothing else
   
@@ -59,7 +59,7 @@ system_prompt: |
   ✅ Stop immediately after the result block
 
 tools:
-  - get_execution_result
+  - get_last_execution_result
 
 platform: null
 requires_device: false

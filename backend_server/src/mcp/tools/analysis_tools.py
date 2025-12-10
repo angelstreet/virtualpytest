@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 class AnalysisTools:
     """Tools for analyzing execution results"""
     
-    def get_execution_result(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def get_last_execution_result(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Fetch and parse execution report and logs from URLs.
         

@@ -16,7 +16,7 @@ def get_supabase():
     """Get the Supabase client instance."""
     return get_supabase_client()
 
-def get_execution_results(
+def get_last_execution_results(
     team_id: str,
     execution_type: Optional[str] = None,
     tree_id: Optional[str] = None,
@@ -25,7 +25,7 @@ def get_execution_results(
 ) -> Dict:
     """Get execution results with filtering and enriched with tree/node/edge names."""
     try:
-        print(f"[@db:execution_results:get_execution_results] Getting execution results:")
+        print(f"[@db:execution_results:get_last_execution_results] Getting execution results:")
         print(f"  - team_id: {team_id}")
         print(f"  - execution_type: {execution_type}")
         print(f"  - tree_id: {tree_id}")
@@ -43,7 +43,7 @@ def get_execution_results(
         # Execute query with ordering and limit
         result = query.order('executed_at', desc=True).limit(limit).execute()
         
-        print(f"[@db:execution_results:get_execution_results] Found {len(result.data)} execution results")
+        print(f"[@db:execution_results:get_last_execution_results] Found {len(result.data)} execution results")
         
         # Enrich results with tree names and node/edge names using BATCH queries to avoid timeouts
         enriched_results = []
@@ -54,7 +54,7 @@ def get_execution_results(
         node_ids = list(set([execution.get('node_id') for execution in result.data if execution.get('node_id')]))
         script_result_ids = list(set([execution.get('script_result_id') for execution in result.data if execution.get('script_result_id')]))
         
-        print(f"[@db:execution_results:get_execution_results] Batch fetching: {len(tree_ids)} trees, {len(edge_ids)} edges, {len(node_ids)} nodes, {len(script_result_ids)} script reports")
+        print(f"[@db:execution_results:get_last_execution_results] Batch fetching: {len(tree_ids)} trees, {len(edge_ids)} edges, {len(node_ids)} nodes, {len(script_result_ids)} script reports")
         
         # Batch fetch all trees, edges, nodes, and script reports
         tree_cache = {}
@@ -94,7 +94,7 @@ def get_execution_results(
             for script in scripts_result.data:
                 script_cache[script['id']] = script
         
-        print(f"[@db:execution_results:get_execution_results] Cached: {len(tree_cache)} trees, {len(edge_cache)} edges, {len(node_cache)} nodes, {len(script_cache)} script reports")
+        print(f"[@db:execution_results:get_last_execution_results] Cached: {len(tree_cache)} trees, {len(edge_cache)} edges, {len(node_cache)} nodes, {len(script_cache)} script reports")
         
         # Now process each execution result using cached data (no more database calls)
         for execution in result.data:
@@ -152,7 +152,7 @@ def get_execution_results(
         }
         
     except Exception as e:
-        print(f"[@db:execution_results:get_execution_results] Error: {str(e)}")
+        print(f"[@db:execution_results:get_last_execution_results] Error: {str(e)}")
         return {
             'success': False,
             'error': str(e),

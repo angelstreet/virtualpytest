@@ -42,7 +42,7 @@ available_skills:
 
 # Router mode tools
 skills:
-  - get_execution_result
+  - get_last_execution_result
 
 permissions:
   devices:

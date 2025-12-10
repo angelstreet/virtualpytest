@@ -611,7 +611,7 @@ DURATION: {execution_time_ms}ms
 """
             if report_url:
                 msg += f"""
-Use get_execution_result(report_url='{report_url}'"""
+Use get_last_execution_result(report_url='{report_url}'"""
                 if logs_url:
                     msg += f", logs_url='{logs_url}'"
                 msg += ") to get the detailed report."
