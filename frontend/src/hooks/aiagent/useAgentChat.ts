@@ -948,9 +948,6 @@ export const useAgentChat = () => {
   const stopGeneration = useCallback(() => {
     if (!session?.id) return;
     
-    setIsProcessing(false);
-    setCurrentEvents([]);
-    
     // Clear timeout failsafe
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
@@ -959,41 +956,126 @@ export const useAgentChat = () => {
     
     socketRef.current?.emit('stop_generation', { session_id: session.id });
     
-    // Add system message to the conversation that initiated the request
     const targetConvoId = pendingConversationIdRef.current;
-    if (targetConvoId) {
-      setConversations(prev => prev.map(c => {
-        if (c.id !== targetConvoId) return c;
-        return {
-          ...c,
-          messages: [...c.messages, {
-            id: `${Date.now()}-stop`,
-            role: 'agent' as const,
-            agent: 'System',
-            content: '🛑 Generation stopped by user.',
+    
+    // Save current events as a partial message before clearing
+    setCurrentEvents(prevEvents => {
+      if (targetConvoId && prevEvents.length > 0) {
+        // Build partial message from accumulated events
+        const messageResultEvents = prevEvents.filter(e => 
+          e.type === 'message' || e.type === 'result' || e.type === 'agent_delegated'
+        );
+        const toolCallEvents = prevEvents.filter(e => e.type === 'tool_call');
+        
+        // Only save if we have meaningful content
+        if (messageResultEvents.length > 0 || toolCallEvents.length > 0) {
+          const accumulatedContent = messageResultEvents
+            .map(e => e.content)
+            .filter(Boolean)
+            .join('\n\n');
+          
+          // Get the active agent name from events or session
+          const agentName = prevEvents.find(e => e.agent)?.agent || session?.active_agent || 'Agent';
+          
+          const partialMessage: Message = {
+            id: `${Date.now()}-partial`,
+            role: 'agent',
+            content: accumulatedContent || '(partial response)',
+            agent: agentName,
             timestamp: new Date().toISOString(),
-          }],
-          updatedAt: new Date().toISOString(),
-        };
-      }));
-    }
+            events: prevEvents,
+          };
+          
+          setConversations(prev => prev.map(c => {
+            if (c.id !== targetConvoId) return c;
+            return {
+              ...c,
+              messages: [...c.messages, partialMessage, {
+                id: `${Date.now()}-stop`,
+                role: 'agent' as const,
+                agent: 'System',
+                content: '🛑 Generation stopped by user.',
+                timestamp: new Date().toISOString(),
+              }],
+              updatedAt: new Date().toISOString(),
+            };
+          }));
+        } else {
+          // No meaningful events, just add stop message
+          setConversations(prev => prev.map(c => {
+            if (c.id !== targetConvoId) return c;
+            return {
+              ...c,
+              messages: [...c.messages, {
+                id: `${Date.now()}-stop`,
+                role: 'agent' as const,
+                agent: 'System',
+                content: '🛑 Generation stopped by user.',
+                timestamp: new Date().toISOString(),
+              }],
+              updatedAt: new Date().toISOString(),
+            };
+          }));
+        }
+      } else if (targetConvoId) {
+        // No events but we have a conversation, just add stop message
+        setConversations(prev => prev.map(c => {
+          if (c.id !== targetConvoId) return c;
+          return {
+            ...c,
+            messages: [...c.messages, {
+              id: `${Date.now()}-stop`,
+              role: 'agent' as const,
+              agent: 'System',
+              content: '🛑 Generation stopped by user.',
+              timestamp: new Date().toISOString(),
+            }],
+            updatedAt: new Date().toISOString(),
+          };
+        }));
+      }
+      
+      return []; // Clear events after saving
+    });
+    
+    setIsProcessing(false);
     
     // Clear pending conversation
     pendingConversationIdRef.current = null;
     setPendingConversationId(null);
-  }, [session?.id]);
+  }, [session?.id, session?.active_agent]);
 
   const clearHistory = useCallback(() => {
     clearBackendSession(); // Fresh backend session
-    setConversations([]);
-    setActiveConversationId(null);
-    activeConversationIdRef.current = null;
+    
+    // Preserve Sherlock/system conversations (IDs starting with 'sherlock_')
+    setConversations(prev => {
+      const sherlockConversations = prev.filter(c => c.id.startsWith('sherlock_'));
+      
+      // Update localStorage with only Sherlock conversations
+      if (sherlockConversations.length > 0) {
+        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(sherlockConversations));
+      } else {
+        localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
+      }
+      
+      return sherlockConversations;
+    });
+    
+    // Clear active conversation if it was a regular one
+    setActiveConversationId(prev => {
+      if (prev && prev.startsWith('sherlock_')) {
+        return prev; // Keep Sherlock conversation active
+      }
+      localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
+      activeConversationIdRef.current = null;
+      return null;
+    });
+    
     pendingConversationIdRef.current = null;
     setPendingConversationId(null);
     setIsProcessing(false);
     setCurrentEvents([]);
-    localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
-    localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
   }, [clearBackendSession]);
 
   // Handle visibility change - ensure socket reconnects when tab becomes visible
