@@ -5,12 +5,21 @@ Agent Core Components
 - Session: Chat session management
 - ToolBridge: MCP tool integration
 - MessageTypes: Event types for streaming
+- EventBus: Pub/sub for agent triggers
 """
 
 from .manager import QAManagerAgent
 from .session import Session, SessionManager
 from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent
+from .event_bus import (
+    AgentEventBus,
+    ExecutionEvent,
+    TriggerType,
+    get_event_bus,
+    AnalysisQueue,
+    get_analysis_queue,
+)
 
 __all__ = [
     'QAManagerAgent',
@@ -19,6 +28,12 @@ __all__ = [
     'ToolBridge',
     'EventType',
     'AgentEvent',
+    'AgentEventBus',
+    'ExecutionEvent',
+    'TriggerType',
+    'get_event_bus',
+    'AnalysisQueue',
+    'get_analysis_queue',
 ]
 
 

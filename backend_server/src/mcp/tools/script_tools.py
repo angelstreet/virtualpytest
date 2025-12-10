@@ -3,6 +3,9 @@ from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
 from ..utils.mcp_formatter import MCPFormatter
 from shared.src.lib.config.constants import APP_CONFIG
+from backend_server.src.agent.core.event_bus import (
+    get_event_bus, ExecutionEvent, TriggerType
+)
 
 
 class ScriptTools:
@@ -11,6 +14,42 @@ class ScriptTools:
     def __init__(self, api_client: MCPAPIClient):
         self.api = api_client
         self.formatter = MCPFormatter()
+        self.event_bus = get_event_bus()
+    
+    def _publish_execution_event(
+        self,
+        trigger_type: TriggerType,
+        execution_id: str,
+        script_name: str,
+        success: bool,
+        exit_code: int,
+        execution_time_ms: int,
+        report_url: str,
+        logs_url: str,
+        host_name: str,
+        device_id: str,
+        parameters: str = None,
+        userinterface_name: str = None,
+        team_id: str = None
+    ) -> None:
+        """Publish execution event to event bus for analyzer triggering"""
+        event = ExecutionEvent(
+            trigger_type=trigger_type,
+            execution_id=execution_id,
+            script_name=script_name,
+            success=success,
+            exit_code=exit_code,
+            execution_time_ms=execution_time_ms,
+            report_url=report_url,
+            logs_url=logs_url,
+            host_name=host_name,
+            device_id=device_id,
+            parameters=parameters,
+            userinterface_name=userinterface_name,
+            team_id=team_id
+        )
+        self.event_bus.publish_sync(event)
+        print(f"[@MCP:script_tools] Published {trigger_type.value} event for {script_name}")
     
     def _filter_result_for_mcp(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -217,6 +256,23 @@ class ScriptTools:
                     exit_code = task_result.get('exit_code', 0)
                     script_success = task_result.get('script_success')
                     report_url = task_result.get('report_url', '')
+                    logs_url = task_result.get('logs_url', '')
+                    execution_time_ms = task_result.get('execution_time_ms', elapsed * 1000)
+                    device_id = task_result.get('device_id', '')
+                    
+                    # Publish execution event for analyzer
+                    self._publish_execution_event(
+                        trigger_type=TriggerType.SCRIPT_COMPLETED,
+                        execution_id=task_id,
+                        script_name=script_name,
+                        success=script_success if script_success is not None else (exit_code == 0),
+                        exit_code=exit_code,
+                        execution_time_ms=execution_time_ms,
+                        report_url=report_url,
+                        logs_url=logs_url,
+                        host_name=host_name,
+                        device_id=device_id
+                    )
                     
                     # Tool execution is successful if process exited cleanly (exit_code 0)
                     is_tool_error = exit_code != 0
@@ -227,6 +283,8 @@ class ScriptTools:
                         response_text += f"Test result: {'PASSED' if script_success else 'FAILED'}\n"
                     if report_url:
                         response_text += f"\n📄 Report: {report_url}"
+                    if logs_url:
+                        response_text += f"\n📋 Logs: {logs_url}"
                     
                     # Return filtered result (no stdout/stderr) to reduce token usage
                     return {

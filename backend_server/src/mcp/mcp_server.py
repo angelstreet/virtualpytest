@@ -47,6 +47,7 @@ from .tools.requirements_tools import RequirementsTools
 from .tools.screen_analysis_tools import ScreenAnalysisTools
 from .tools.exploration_tools import ExplorationTools  # NEW - AI-powered tree building
 from .tools.deployment_tools import DeploymentTools  # NEW - Deployment management
+from .tools.analysis_tools import AnalysisTools  # Analysis tools for analyzer agent
 
 # Import tool definitions
 from .tool_definitions import (
@@ -67,6 +68,7 @@ from .tool_definitions import (
     get_screen_analysis_tools,
     get_exploration_tools,  # NEW - AI-powered tree building
     get_deployment_tools,  # NEW - Deployment management
+    get_analysis_tools,  # Analysis tools for analyzer agent
 )
 
 # Import utilities
@@ -105,6 +107,7 @@ class VirtualPyTestMCPServer:
         self.screen_analysis_tools = ScreenAnalysisTools()
         self.exploration_tools = ExplorationTools(self.api_client)  # NEW - AI-powered tree building
         self.deployment_tools = DeploymentTools(self.api_client)  # NEW - Deployment management
+        self.analysis_tools = AnalysisTools()  # Analysis tools for analyzer agent
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -215,6 +218,12 @@ class VirtualPyTestMCPServer:
             'update_deployment': self.deployment_tools.update_deployment,
             'delete_deployment': self.deployment_tools.delete_deployment,
             'get_deployment_history': self.deployment_tools.get_deployment_history,
+            
+            # Analysis tools (for analyzer agent)
+            'fetch_execution_report': self.analysis_tools.fetch_execution_report,
+            'fetch_execution_logs': self.analysis_tools.fetch_execution_logs,
+            'get_last_execution_event': self.analysis_tools.get_last_execution_event,
+            'get_analysis_queue_status': self.analysis_tools.get_analysis_queue_status,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -324,6 +333,7 @@ class VirtualPyTestMCPServer:
         tools.extend(get_requirements_tools())
         tools.extend(get_screen_analysis_tools())
         tools.extend(get_exploration_tools())  # NEW - AI-powered tree building
+        tools.extend(get_analysis_tools())  # Analysis tools for analyzer agent
         
         return tools
 

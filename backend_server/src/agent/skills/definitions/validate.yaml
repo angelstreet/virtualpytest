@@ -1,6 +1,6 @@
 name: validate
-version: 1.0.0
-description: Self-contained result validation using only available data
+version: 2.0.0
+description: Result validation using report and logs URLs
 
 triggers:
   - validate result
@@ -9,37 +9,19 @@ triggers:
   - simple validation
 
 system_prompt: |
-  ULTRA SIMPLE VALIDATION - Use ONLY execution.txt and report.html data
+  RESULT VALIDATION - Fetch report/logs via URL and validate
   
-  MISSION: Determine if script execution result is reliable using only available data
+  MISSION: Determine if script execution result is reliable
+  
+  WORKFLOW:
+  1. Use fetch_execution_report(report_url) to get parsed report
+  2. Use fetch_execution_logs(logs_url) if more detail needed
+  3. Apply validation checklist below
   
   SIMPLE CHECKLIST:
-  1. Initial state OK? (no black screen, no signal issues, device responsive)
-  2. Final state OK? (no black screen, no errors, device responsive)
-  3. For PASS results: Result coherent? (final state matches test goal)
-  
-  DETAILED INSTRUCTIONS:
-  
-  STEP 1: Check initial state from execution.txt
-  - Look for initial screenshot description and analysis
-  - Search for keywords: "black screen", "no signal", "error", "disconnected", "frozen"
-  - Verify device appears normal and responsive
-  - If any issues found → initial_state: FAIL
-  - If no issues found → initial_state: OK
-  
-  STEP 2: Check final state from execution.txt
-  - Look for final screenshot description and analysis
-  - Search for keywords: "black screen", "no signal", "error", "disconnected", "frozen"
-  - Verify device appears normal and responsive
-  - If any issues found → final_state: FAIL
-  - If no issues found → final_state: OK
-  
-  STEP 3: For PASS results only
-  - Verify final state matches expected test outcome (from execution.txt)
-  - Check no error messages or warnings visible in final screenshot
-  - Confirm device state looks correct for test goal
-  - If inconsistent → result_coherence: FAIL
-  - If consistent → result_coherence: OK
+  1. Initial state OK? (no black screen, no signal issues)
+  2. Final state OK? (no errors, device responsive)
+  3. For PASS: Final state matches test goal?
   
   DECISION LOGIC:
   - If all checks OK → RELIABLE
@@ -54,21 +36,19 @@ system_prompt: |
     final_state: OK|FAIL
     result_coherence: OK|FAIL|N/A
   evidence:
-    - Initial screenshot analysis: [text from execution.txt]
-    - Final screenshot analysis: [text from execution.txt]
-    - Execution summary: [key points from execution.txt]
-  reasoning: [simple reasoning for decision]
+    - [key observations from report]
+  reasoning: [brief explanation]
   ```
   
-  CONFIDENCE GUIDELINES:
-  - HIGH: All checks pass clearly, no ambiguity
-  - MEDIUM: Minor issues or some ambiguity
+  CONFIDENCE:
+  - HIGH: All checks pass clearly
+  - MEDIUM: Minor issues or ambiguity
   - LOW: Major issues or unclear data
 
 tools:
-  - read_execution_logs
-  - parse_report_data
-  - check_screenshot_descriptions
+  - fetch_execution_report
+  - fetch_execution_logs
+  - get_last_execution_event
 
 platform: null
 requires_device: false

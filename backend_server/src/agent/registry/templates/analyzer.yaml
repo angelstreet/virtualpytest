@@ -1,36 +1,44 @@
 # Agent Configuration: Result Analyzer
-# Version: 2.1.0
+# Version: 2.3.0
 # Author: system
 #
 # Analyzes script and test results to detect false positives.
-# Not user-selectable, triggered by execution completion.
-# Token-optimized micro-skills.
+#
+# TWO MODES:
+# 1. Chat Mode: User selects analyzer and provides report URL directly
+# 2. Event Mode: Automatically triggered via queue when execution completes
+#
+# Architecture:
+# - Chat requests → Immediate response (separate thread)
+# - Event triggers → Background queue (doesn't block chat)
 #
 ---
 metadata:
   id: analyzer
   name: Result Analyzer
   nickname: Sherlock
-  selectable: false
+  selectable: true  # Users can select in chat
   default: false
-  version: 2.1.0
+  version: 2.3.0
   author: system
   description: "Analyzes script and test results"
   tags:
     - analysis
     - autonomous
     - validation
-  suggestions: []
+  suggestions:
+    - "Analyze this report: http://..."
+    - "What's in the analysis queue?"
 
 triggers:
   - type: chat.message
-    priority: normal
+    priority: high  # Chat always takes priority
 
   - type: script.completed
-    priority: normal
+    priority: normal  # Queued for background processing
   
   - type: testcase.completed
-    priority: normal
+    priority: normal  # Queued for background processing
 
 event_pools:
   - shared.executions
@@ -46,9 +54,13 @@ available_skills:
   - detect-false-positive
   - generate-report
 
-# Router mode tools (minimal)
+# Router mode tools - for quick queries and fetching execution data
 skills:
   - get_execution_status
+  - get_last_execution_event
+  - fetch_execution_report
+  - fetch_execution_logs
+  - get_analysis_queue_status
 
 permissions:
   devices:
@@ -60,6 +72,7 @@ permissions:
 
   external:
     - slack
+    - http  # Needed for fetching reports/logs via URL
 
 config:
   enabled: true
