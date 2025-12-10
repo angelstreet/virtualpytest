@@ -9,10 +9,6 @@ from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
 from ..utils.mcp_formatter import MCPFormatter
 from shared.src.lib.config.constants import APP_CONFIG
-from backend_server.src.agent.core.event_bus import (
-    get_event_bus, ExecutionEvent, TriggerType
-)
-
 
 class TestCaseTools:
     """Test case execution and management tools"""
@@ -20,42 +16,6 @@ class TestCaseTools:
     def __init__(self, api_client: MCPAPIClient):
         self.api = api_client
         self.formatter = MCPFormatter()
-        self.event_bus = get_event_bus()
-    
-    def _publish_execution_event(
-        self,
-        trigger_type: TriggerType,
-        execution_id: str,
-        script_name: str,
-        success: bool,
-        exit_code: int,
-        execution_time_ms: int,
-        report_url: str,
-        logs_url: str,
-        host_name: str,
-        device_id: str,
-        parameters: str = None,
-        userinterface_name: str = None,
-        team_id: str = None
-    ) -> None:
-        """Publish execution event to event bus for analyzer triggering"""
-        event = ExecutionEvent(
-            trigger_type=trigger_type,
-            execution_id=execution_id,
-            script_name=script_name,
-            success=success,
-            exit_code=exit_code,
-            execution_time_ms=execution_time_ms,
-            report_url=report_url,
-            logs_url=logs_url,
-            host_name=host_name,
-            device_id=device_id,
-            parameters=parameters,
-            userinterface_name=userinterface_name,
-            team_id=team_id
-        )
-        self.event_bus.publish_sync(event)
-        print(f"[@MCP:testcase_tools] Published {trigger_type.value} event for {script_name}")
     
     def execute_testcase(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -352,20 +312,7 @@ class TestCaseTools:
                 report_url = result.get('report_url', '')
                 logs_url = result.get('logs_url', '')
                 
-                # Publish execution event for analyzer
-                self._publish_execution_event(
-                    trigger_type=TriggerType.TESTCASE_COMPLETED,
-                    execution_id=execution_id,
-                    script_name=testcase_name,
-                    success=result_success,
-                    exit_code=0 if result_success else 1,
-                    execution_time_ms=execution_time_ms,
-                    report_url=report_url,
-                    logs_url=logs_url,
-                    host_name=host_name,
-                    device_id=device_id,
-                    team_id=team_id
-                )
+
                 
                 # Format response similar to execute_script for consistency
                 if result_success:
