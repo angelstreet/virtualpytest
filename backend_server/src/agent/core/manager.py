@@ -556,12 +556,21 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
         
         # Check queue status on startup
         try:
+            print(f"[{self.nickname}] DEBUG: Checking queue status...")
             for queue in queues:
+                print(f"[{self.nickname}] DEBUG: Checking queue '{queue}'...")
                 result = self._redis_command(redis_config, ['LLEN', queue])
+                print(f"[{self.nickname}] DEBUG: LLEN result for '{queue}': {result}")
                 if result and 'result' in result:
                     length = result['result']
+                    print(f"[{self.nickname}] 📊 Queue '{queue}' has {length} pending items")
                     self.logger.info(f"[{self.nickname}] 📊 Queue '{queue}' has {length} pending items")
+                else:
+                    print(f"[{self.nickname}] WARNING: No result from LLEN for '{queue}'")
         except Exception as e:
+            print(f"[{self.nickname}] ERROR checking queue status: {e}")
+            import traceback
+            traceback.print_exc()
             self.logger.warning(f"[{self.nickname}] Could not check queue status: {e}")
         
         try:
