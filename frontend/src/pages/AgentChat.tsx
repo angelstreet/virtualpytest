@@ -1112,6 +1112,8 @@ useEffect(() => {
                           '& a': { color: PALETTE.accent, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
                           '& strong': { fontWeight: 600 },
                           '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
+                          '& h1, & h2, & h3, & h4, & h5, & h6': { fontSize: '0.95rem', fontWeight: 600, m: 0, mt: 1, mb: 0.5 },
+                          '& ul, & ol': { m: 0, pl: 2, '& li': { mb: 0.25 } },
                           fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
                         }}>
                           <ReactMarkdown
@@ -1136,6 +1138,8 @@ useEffect(() => {
                         '& a': { color: PALETTE.accent, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
                         '& strong': { fontWeight: 600 },
                         '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
+                        '& h1, & h2, & h3, & h4, & h5, & h6': { fontSize: '0.95rem', fontWeight: 600, m: 0, mt: 1, mb: 0.5 },
+                        '& ul, & ol': { m: 0, pl: 2, '& li': { mb: 0.25 } },
                         fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
                       }}>
                         <ReactMarkdown
