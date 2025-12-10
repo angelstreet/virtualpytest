@@ -118,5 +118,24 @@ Example:
                 },
                 "required": ["script_result_id", "discard", "classification", "explanation"]
             }
+        },
+        {
+            "name": "get_analysis_queue_status",
+            "description": """Get analysis queue status - pending items and processing stats.
+
+Returns:
+- Queue lengths: How many items pending in each priority queue
+- Processing stats: How many analyzed vs unanalyzed in database
+- Breakdown by classification type
+
+Use this to report queue status to users.
+
+Example:
+  get_analysis_queue_status()""",
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
         }
     ]

@@ -46,6 +46,7 @@ skills:
   - get_execution_results
   - fetch_execution_report
   - update_execution_analysis
+  - get_analysis_queue_status
 
 permissions:
   devices:

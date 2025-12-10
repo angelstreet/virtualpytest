@@ -18,6 +18,17 @@ class AnalysisTools:
     
     def __init__(self):
         self.supabase = None
+        self.session_started = datetime.now(timezone.utc)
+        
+        # Session stats - tracked in memory as we process
+        self.stats = {
+            'processed': 0,
+            'discarded': 0,
+            'kept': 0,
+            'by_classification': {},
+            'last_processed': None,  # {id, script_name, classification, timestamp}
+            'history': []  # Last N processed items
+        }
     
     def _get_supabase(self):
         """Lazy load supabase client"""
@@ -242,6 +253,33 @@ class AnalysisTools:
             result = supabase.table('script_results').update(update_data).eq('id', script_result_id).execute()
             
             if result.data:
+                # Track session stats
+                self.stats['processed'] += 1
+                if discard:
+                    self.stats['discarded'] += 1
+                else:
+                    self.stats['kept'] += 1
+                
+                # Track by classification
+                if classification not in self.stats['by_classification']:
+                    self.stats['by_classification'][classification] = 0
+                self.stats['by_classification'][classification] += 1
+                
+                # Track last processed
+                script_name = result.data[0].get('script_name', 'unknown') if result.data else 'unknown'
+                self.stats['last_processed'] = {
+                    'id': script_result_id,
+                    'script_name': script_name,
+                    'classification': classification,
+                    'discard': discard,
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+                
+                # Keep history (last 20)
+                self.stats['history'].append(self.stats['last_processed'])
+                if len(self.stats['history']) > 20:
+                    self.stats['history'] = self.stats['history'][-20:]
+                
                 action = "discarded (false positive)" if discard else "validated (kept)"
                 return {
                     "content": [{"type": "text", "text": f"✅ Analysis saved: {classification} - Result {action}"}],
@@ -259,6 +297,120 @@ class AnalysisTools:
                 "content": [{"type": "text", "text": f"Error updating analysis: {e}"}],
                 "isError": True
             }
+    
+    def get_analysis_queue_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get analysis queue status - pending items and session processing stats.
+        
+        Returns:
+            Queue lengths and session statistics (no DB queries)
+        """
+        try:
+            # Get Redis queue lengths
+            queue_status = self._get_redis_queue_status()
+            
+            # Calculate session uptime
+            uptime = datetime.now(timezone.utc) - self.session_started
+            uptime_str = f"{int(uptime.total_seconds())}s"
+            if uptime.total_seconds() > 60:
+                uptime_str = f"{int(uptime.total_seconds() / 60)}m {int(uptime.total_seconds() % 60)}s"
+            if uptime.total_seconds() > 3600:
+                uptime_str = f"{int(uptime.total_seconds() / 3600)}h {int((uptime.total_seconds() % 3600) / 60)}m"
+            
+            # Build summary from session stats (no DB queries!)
+            lines = [
+                "═══ ANALYSIS QUEUE STATUS ═══\n",
+                f"⏱️  Session Uptime: {uptime_str}",
+                "",
+                "📊 Redis Queues (Pending):",
+                f"   • P1 Alerts:  {queue_status.get('p1_alerts', 0)}",
+                f"   • P2 Scripts: {queue_status.get('p2_scripts', 0)}",
+                f"   • P3 Reserved: {queue_status.get('p3_reserved', 0)}",
+                "",
+                "📈 Session Stats (This Session):",
+                f"   • Processed:  {self.stats['processed']}",
+                f"   • Kept:       {self.stats['kept']}",
+                f"   • Discarded:  {self.stats['discarded']}",
+            ]
+            
+            if self.stats['processed'] > 0:
+                discard_rate = (self.stats['discarded'] / self.stats['processed']) * 100
+                lines.append(f"   • Discard Rate: {discard_rate:.1f}%")
+            
+            # Classification breakdown
+            if self.stats['by_classification']:
+                lines.append("")
+                lines.append("🏷️  Classification Breakdown:")
+                for cls, count in self.stats['by_classification'].items():
+                    lines.append(f"   • {cls}: {count}")
+            
+            # Last processed
+            if self.stats['last_processed']:
+                last = self.stats['last_processed']
+                lines.append("")
+                lines.append("📝 Last Processed:")
+                lines.append(f"   • Script: {last['script_name']}")
+                lines.append(f"   • Classification: {last['classification']}")
+                lines.append(f"   • Action: {'Discarded' if last['discard'] else 'Kept'}")
+            
+            return {
+                "content": [{"type": "text", "text": "\n".join(lines)}],
+                "isError": False,
+                "queue_status": queue_status,
+                "session_stats": self.stats
+            }
+            
+        except Exception as e:
+            print(f"[@analysis] Error in get_analysis_queue_status: {e}")
+            return {
+                "content": [{"type": "text", "text": f"Error getting queue status: {e}"}],
+                "isError": True
+            }
+    
+    def _get_redis_queue_status(self) -> Dict[str, int]:
+        """Get Redis queue lengths"""
+        try:
+            import redis
+            import os
+            
+            redis_url = os.getenv('UPSTASH_REDIS_REST_URL', '')
+            redis_token = os.getenv('UPSTASH_REDIS_REST_TOKEN', '')
+            
+            if redis_url:
+                host = redis_url.replace('https://', '').replace('http://', '').split('/')[0]
+                client = redis.Redis(
+                    host=host,
+                    port=6379,
+                    password=redis_token,
+                    ssl=True,
+                    ssl_cert_reqs=None,
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+            else:
+                redis_host = os.getenv('REDIS_HOST', 'localhost')
+                redis_port = int(os.getenv('REDIS_PORT', '6379'))
+                redis_password = os.getenv('REDIS_PASSWORD', None)
+                
+                client = redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    password=redis_password,
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+            
+            return {
+                'p1_alerts': client.llen('p1_alerts'),
+                'p2_scripts': client.llen('p2_scripts'),
+                'p3_reserved': client.llen('p3_reserved')
+            }
+            
+        except Exception as e:
+            print(f"[@analysis] Error getting Redis queue status: {e}")
+            return {'p1_alerts': 0, 'p2_scripts': 0, 'p3_reserved': 0, 'error': str(e)}
     
     def _fetch_and_parse_report(self, report_url: str) -> Dict[str, Any]:
         """Fetch and parse HTML report"""
