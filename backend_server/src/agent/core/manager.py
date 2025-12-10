@@ -483,88 +483,124 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
         """Check if background worker is running"""
         return self._queue_worker_running
     
-    def _get_redis_client(self):
-        """Get Redis client for queue operations"""
+    def _setup_redis_rest_api(self):
+        """Setup Redis REST API client (uses Upstash REST API)"""
         try:
-            import redis
+            import requests
             
             redis_url = os.getenv('UPSTASH_REDIS_REST_URL', '')
             redis_token = os.getenv('UPSTASH_REDIS_REST_TOKEN', '')
             
-            if redis_url:
-                host = redis_url.replace('https://', '').replace('http://', '').split('/')[0]
-                return redis.Redis(
-                    host=host,
-                    port=6379,
-                    password=redis_token,
-                    ssl=True,
-                    ssl_cert_reqs=None,
-                    decode_responses=True,
-                    socket_connect_timeout=5,
-                    socket_timeout=5
-                )
-            else:
-                redis_host = os.getenv('REDIS_HOST', 'localhost')
-                redis_port = int(os.getenv('REDIS_PORT', '6379'))
-                redis_password = os.getenv('REDIS_PASSWORD', None)
-                
-                return redis.Redis(
-                    host=redis_host,
-                    port=redis_port,
-                    password=redis_password,
-                    decode_responses=True,
-                    socket_connect_timeout=5,
-                    socket_timeout=5
-                )
+            if not redis_url or not redis_token:
+                self.logger.error(f"[{self.nickname}] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN")
+                return None
+            
+            # Store REST API config
+            return {
+                'url': redis_url,
+                'headers': {
+                    'Authorization': f'Bearer {redis_token}',
+                    'Content-Type': 'application/json'
+                }
+            }
         except Exception as e:
-            self.logger.error(f"[{self.nickname}] Failed to create Redis client: {e}")
+            self.logger.error(f"[{self.nickname}] Failed to setup Redis REST API: {e}")
+            return None
+    
+    def _redis_command(self, redis_config: dict, command: list):
+        """Execute Redis command via REST API"""
+        try:
+            import requests
+            response = requests.post(
+                redis_config['url'],
+                headers=redis_config['headers'],
+                json=command,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                self.logger.error(f"[{self.nickname}] Redis API error: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"[{self.nickname}] Redis command failed: {e}")
             return None
     
     def _background_loop(self):
         """Background loop - monitors queues and processes items"""
-        queues = self.agent_config.get('background_queues', [])
-        redis_client = self._get_redis_client()
-        
-        if not redis_client:
-            self.logger.error(f"[{self.nickname}] Cannot start background loop - no Redis")
+        try:
+            print(f"[{self.nickname}] DEBUG: _background_loop thread started")
+            self.logger.info(f"[{self.nickname}] DEBUG: _background_loop thread started")
+            
+            queues = self.agent_config.get('background_queues', [])
+            print(f"[{self.nickname}] DEBUG: Queues to monitor: {queues}")
+            
+            redis_config = self._setup_redis_rest_api()
+            print(f"[{self.nickname}] DEBUG: Redis config setup: {redis_config is not None}")
+            
+            if not redis_config:
+                self.logger.error(f"[{self.nickname}] Cannot start background loop - no Redis")
+                self._queue_worker_running = False
+                return
+            
+            self.logger.info(f"[{self.nickname}] 🔄 Background loop started, monitoring: {queues}")
+            print(f"[{self.nickname}] 🔄 Background loop started, monitoring: {queues}")
+        except Exception as e:
+            print(f"[{self.nickname}] FATAL ERROR in background loop startup: {e}")
+            import traceback
+            traceback.print_exc()
             self._queue_worker_running = False
             return
-        
-        self.logger.info(f"[{self.nickname}] 🔄 Background loop started, monitoring: {queues}")
         
         # Check queue status on startup
         try:
             for queue in queues:
-                length = redis_client.llen(queue)
-                self.logger.info(f"[{self.nickname}] 📊 Queue '{queue}' has {length} pending items")
+                result = self._redis_command(redis_config, ['LLEN', queue])
+                if result and 'result' in result:
+                    length = result['result']
+                    self.logger.info(f"[{self.nickname}] 📊 Queue '{queue}' has {length} pending items")
         except Exception as e:
             self.logger.warning(f"[{self.nickname}] Could not check queue status: {e}")
         
-        while self._queue_worker_running:
-            try:
-                # BLPOP blocks until item arrives or timeout (60s)
-                result = redis_client.blpop(queues, timeout=60)
-                
-                if result and self._queue_worker_running:
-                    queue_name, task_json = result
-                    task = json.loads(task_json)
+        try:
+            while self._queue_worker_running:
+                try:
+                    # Poll queues in priority order (LPOP doesn't block, so we poll)
+                    task_found = False
                     
-                    self.logger.info(f"[{self.nickname}] 📥 Task from {queue_name}: {task.get('type', 'unknown')}")
-                    self._process_background_task(task, queue_name)
+                    for queue in queues:
+                        result = self._redis_command(redis_config, ['LPOP', queue])
+                        
+                        if result and result.get('result'):
+                            task_json = result['result']
+                            task = json.loads(task_json)
+                            task_found = True
+                            
+                            print(f"[{self.nickname}] 📥 Task from {queue}: {task.get('type', 'unknown')}")
+                            self.logger.info(f"[{self.nickname}] 📥 Task from {queue}: {task.get('type', 'unknown')}")
+                            self._process_background_task(task, queue)
+                            break  # Process one task then restart loop
                     
-            except Exception as e:
-                if self._queue_worker_running:
-                    # Ignore expected Redis timeout exceptions
-                    error_msg = str(e).lower()
-                    if 'timeout' in error_msg and 'socket' in error_msg:
-                        # This is expected - blpop timeout, continue polling
-                        continue
-                    
-                    # Log actual errors
-                    self.logger.error(f"[{self.nickname}] Background loop error: {e}")
-                    time.sleep(5)
-        
-        self.logger.info(f"[{self.nickname}] 👋 Background loop ended")
+                    # If no task found, sleep before next poll
+                    if not task_found:
+                        time.sleep(5)  # Poll every 5 seconds
+                        
+                except Exception as e:
+                    if self._queue_worker_running:
+                        print(f"[{self.nickname}] Background loop error: {e}")
+                        self.logger.error(f"[{self.nickname}] Background loop error: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        time.sleep(5)
+        except Exception as fatal_error:
+            print(f"[{self.nickname}] FATAL ERROR in background loop: {fatal_error}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            print(f"[{self.nickname}] 👋 Background loop ended")
+            self.logger.info(f"[{self.nickname}] 👋 Background loop ended")
     
     def _process_background_task(self, task: Dict[str, Any], queue_name: str):
         """Process a single background task"""
