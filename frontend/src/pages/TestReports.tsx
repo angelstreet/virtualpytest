@@ -27,7 +27,6 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -42,6 +41,7 @@ import React, { useState, useEffect } from 'react';
 import { useScriptResults, ScriptResult } from '../hooks/pages/useScriptResults';
 import { formatToLocalTime } from '../utils/dateUtils';
 import { getR2Url, extractR2Path, isCloudflareR2Url } from '../utils/infrastructure/cloudflareUtils';
+import { StyledDialog } from '../components/common/StyledDialog';
 
 const TestReports: React.FC = () => {
   // Get Grafana URL from environment variable
@@ -596,7 +596,7 @@ const TestReports: React.FC = () => {
       </Card>
 
       {/* Discard Comment Modal */}
-      <Dialog 
+      <StyledDialog 
         open={discardModalOpen} 
         onClose={handleCloseDiscardModal}
         maxWidth="md"
@@ -629,7 +629,7 @@ const TestReports: React.FC = () => {
             Close
           </Button>
         </DialogActions>
-      </Dialog>
+      </StyledDialog>
     </Box>
   );
 };
