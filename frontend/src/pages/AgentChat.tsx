@@ -114,6 +114,15 @@ const AgentChat: React.FC = () => {
   // Sidebar tab state: 'system' for background agents, 'chats' for conversations
   const [sidebarTab, setSidebarTab] = useState<'system' | 'chats'>('chats');
   
+  // Handle sidebar tab change - clear bg_ conversation when switching to chats
+  const handleSidebarTabChange = (newTab: 'system' | 'chats') => {
+    setSidebarTab(newTab);
+    // When switching to chats tab, if current conversation is a system one, clear it
+    if (newTab === 'chats' && activeConversationId?.startsWith('bg_')) {
+      switchConversation(''); // Clear to show empty state
+    }
+  };
+  
   // Track if we've processed URL params
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
   
@@ -762,6 +771,7 @@ useEffect(() => {
                     key={task.id}
                     onClick={(e) => {
                       e.stopPropagation();
+                      setSidebarTab('system'); // Ensure we're on system tab when viewing system task
                       switchConversation(task.conversationId);
                     }}
                     sx={{
@@ -772,7 +782,7 @@ useEffect(() => {
                       py: 0.5,
                       borderRadius: 1,
                       cursor: 'pointer',
-                      bgcolor: task.conversationId === activeConversationId
+                      bgcolor: task.conversationId === activeConversationId && sidebarTab === 'system'
                         ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
                         : 'transparent',
                       '&:hover': {
@@ -895,7 +905,7 @@ useEffect(() => {
           {backgroundAgents.length > 0 && (
             <Tabs
               value={sidebarTab}
-              onChange={(_, newValue) => setSidebarTab(newValue)}
+              onChange={(_, newValue) => handleSidebarTabChange(newValue)}
               sx={{
                 minHeight: 36,
                 px: 1,
@@ -999,20 +1009,6 @@ useEffect(() => {
             {sidebarTab === 'system' && backgroundAgents.length > 0 && (
               <Box sx={{ pt: 1 }}>
                 {backgroundAgents.map(agent => renderBackgroundAgentSection(agent))}
-                
-                {totalSystemTasks === 0 && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      display: 'block',
-                      textAlign: 'center',
-                      color: PALETTE.textMuted,
-                      py: 4,
-                    }}
-                  >
-                    No active system tasks
-                  </Typography>
-                )}
               </Box>
             )}
 
@@ -1040,7 +1036,10 @@ useEffect(() => {
                     {group.items.map((conv) => (
                       <Box
                         key={conv.id}
-                        onClick={() => switchConversation(conv.id)}
+                        onClick={() => {
+                          setSidebarTab('chats'); // Ensure we stay on chats tab
+                          switchConversation(conv.id);
+                        }}
                         sx={{
                           display: 'flex',
                           alignItems: 'flex-start',
@@ -1049,7 +1048,7 @@ useEffect(() => {
                           py: 1,
                           borderRadius: 1.5,
                           cursor: 'pointer',
-                          bgcolor: conv.id === activeConversationId 
+                          bgcolor: conv.id === activeConversationId && sidebarTab === 'chats'
                             ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
                             : 'transparent',
                           '&:hover': {
@@ -2126,7 +2125,42 @@ useEffect(() => {
             flexDirection: 'column',
             minWidth: 0,
           }}>
-            {status === 'ready' && messages.length === 0 ? renderEmptyState() : renderChatContent()}
+            {(() => {
+              // Determine if we should show empty state
+              const isSystemConversation = activeConversationId?.startsWith('bg_');
+              const hasNoMessages = messages.length === 0;
+              const onChatsTabWithNoRegularConvo = sidebarTab === 'chats' && (!activeConversationId || isSystemConversation);
+              const onSystemTabWithNoSelection = sidebarTab === 'system' && (!activeConversationId || !isSystemConversation || hasNoMessages);
+              
+              // Show system placeholder when on system tab with no incident selected
+              if (status === 'ready' && onSystemTabWithNoSelection) {
+                return (
+                  <Box sx={{ 
+                    flex: 1,
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                  }}>
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        color: PALETTE.textMuted,
+                        fontWeight: 400,
+                        opacity: 0.6,
+                      }}
+                    >
+                      No incident
+                    </Typography>
+                  </Box>
+                );
+              }
+              
+              // Show empty state when ready AND (no messages OR on chats tab without a regular conversation)
+              const showEmpty = status === 'ready' && (hasNoMessages || onChatsTabWithNoRegularConvo);
+              
+              return showEmpty ? renderEmptyState() : renderChatContent();
+            })()}
           </Box>
         )}
 
