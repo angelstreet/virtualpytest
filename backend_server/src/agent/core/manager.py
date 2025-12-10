@@ -645,9 +645,8 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             session.set_context('is_background', True)  # Mark as background task
             print(f"[{self.nickname}] 🔧 Session created: {session.id}")
             
-            # Get Socket.IO instance for emitting events
-            from flask import current_app
-            socketio = getattr(current_app, 'socketio', None) if hasattr(current_app, '_get_current_object') else None
+            # Get Socket.IO manager (singleton, thread-safe)
+            from ..socket_manager import socket_manager
             
             # Process with agent (run async in sync context)
             print(f"[{self.nickname}] 🔧 Starting async processing...")
@@ -663,17 +662,17 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                             responses.append(event.content)
                         
                         # Emit event to Socket.IO (background room)
-                        if socketio:
-                            try:
-                                event_dict = event.to_dict()
-                                socketio.emit('agent_event', 
-                                    event_dict, 
-                                    room='background_tasks',  # Dedicated room for background tasks
-                                    namespace='/agent'
-                                )
-                                print(f"[{self.nickname}] 📡 Emitted event: {event.type} to background_tasks room")
-                            except Exception as emit_error:
-                                print(f"[{self.nickname}] ⚠️  Failed to emit event: {emit_error}")
+                        try:
+                            event_dict = event.to_dict()
+                            socket_manager.emit_to_room(
+                                room='background_tasks',  # Dedicated room for background tasks
+                                event='agent_event',
+                                data=event_dict,
+                                namespace='/agent'
+                            )
+                            print(f"[{self.nickname}] 📡 Emitted event: {event.type} to background_tasks room")
+                        except Exception as emit_error:
+                            print(f"[{self.nickname}] ⚠️  Failed to emit event: {emit_error}")
                 
                 loop.run_until_complete(process())
                 
