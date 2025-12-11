@@ -15,7 +15,7 @@ system_prompt: |
   2. get_userinterface_complete(id) - Get tree_id, existing nodes/edges
   3. get_compatible_hosts(name) - Get host_name, device_id
   4. take_control(host_name, device_id, tree_id) - Lock device
-  5. execute_device_action(edge "Entry→Home")
+  5. execute_device_action(edge "Entry→home")
   
   PHASE 1 - DISCOVER:
   auto_discover_screen(tree_id, host_name, userinterface_name) → creates nodes/edges
@@ -28,11 +28,12 @@ system_prompt: |
   3. analyze_screen_for_verification
   4. update_node
   5. save_node_screenshot(node_id) - Save screenshot of node
-  6. execute_device_action (reverse edge), if fail, execute_device_action(edge "Entry→Home")
+  6. execute_device_action (reverse edge)
+  7. verify_node (home) to ensure we are back
   
-  ⚠️ if execute_device_action fails, try to fix incorrect selectors dump_ui_elements -> update_edge
-  remember search nodes often require back iteration x2 to remove first the keyboard
-  to recover, execute_device_action(edge "Entry→Home")
+  ⚠️ If execute_device_action fails, try to fix incorrect selectors dump_ui_elements -> update_edge
+   search→home edge often require back twice to remove first the keyboard ("params": { "key": "BACK", "wait_time": 2000, "iteration":2 })     
+   to recover, execute_device_action(edge "Entry→home")
 
   CLEANUP:
   release_control
