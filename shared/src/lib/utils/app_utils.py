@@ -11,10 +11,33 @@ import time
 import subprocess
 import psutil
 import platform
+import logging
 from flask import Flask, current_app, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 import requests
+
+
+# =====================================================
+# LOGGING FILTER FOR SOCKET.IO POLLING REQUESTS
+# =====================================================
+
+class SocketIOPollingFilter(logging.Filter):
+    """Filter out noisy socket.io polling/websocket debug logs"""
+    
+    FILTERED_PATTERNS = [
+        '/socket.io/?EIO=',
+        'transport=polling',
+        'transport=websocket',
+    ]
+    
+    def filter(self, record):
+        # Allow the record if it doesn't match any filtered patterns
+        message = record.getMessage()
+        for pattern in self.FILTERED_PATTERNS:
+            if pattern in message:
+                return False  # Suppress this log
+        return True  # Allow this log
 
 # =====================================================
 # ENVIRONMENT AND SETUP FUNCTIONS
@@ -119,6 +142,10 @@ def kill_process_on_port(port):
 def setup_flask_app(app_name="VirtualPyTest"):
     """Setup and configure Flask application with CORS and WebSocket support"""
     app = Flask(app_name)
+    
+    # Suppress noisy socket.io polling/websocket logs from werkzeug
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.addFilter(SocketIOPollingFilter())
 
     # Configure Flask secret key for session management
     # Use environment variable or generate a default for development
