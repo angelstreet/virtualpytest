@@ -12,13 +12,10 @@ from flask import Blueprint, request, jsonify, current_app
 from shared.src.lib.database.navigation_trees_db import (
     get_tree_nodes,
     get_tree_edges,
-    delete_node,
-    delete_edge,
     batch_delete_edges_except,
     batch_delete_nodes_except,
     save_nodes_batch,
-    save_edges_batch,
-    get_supabase
+    save_edges_batch
 )
 
 host_ai_exploration_bp = Blueprint('host_ai_exploration', __name__, url_prefix='/host/ai-generation')
@@ -717,6 +714,34 @@ def cancel_exploration():
         
     except Exception as e:
         print(f"[@route:ai_generation:cancel_exploration] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@host_ai_exploration_bp.route('/auto-discover-screen', methods=['POST'])
+def auto_discover_screen():
+    """Auto-discover elements and create nodes/edges - delegates to exploration_executor"""
+    try:
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        tree_id = data.get('tree_id')
+        device_id = data.get('device_id', 'device1')
+        parent_node_id = data.get('parent_node_id', 'home')
+        
+        if not team_id or not tree_id:
+            return jsonify({'success': False, 'error': 'team_id and tree_id required'}), 400
+        
+        if device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        device = current_app.host_devices[device_id]
+        result = device.exploration_executor.auto_discover_screen(tree_id, team_id, parent_node_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:auto_discover_screen] Error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -1,6 +1,6 @@
 name: explore-mobile
-version: 2.0.0
-description: Build navigation tree for Android mobile apps
+version: 3.0.0
+description: Build navigation tree for mobile apps
 
 triggers:
   - explore mobile
@@ -10,34 +10,17 @@ triggers:
   - automate mobile
 
 system_prompt: |
-  Build navigation trees for Android apps using ADB.
+  Build navigation trees for mobile apps.
   
   WORKFLOW:
-  1. list_userinterfaces() - Find interface
-  2. get_userinterface_complete(id) - Get tree_id, existing nodes/edges
-  3. get_compatible_hosts(name) - Get host_name, device_id
-  4. take_control(host_name, device_id, tree_id) - Lock device
-  5. execute_device_action(edge "Entry→Home") - Go to Home screen
-  6. For each screen:
-     - dump_ui_elements(platform='mobile') - Get UI hierarchy
-     - analyze_screen_for_action(elements, intent) - Get selector
-     - create_node with verifications from analyze_screen_for_verification
-     - save_node_screenshot(node_id, tree_id)
-     - create_edge with selector from analyze_screen_for_action
-     - execute_device_action(selector) - Navigate to next screen
-     - verify_node - Confirm arrival
-  7. release_control when done
-  
-  NAVIGATION: Use execute_device_action + verify_node (NOT navigate_to_node)
-  SELECTOR PRIORITY: resource-id > content-desc > text > xpath
-  
-  WAIT TIME: params.wait_time (ms) - default 2000ms if not specified
-  
-  IMPORTANT:
-  - Use list_nodes/list_edges to see what already exists before creating
-  - Use analyze_screen_for_action to get reliable selectors (don't guess!)
-  - Use update_node/update_edge to fix broken edges instead of recreating
-  - Use verify_node to test verifications before moving on
+  1. get_userinterface_complete(name) - Get tree_id
+  2. get_compatible_hosts(name) - Get host_name, device_id
+  3. take_control(host_name, device_id, tree_id)
+  4. execute_device_action(edge "Entry→Home")
+  5. auto_discover_screen(tree_id, host_name, parent_node_id='home')
+  6. execute_device_action then verify_node for each created node, fix with update_node if broken
+  7. For depth 2: navigate to child, auto_discover_screen again
+  8. release_control
 
 tools:
   - list_userinterfaces
@@ -48,10 +31,10 @@ tools:
   - take_control
   - release_control
   - get_compatible_hosts
+  - auto_discover_screen
   - dump_ui_elements
   - analyze_screen_for_action
   - analyze_screen_for_verification
-  - capture_screenshot
   - create_node
   - update_node
   - delete_node

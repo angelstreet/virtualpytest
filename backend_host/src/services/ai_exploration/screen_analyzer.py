@@ -263,7 +263,7 @@ class ScreenAnalyzer:
         
         # Dynamic content indicators (program titles, prices, descriptions)
         dynamic_indicators = [
-            'available for replay', 'watch now', 'continue watching',
+            'available for replay',
             'chf', 'usd', 'eur', 'gbp', '$', '€', '£',  # Price indicators
             ' - ',  # Time ranges like "21:10 - 23:10"
             ' from ', ' to ',  # Alternate time/price ranges

@@ -201,14 +201,8 @@ class VirtualPyTestMCPServer:
             'analyze_screen_for_action': self.screen_analysis_tools.analyze_screen_for_action,
             'analyze_screen_for_verification': self.screen_analysis_tools.analyze_screen_for_verification,
             
-            # AI Exploration tools (NEW - Automated tree building)
-            'start_ai_exploration': self.exploration_tools.start_ai_exploration,
-            'get_exploration_status': self.exploration_tools.get_exploration_status,
-            'approve_exploration_plan': self.exploration_tools.approve_exploration_plan,
-            'validate_exploration_edges': self.exploration_tools.validate_exploration_edges,
-            'get_node_verification_suggestions': self.exploration_tools.get_node_verification_suggestions,
-            'approve_node_verifications': self.exploration_tools.approve_node_verifications,
-            'finalize_exploration': self.exploration_tools.finalize_exploration,
+            # AI Exploration tools
+            'auto_discover_screen': self.exploration_tools.auto_discover_screen,
             
             # Deployment tools (NEW - Scheduled execution management)
             'create_deployment': self.deployment_tools.create_deployment,
