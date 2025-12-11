@@ -188,30 +188,14 @@ class ActionTools:
             # POLL for completion - SAME pattern as frontend (useAction.ts line 200-246)
             return self._poll_action_completion(execution_id, device_id, host_name, team_id)
         
-        # Sync result - strip verbose fields and return concise response
         print(f"[@MCP:execute_device_action] Sync execution completed")
         passed = result.get('passed_count', 0)
         total = result.get('total_count', 0)
         failed = result.get('failed_count', 0)
         execution_time = result.get('execution_time_ms', 0)
         
-        # Extract concise logs (now clean after logging isolation fix)
-        logs = result.get('logs', '')
-        concise_logs = self._extract_execution_summary(logs) if logs else None
-        
-        concise_result = {
-            'success': result.get('success', False),
-            'message': f"✅ {passed}/{total} passed ({execution_time}ms)" if passed == total else f"❌ {passed}/{total} passed, {failed} failed",
-            'passed_count': passed,
-            'total_count': total,
-            'failed_count': failed,
-            'execution_time_ms': execution_time
-        }
-        
-        if concise_logs:
-            concise_result['execution_log'] = concise_logs
-        
-        return {"content": [{"type": "text", "text": json.dumps(concise_result)}], "isError": failed > 0}
+        msg = f"✅ {passed}/{total} passed ({execution_time}ms)" if passed == total else f"❌ {passed}/{total} failed"
+        return {"content": [{"type": "text", "text": msg}], "isError": failed > 0}
     
     def _poll_action_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 180) -> Dict[str, Any]:
         """
@@ -245,36 +229,14 @@ class ActionTools:
                 failed = result.get('failed_count', 0)
                 execution_time = result.get('execution_time_ms', 0)
                 
-                # Extract concise logs (now clean after logging isolation fix)
-                logs = result.get('logs', '')
-                concise_logs = self._extract_execution_summary(logs) if logs else None
-                
-                # Build concise result (strip verbose logs/screenshots)
-                concise_result = {
-                    'passed_count': passed,
-                    'total_count': total,
-                    'failed_count': failed,
-                    'execution_time_ms': execution_time
-                }
-                
-                if concise_logs:
-                    concise_result['execution_log'] = concise_logs
-                
-                # Check if any actions failed
                 if failed > 0 or passed < total:
-                    message = f"❌ {passed}/{total} passed, {failed} failed"
-                    print(f"[@MCP:poll_action] {message}")
-                    error_details = result.get('error', '') or result.get('message', '')
-                    if error_details:
-                        concise_result['error'] = error_details[:200]  # Truncate error
-                    return {
-                        "content": [{"type": "text", "text": json.dumps({"success": False, "message": message, **concise_result})}],
-                        "isError": True
-                    }
+                    msg = f"❌ {passed}/{total} failed"
+                    print(f"[@MCP:poll_action] {msg}")
+                    return {"content": [{"type": "text", "text": msg}], "isError": True}
                 
-                message = f"✅ {passed}/{total} passed ({execution_time}ms)"
-                print(f"[@MCP:poll_action] {message}")
-                return {"content": [{"type": "text", "text": json.dumps({"success": True, "message": message, **concise_result})}], "isError": False}
+                msg = f"✅ {passed}/{total} passed ({execution_time}ms)"
+                print(f"[@MCP:poll_action] {msg}")
+                return {"content": [{"type": "text", "text": msg}], "isError": False}
             
             elif current_status == 'error':
                 print(f"[@MCP:poll_action] Action execution failed after {elapsed}s")
@@ -287,29 +249,3 @@ class ActionTools:
         print(f"[@MCP:poll_action] Action execution timed out after {max_wait}s")
         return {"content": [{"type": "text", "text": f"⏱️ Action execution timed out after {max_wait}s"}], "isError": True}
     
-    def _extract_execution_summary(self, logs: str) -> str:
-        """Extract concise execution summary from logs (now clean after isolation fix)"""
-        if not logs:
-            return ""
-        
-        summary_lines = []
-        for line in logs.split('\n'):
-            # Keep key execution lines only
-            if any(keyword in line for keyword in [
-                'Executing command',
-                'executed successfully',
-                'Tapping at',
-                'Clicking',
-                'SUCCESS',
-                'FAILED',
-                'Batch completed',
-                '[@route:host',
-                'Element found'
-            ]):
-                # Clean up escape sequences
-                clean_line = line.replace('\\n', '\n').replace('\\u', '')
-                summary_lines.append(clean_line)
-                if len(summary_lines) >= 8:  # Limit to 8 lines
-                    break
-        
-        return '\n'.join(summary_lines) if summary_lines else logs[:500]  # Fallback: first 500 chars

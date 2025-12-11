@@ -6,17 +6,10 @@ No more guessing - get analyzed selectors ready for create_edge or verify_node.
 """
 
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any
 from ..utils.mcp_formatter import MCPFormatter
-from shared.src.lib.config.constants import APP_CONFIG
 
-# Import unified selector scoring
-from shared.src.selector_scoring import (
-    find_best_selector,
-    get_selector_value,
-    PLATFORM_PRIORITY_ORDER,
-    SelectorPriority
-)
+from shared.src.selector_scoring import find_best_selector
 
 
 class ScreenAnalysisTools:
@@ -119,24 +112,13 @@ class ScreenAnalysisTools:
             else:
                 confidence = 'low'
             
-            # Format response
-            response_text = f"✅ Best selector for '{intent}':\n\n"
-            response_text += f"**Selector:** {selector_type} = `{selector_value}`\n"
-            response_text += f"**Score:** {score} ({confidence} confidence)\n"
-            response_text += f"**Unique:** {'Yes ✓' if result['details'].get('unique') else 'No ✗'}\n\n"
-            
-            response_text += f"**Ready-to-use action:**\n"
-            response_text += f"```json\n"
-            response_text += json.dumps({
-                'command': command,
-                'params': action_params
-            }, indent=2)
-            response_text += f"\n```\n\n"
-            
-            # Show priority order used
-            response_text += f"**Priority order used:** {' > '.join(PLATFORM_PRIORITY_ORDER[platform])}\n"
-            
-            return {"content": [{"type": "text", "text": response_text}], "isError": False}
+            return {
+                "content": [{"type": "text", "text": f"selector:{selector_type}={selector_value}"}],
+                "isError": False,
+                "command": command,
+                "params": action_params,
+                "score": score
+            }
             
         except Exception as e:
             return self.formatter.format_error(f"Analysis failed: {str(e)}")
@@ -226,27 +208,14 @@ class ScreenAnalysisTools:
             else:
                 confidence = 'low'
             
-            # Format response
-            response_text = f"✅ Best verification for node '{node_label}':\n\n"
-            response_text += f"**Selector:** {selector_type} = `{selector_value}`\n"
-            response_text += f"**Score:** {score} ({confidence} confidence)\n"
-            response_text += f"**Unique:** {'Yes ✓' if result['details'].get('unique') else 'No ✗'}\n\n"
-            
-            response_text += f"**Ready-to-use verification:**\n"
-            response_text += f"```json\n"
-            response_text += json.dumps({
-                'command': verification_command,
-                'verification_type': 'adb' if platform == 'mobile' else 'web',
-                'params': verification_params
-            }, indent=2)
-            response_text += f"\n```\n\n"
-            
-            response_text += f"**Usage in create_node:**\n"
-            response_text += f"Add this to node's `data.verifications` array\n\n"
-            
-            response_text += f"**Priority order used:** {' > '.join(PLATFORM_PRIORITY_ORDER[platform])}\n"
-            
-            return {"content": [{"type": "text", "text": response_text}], "isError": False}
+            return {
+                "content": [{"type": "text", "text": f"verification:{selector_type}={selector_value}"}],
+                "isError": False,
+                "command": verification_command,
+                "verification_type": 'adb' if platform == 'mobile' else 'web',
+                "params": verification_params,
+                "score": score
+            }
             
         except Exception as e:
             return self.formatter.format_error(f"Analysis failed: {str(e)}")

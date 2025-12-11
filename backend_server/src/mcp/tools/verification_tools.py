@@ -157,54 +157,30 @@ class VerificationTools:
             error_msg = result.get('error', 'Failed to dump UI elements')
             return {"content": [{"type": "text", "text": f"❌ UI dump failed: {error_msg}"}], "isError": True}
         
-        # ✅ Get elements from backend and format like the console output
-        # Backend provides elements array, we format it to match console logs
         elements = result.get('elements', [])
         
         if not elements:
             return {"content": [{"type": "text", "text": "No UI elements found"}], "isError": False}
         
-        # Format output matching backend_host console format (host_remote_routes.py prints this)
-        formatted_lines = []
-        for i, element in enumerate(elements):
-            # ✅ Get element name with EXACT same priority as backend console logs (android_mobile.py line 255-271)
-            # Priority 1: content_desc (contentDesc in JSON)
-            # Priority 2: text
-            # Priority 3: className
-            name = ""
-            
-            content_desc = element.get('contentDesc', '').strip()
-            text = element.get('text', '').strip()
-            
-            if content_desc and content_desc != '<no content-desc>':
-                name = content_desc
-            elif text and text != '<no text>':
-                name = f'"{text}"'  # Wrap text in quotes like console logs
-            else:
-                class_name = element.get('className', '')
-                name = class_name.split('.')[-1] if class_name else "Unknown"
-            
-            # Parse bounds to get x, y, width, height
-            bounds = element.get('bounds', {})
-            x = bounds.get('left', 0)
-            y = bounds.get('top', 0)
-            width = bounds.get('right', 0) - x
-            height = bounds.get('bottom', 0) - y
-            
-            element_id = element.get('id', i)
-            
-            formatted_lines.append(
-                f"[HOST] Remote[ANDROID_MOBILE]: Element: {name} | Index: {element_id} | Order: {i+1} | X: {x} | Y: {y} | Width: {width} | Height: {height}"
-            )
+        # Strip bloat: remove xpath, className, package - keep only essential fields
+        minimal_elements = []
+        for e in elements:
+            minimal = {
+                'id': e.get('id'),
+                'text': e.get('text', ''),
+                'contentDesc': e.get('contentDesc', ''),
+                'clickable': e.get('clickable', False),
+                'bounds': e.get('bounds', {})
+            }
+            minimal_elements.append(minimal)
         
-        # Compact text: just count and clickable element names
         clickable = [e for e in elements if e.get('clickable')]
         text_summary = f"{len(elements)} elements ({len(clickable)} clickable)"
         
         return {
             "content": [{"type": "text", "text": text_summary}],
             "isError": False,
-            "elements": elements  # Full elements, no raw_result duplicate
+            "elements": minimal_elements
         }
     
     def _poll_verification_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 30) -> Dict[str, Any]:

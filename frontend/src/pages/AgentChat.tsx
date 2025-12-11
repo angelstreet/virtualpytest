@@ -785,6 +785,7 @@ useEffect(() => {
                     key={task.id}
                     onClick={(e) => {
                       e.stopPropagation();
+                      console.log('[AgentChat] Task clicked:', task.id, task.title, task.conversationId);
                       setSidebarTab('system'); // Ensure we're on system tab when viewing system task
                       switchConversation(task.conversationId);
                     }}

@@ -39,6 +39,10 @@ class QAManagerAgent:
     2. Skill Mode: Uses tools from the loaded skill
     
     Uses Anthropic's prompt caching for 90% cost reduction on repeated calls.
+    
+    Background Worker Configuration:
+    - Alert processing filters are handled by agent-specific handlers (e.g., NightwatchHandler)
+    - Each handler implements its own filtering logic (duration, rate limiting, etc.)
     """
     
     def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
@@ -670,6 +674,12 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                 print(f"[{self.nickname}] ⚠️  No handler for agent_id={self.agent_id}")
                 return
             
+            # Check if handler wants to process with AI (filters: duration, rate limit, etc.)
+            if hasattr(handler, 'should_process_with_ai'):
+                if not handler.should_process_with_ai(task_id, task_data):
+                    # Handler decided to skip AI processing (already marked in DB)
+                    return
+            
             print(f"[{self.nickname}] 🔧 Building task message...")
             message = handler.build_task_message(task_type, task_id, task_data)
             print(f"[{self.nickname}] 🔧 Message built: {message[:100]}...")
@@ -718,8 +728,12 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                 print(f"[{self.nickname}] ✅ Task {task_id} completed successfully")
                 self.logger.info(f"[{self.nickname}] ✅ Task {task_id} complete")
                 
+                # Update handler state after successful AI processing (e.g., rate limits)
+                if hasattr(handler, 'update_rate_limit'):
+                    handler.update_rate_limit(task_data)
+                
                 # Send result to Slack via handler
-                handler.send_to_slack(task_type, task_id, task_data, result, success=True)
+                handler.send_to_slack(task_type, task_id, task_data, result)
                 
             finally:
                 loop.close()

@@ -335,9 +335,13 @@ export const useAgentChat = () => {
   }, [clearBackendSession]);
 
   const switchConversation = useCallback((conversationId: string) => {
+    console.log(`[useAgentChat] switchConversation called with:`, conversationId);
+    console.log(`[useAgentChat] Current activeConversationId:`, activeConversationIdRef.current);
+    console.log(`[useAgentChat] All conversations:`, conversations.map(c => ({ id: c.id, title: c.title, messageCount: c.messages.length })));
     setActiveConversationId(conversationId);
     activeConversationIdRef.current = conversationId;
-  }, []);
+    console.log(`[useAgentChat] Switched to conversation:`, conversationId);
+  }, [conversations]);
 
   const deleteConversation = useCallback((conversationId: string) => {
     clearBackendSession(); // Fresh start after delete

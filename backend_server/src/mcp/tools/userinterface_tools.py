@@ -159,15 +159,13 @@ class UserInterfaceTools:
             if not interfaces:
                 return {"content": [{"type": "text", "text": "No userinterfaces found"}], "isError": False}
             
-            # Minimal output
             lines = [f"{len(interfaces)} interfaces:"]
             for ui in interfaces:
                 lines.append(f"- {ui.get('name')} ({', '.join(ui.get('models', []))})")
             
             return {
                 "content": [{"type": "text", "text": "\n".join(lines)}],
-                "isError": False,
-                "interfaces": [{"name": ui.get('name'), "id": ui.get('id')} for ui in interfaces]
+                "isError": False
             }
         
         except Exception as e:
@@ -214,17 +212,34 @@ class UserInterfaceTools:
             nodes = metadata.get('nodes', [])
             edges = metadata.get('edges', [])
             
-            # Compact text summary
+            # Minimal nodes: only essential fields
+            minimal_nodes = []
+            for n in nodes:
+                minimal_nodes.append({
+                    'node_id': n.get('node_id'),
+                    'label': n.get('label'),
+                    'type': n.get('node_type'),
+                    'verifications': n.get('verifications', [])
+                })
+            
+            # Minimal edges: only essential fields
+            minimal_edges = []
+            for e in edges:
+                minimal_edges.append({
+                    'edge_id': e.get('edge_id'),
+                    'source': e.get('source_node_id'),
+                    'target': e.get('target_node_id'),
+                    'action_sets': e.get('action_sets', [])
+                })
+            
             response_text = f"tree_id:{tree.get('id')} nodes:{len(nodes)} edges:{len(edges)}"
             
-            # Return tree_id + nodes + edges (no duplicate tree object with metadata)
             return {
                 "content": [{"type": "text", "text": response_text}],
                 "isError": False,
                 "tree_id": tree.get('id'),
-                "tree_name": tree.get('name'),
-                "nodes": nodes,
-                "edges": edges
+                "nodes": minimal_nodes,
+                "edges": minimal_edges
             }
         
         except Exception as e:
@@ -269,17 +284,24 @@ class UserInterfaceTools:
                 )
             
             nodes = result.get('nodes', [])
-            total = result.get('total', len(nodes))
             
-            # Compact text: node_ids only
+            # Minimal nodes: only essential fields
+            minimal_nodes = []
+            for n in nodes:
+                minimal_nodes.append({
+                    'node_id': n.get('node_id'),
+                    'label': n.get('label'),
+                    'type': n.get('node_type'),
+                    'verifications': n.get('verifications', [])
+                })
+            
             node_ids = [n.get('node_id', '?') for n in nodes]
             response_text = f"{len(nodes)} nodes: {' '.join(node_ids)}"
             
             return {
                 "content": [{"type": "text", "text": response_text}],
                 "isError": False,
-                "nodes": nodes,
-                "total": total
+                "nodes": minimal_nodes
             }
         
         except Exception as e:
@@ -323,15 +345,23 @@ class UserInterfaceTools:
             
             edges = result.get('edges', [])
             
-            # Compact text: source→target only
+            # Minimal edges: only essential fields
+            minimal_edges = []
+            for e in edges:
+                minimal_edges.append({
+                    'edge_id': e.get('edge_id'),
+                    'source': e.get('source_node_id'),
+                    'target': e.get('target_node_id'),
+                    'action_sets': e.get('action_sets', [])
+                })
+            
             edge_list = [f"{e.get('source_node_id')}→{e.get('target_node_id')}" for e in edges]
             response_text = f"{len(edges)} edges: {' '.join(edge_list)}"
             
             return {
                 "content": [{"type": "text", "text": response_text}],
                 "isError": False,
-                "edges": edges,
-                "total": len(edges)
+                "edges": minimal_edges
             }
         
         except Exception as e:

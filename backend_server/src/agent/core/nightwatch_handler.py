@@ -4,18 +4,179 @@ Nightwatch Handler - Incident/Alert Background Tasks
 Handles alerts from p1_alerts queue.
 Supports dry-run mode for monitoring without AI processing.
 In dry-run mode: logs only, NO Slack (avoids rate limits).
+
+AI PROCESSING FILTERS:
+1. DURATION FILTER (ALERT_MIN_DURATION_SECONDS = 30s):
+   - Only alerts lasting >= 30 seconds are processed with AI
+   - Short events are dropped and marked as checked_by='system'
+   - Prevents AI processing of transient/flickering issues
+
+2. RATE LIMIT FILTER (ALERT_RATE_LIMIT_SECONDS = 3600s):
+   - Max 1 AI analysis per device per hour
+   - Subsequent alerts within window are dropped and marked as checked_by='system'
+   - Prevents token usage explosion from repeated alerts on same device
+   - Rate limit tracked per host_name/device_id in Redis
+
+Both filters help control AI token costs while maintaining alert visibility in DB.
+Filters are configured as class constants and can be adjusted in this file.
 """
 
 import json
 import time
-from typing import Dict, Any
+import os
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional
 
 
 class NightwatchHandler:
     """Handler for Nightwatch (monitor) background tasks"""
     
+    # Alert processing filters
+    ALERT_MIN_DURATION_SECONDS = 30    # Only process alerts >= 30 seconds
+    ALERT_RATE_LIMIT_SECONDS = 3600    # Max 1 AI analysis per device per hour
+    
     def __init__(self, nickname: str = "Nightwatch"):
         self.nickname = nickname
+    
+    def should_process_with_ai(self, task_id: str, task_data: Dict[str, Any]) -> bool:
+        """
+        Check if alert should be processed with AI based on duration and rate limits.
+        
+        Returns:
+            True if should process with AI, False if should skip
+            
+        Side effects:
+            - Marks alert as checked_by='system' in DB if skipped
+            - Updates rate limit timestamp in Redis if checks pass
+        """
+        host_name = task_data.get('host_name', 'unknown')
+        device_id = task_data.get('device_id', 'unknown')
+        
+        # FILTER 1: Duration check - skip alerts under minimum duration
+        if task_data.get('start_time'):
+            try:
+                start_time_str = task_data.get('start_time', '')
+                start_dt = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+                now_dt = datetime.now(timezone.utc)
+                duration_seconds = (now_dt - start_dt).total_seconds()
+                
+                print(f"[{self.nickname}] ⏱️  Alert duration: {duration_seconds:.1f}s")
+                
+                if duration_seconds < self.ALERT_MIN_DURATION_SECONDS:
+                    print(f"[{self.nickname}] ⏭️  Skipping short event ({duration_seconds:.1f}s < {self.ALERT_MIN_DURATION_SECONDS}s)")
+                    print(f"[{self.nickname}] 📝 Marking as checked_by=system in DB")
+                    
+                    # Mark in DB as checked without comment
+                    from shared.src.lib.database.alerts_db import update_alert_checked_status
+                    update_alert_checked_status(task_id, checked=True, check_type='system')
+                    
+                    print(f"[{self.nickname}] ✅ Short event {task_id} dropped (no AI processing)")
+                    return False
+                else:
+                    print(f"[{self.nickname}] ✅ Alert duration sufficient ({duration_seconds:.1f}s >= {self.ALERT_MIN_DURATION_SECONDS}s)")
+                    
+            except Exception as duration_error:
+                print(f"[{self.nickname}] ⚠️  Failed to calculate duration: {duration_error}")
+                # Continue with processing if duration check fails
+        
+        # FILTER 2: Rate limit check - max 1 AI analysis per device per hour
+        try:
+            redis_config = self._setup_redis_rest_api()
+            if redis_config:
+                rate_limit_key = f"nightwatch:ratelimit:{host_name}:{device_id}"
+                
+                # Get last processing timestamp
+                result = self._redis_command(redis_config, ['GET', rate_limit_key])
+                
+                if result and result.get('result'):
+                    last_processed_ts = float(result['result'])
+                    current_ts = time.time()
+                    time_since_last = current_ts - last_processed_ts
+                    
+                    print(f"[{self.nickname}] 🕐 Last AI analysis for {host_name}/{device_id}: {time_since_last:.0f}s ago")
+                    
+                    # Skip if within rate limit window
+                    if time_since_last < self.ALERT_RATE_LIMIT_SECONDS:
+                        time_remaining = self.ALERT_RATE_LIMIT_SECONDS - time_since_last
+                        print(f"[{self.nickname}] 🚫 Rate limit hit for {host_name}/{device_id}")
+                        print(f"[{self.nickname}] ⏰ Next AI analysis allowed in {time_remaining/60:.1f} minutes")
+                        print(f"[{self.nickname}] 📝 Marking as checked_by=system in DB")
+                        
+                        # Mark in DB as checked
+                        from shared.src.lib.database.alerts_db import update_alert_checked_status
+                        update_alert_checked_status(task_id, checked=True, check_type='system')
+                        
+                        print(f"[{self.nickname}] ✅ Alert {task_id} dropped (rate limited, no AI processing)")
+                        return False
+                    else:
+                        print(f"[{self.nickname}] ✅ Rate limit OK for {host_name}/{device_id}")
+                else:
+                    print(f"[{self.nickname}] ✅ First AI analysis for {host_name}/{device_id}")
+                    
+        except Exception as rate_limit_error:
+            print(f"[{self.nickname}] ⚠️  Rate limit check failed: {rate_limit_error}")
+            # Continue with processing if rate limit check fails
+        
+        # All checks passed - proceed with AI processing
+        print(f"[{self.nickname}] ✅ All checks passed, proceeding with AI analysis")
+        return True
+    
+    def update_rate_limit(self, task_data: Dict[str, Any]):
+        """Update rate limit timestamp after successful AI processing"""
+        try:
+            host_name = task_data.get('host_name', 'unknown')
+            device_id = task_data.get('device_id', 'unknown')
+            rate_limit_key = f"nightwatch:ratelimit:{host_name}:{device_id}"
+            
+            redis_config = self._setup_redis_rest_api()
+            if redis_config:
+                current_ts = str(time.time())
+                # Set with TTL = rate_limit + 1 hour buffer
+                ttl_seconds = self.ALERT_RATE_LIMIT_SECONDS + 3600
+                self._redis_command(redis_config, ['SETEX', rate_limit_key, ttl_seconds, current_ts])
+                print(f"[{self.nickname}] ✅ Rate limit timestamp updated for {host_name}/{device_id}")
+        except Exception as e:
+            print(f"[{self.nickname}] ⚠️  Failed to update rate limit: {e}")
+    
+    def _setup_redis_rest_api(self):
+        """Setup Redis REST API client (uses Upstash REST API)"""
+        try:
+            redis_url = os.getenv('UPSTASH_REDIS_REST_URL', '')
+            redis_token = os.getenv('UPSTASH_REDIS_REST_TOKEN', '')
+            
+            if not redis_url or not redis_token:
+                return None
+            
+            return {
+                'url': redis_url,
+                'headers': {
+                    'Authorization': f'Bearer {redis_token}',
+                    'Content-Type': 'application/json'
+                }
+            }
+        except Exception as e:
+            print(f"[{self.nickname}] Failed to setup Redis REST API: {e}")
+            return None
+    
+    def _redis_command(self, redis_config: dict, command: list):
+        """Execute Redis command via REST API"""
+        try:
+            import requests
+            response = requests.post(
+                redis_config['url'],
+                headers=redis_config['headers'],
+                json=command,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"[{self.nickname}] Redis command failed: {e}")
+            return None
     
     def handle_dry_run_task(self, task_type: str, task_id: str, task_data: Dict[str, Any], queue_name: str):
         """Handle task in dry-run mode: print, emit Socket.IO, send to Slack, but no AI processing"""
