@@ -11,6 +11,30 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: team_id
+    value: 'team_123'
+    description: Team identifier
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: user_id
+    value: 'user_456'
+    description: User identifier
+  - key: campaign_id
+    value: 'campaign_001'
+    description: Campaign identifier
+  - key: campaign_name
+    value: 'Regression_Test_Campaign'
+    description: Campaign name
+  - key: host_name
+    value: 'backend_host_1'
+    description: Host name
+  - key: device_name
+    value: 'Samsung_S21_Device1'
+    description: Device name
+  - key: userinterface_name
+    value: 'horizon_android_mobile'
+    description: User interface name
 paths:
   /server/campaigns/getAllCampaigns:
     get:
@@ -48,21 +72,21 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
         - name: X-User-ID
           in: header
           required: false
           schema:
             type: string
           description: User identifier (optional)
-          example: "user_456"
+          example: "{{user_id}}"
       requestBody:
         required: true
         content:
@@ -104,11 +128,11 @@ paths:
                   type: object
                   description: Additional execution configuration (optional)
             example:
-              campaign_name: "Regression_Test_Campaign"
+              campaign_name: "{{campaign_name}}"
               campaign_description: "Regression test campaign"
-              userinterface_name: "horizon_android_mobile"
-              host_name: "backend_host_1"
-              device_name: "Samsung_S21_Device1"
+              userinterface_name: "{{userinterface_name}}"
+              host_name: "{{host_name}}"
+              device_name: "{{device_name}}"
               script_configurations:
                 - script_name: "validation.py"
                   parameters: "--mode full"
@@ -172,28 +196,28 @@ paths:
           schema:
             type: string
           description: Campaign identifier
-          example: "campaign_001"
+          example: "{{campaign_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
         - name: X-User-ID
           in: header
           required: false
           schema:
             type: string
           description: User identifier (optional)
-          example: "user_456"
+          example: "{{user_id}}"
       requestBody:
         required: true
         content:
@@ -204,7 +228,7 @@ paths:
                 campaign_name:
                   type: string
                   description: Campaign name
-                  example: "Updated_Campaign_Name"
+                  example: "{{campaign_name}}"
                 campaign_description:
                   type: string
                   description: Campaign description
@@ -212,15 +236,15 @@ paths:
                 userinterface_name:
                   type: string
                   description: User interface name
-                  example: "horizon_android_mobile"
+                  example: "{{userinterface_name}}"
                 host_name:
                   type: string
                   description: Host name where devices are located
-                  example: "backend_host_1"
+                  example: "{{host_name}}"
                 device_name:
                   type: string
                   description: Device name for execution
-                  example: "Samsung_S21_Device1"
+                  example: "{{device_name}}"
                 script_configurations:
                   type: array
                   description: Updated list of scripts to execute

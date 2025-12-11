@@ -11,6 +11,27 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: team_id
+    value: 'team_123'
+    description: Team identifier
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: deployment_id
+    value: 'deploy_001'
+    description: Deployment identifier
+  - key: host_name
+    value: 'backend_host_1'
+    description: Host name
+  - key: device_id
+    value: 'device_001'
+    description: Device identifier
+  - key: script_name
+    value: 'validation_test.py'
+    description: Script name
+  - key: userinterface_name
+    value: 'horizon_android_mobile'
+    description: User interface name
 paths:
   /server/deployment/create:
     post:
@@ -24,14 +45,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -80,10 +101,10 @@ paths:
                   description: Maximum number of executions (optional)
             example:
               name: "Daily Regression Test"
-              host_name: "backend_host_1"
-              device_id: "device_001"
-              script_name: "validation_test.py"
-              userinterface_name: "horizon_android_mobile"
+              host_name: "{{host_name}}"
+              device_id: "{{device_id}}"
+              script_name: "{{script_name}}"
+              userinterface_name: "{{userinterface_name}}"
               parameters: "--mode full"
               cron_expression: "0 2 * * *"
               start_date: "2024-01-01T00:00:00Z"
@@ -117,14 +138,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: List of deployments retrieved successfully
@@ -157,21 +178,21 @@ paths:
           schema:
             type: string
           description: Deployment identifier
-          example: "deploy_001"
+          example: "{{deployment_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: Deployment paused successfully
@@ -196,21 +217,21 @@ paths:
           schema:
             type: string
           description: Deployment identifier
-          example: "deploy_001"
+          example: "{{deployment_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: Deployment resumed successfully
@@ -235,21 +256,21 @@ paths:
           schema:
             type: string
           description: Deployment identifier
-          example: "deploy_001"
+          example: "{{deployment_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: Deployment deleted successfully

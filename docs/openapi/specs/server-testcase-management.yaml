@@ -11,6 +11,21 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: team_id
+    value: 'team_123'
+    description: Team identifier
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: testcase_name
+    value: 'Login_Flow_Test'
+    description: Testcase name
+  - key: userinterface_name
+    value: 'horizon_android_mobile'
+    description: User interface name
+  - key: user_id
+    value: 'user_456'
+    description: User identifier
 paths:
   /server/testcase/list:
     get:
@@ -52,14 +67,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -115,7 +130,7 @@ paths:
                   items:
                     type: object
             example:
-              testcase_name: "Login_Flow_Test"
+              testcase_name: "{{testcase_name}}"
               graph_json:
                 nodes:
                   - id: "node1"
@@ -127,11 +142,11 @@ paths:
                     target: "node2"
                     action: "click_login"
               description: "Validation testcase for login flow"
-              userinterface_name: "horizon_android_mobile"
+              userinterface_name: "{{userinterface_name}}"
               folder: "Regression Tests"
               tags: ["login", "regression"]
               overwrite: false
-              created_by: "user_456"
+              created_by: "{{user_id}}"
               creation_method: "visual"
       responses:
         '200':

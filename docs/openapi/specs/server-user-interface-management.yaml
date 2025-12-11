@@ -11,6 +11,18 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: team_id
+    value: 'team_123'
+    description: Team identifier
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: userinterface_id
+    value: 'ui_001'
+    description: User interface identifier
+  - key: userinterface_name
+    value: 'horizon_android_mobile'
+    description: User interface name
 paths:
   /server/userinterface/getAllUserInterfaces:
     get:
@@ -24,14 +36,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: List of user interfaces retrieved successfully
@@ -62,14 +74,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -95,7 +107,7 @@ paths:
                   type: object
                   description: Interface capabilities (optional)
             example:
-              name: "horizon_android_mobile"
+              name: "{{userinterface_name}}"
               models: ["Samsung S21", "Samsung S22"]
               description: "Android mobile interface for Samsung devices"
               capabilities:
@@ -129,21 +141,21 @@ paths:
           schema:
             type: string
           description: User interface identifier
-          example: "ui_001"
+          example: "{{userinterface_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: User interface details retrieved successfully
@@ -165,21 +177,21 @@ paths:
           schema:
             type: string
           description: User interface identifier
-          example: "ui_001"
+          example: "{{userinterface_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -234,21 +246,21 @@ paths:
           schema:
             type: string
           description: User interface identifier
-          example: "ui_001"
+          example: "{{userinterface_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: User interface deleted successfully

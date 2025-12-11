@@ -11,6 +11,21 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: team_id
+    value: 'team_123'
+    description: Team identifier
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: navigation_id
+    value: 'nav_tree_001'
+    description: Navigation tree identifier
+  - key: node_id
+    value: 'node_home'
+    description: Node identifier
+  - key: userinterface_name
+    value: 'horizon_android_mobile'
+    description: User interface name
 paths:
   /server/navigation/goto:
     post:
@@ -24,7 +39,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -38,7 +53,7 @@ paths:
                   type: string
                   description: Node ID to navigate to
             example:
-              target_node: "node_home"
+              target_node: "{{node_id}}"
       responses:
         '200':
           description: Navigation successful
@@ -69,21 +84,21 @@ paths:
           schema:
             type: string
           description: User interface name
-          example: "horizon_android_mobile"
+          example: "{{userinterface_name}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: false
         content:
@@ -140,21 +155,21 @@ paths:
           schema:
             type: string
           description: Navigation tree identifier
-          example: "nav_tree_001"
+          example: "{{navigation_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: Navigation tree details retrieved successfully
@@ -189,14 +204,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: List of navigation trees retrieved successfully
@@ -229,21 +244,21 @@ paths:
           schema:
             type: string
           description: Navigation tree identifier
-          example: "nav_tree_001"
+          example: "{{navigation_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: Tree deleted successfully

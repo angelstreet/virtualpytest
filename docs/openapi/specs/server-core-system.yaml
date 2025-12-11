@@ -13,6 +13,12 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: host_name
+    value: 'backend_host_1'
+    description: Host name
 paths:
   /server/system/health:
     get:
@@ -50,7 +56,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -76,8 +82,8 @@ paths:
                   type: object
                   description: System information (optional)
             example:
-              host_name: "backend_host_1"
-              host_url: "http://localhost:5109"
+              host_name: "{{host_name}}"
+              host_url: "{{server_url}}"
               devices:
                 - device_id: "device1"
                   model: "Samsung S21"
@@ -111,7 +117,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -140,7 +146,7 @@ paths:
                   additionalProperties:
                     type: object
             example:
-              host_name: "backend_host_1"
+              host_name: "{{host_name}}"
               system_stats:
                 cpu_percent: 45.5
                 memory_percent: 62.3

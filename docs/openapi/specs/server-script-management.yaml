@@ -11,6 +11,33 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: team_id
+    value: 'team_123'
+    description: Team identifier
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: host_name
+    value: 'backend_host_1'
+    description: Host name
+  - key: device_id
+    value: 'device_001'
+    description: Device identifier
+  - key: device_model
+    value: 'Samsung S21'
+    description: Device model
+  - key: script_name
+    value: 'validation_test.py'
+    description: Script name
+  - key: script_parameters
+    value: '--mode full --timeout 300'
+    description: Script parameters
+  - key: task_id
+    value: 'task_abc123'
+    description: Task identifier
+  - key: userinterface_name
+    value: 'horizon_android_mobile'
+    description: User interface name
 paths:
   /server/script/list:
     get:
@@ -24,14 +51,14 @@ paths:
           schema:
             type: string
           description: Team identifier for access control
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: List of available scripts
@@ -67,7 +94,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -80,15 +107,15 @@ paths:
                 script_name:
                   type: string
                   description: Name of the script file to analyze
-                  example: "validation_test.py"
+                  example: "{{script_name}}"
                 device_model:
                   type: string
                   description: Device model (optional)
-                  example: "Samsung S21"
+                  example: "{{device_model}}"
                 device_id:
                   type: string
                   description: Device identifier (optional)
-                  example: "device_001"
+                  example: "{{device_id}}"
       responses:
         '200':
           description: Analysis result with script parameters
@@ -119,7 +146,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -134,15 +161,15 @@ paths:
                 userinterface_name:
                   type: string
                   description: User interface name (e.g., 'horizon_android_mobile', 'horizon_tv')
-                  example: "horizon_android_mobile"
+                  example: "{{userinterface_name}}"
                 team_id:
                   type: string
                   description: Team identifier
-                  example: "team_123"
+                  example: "{{team_id}}"
                 host_name:
                   type: string
                   description: Name of the host where device is located
-                  example: "backend_host_1"
+                  example: "{{host_name}}"
       responses:
         '200':
           description: List of edge options
@@ -173,14 +200,14 @@ paths:
           schema:
             type: string
           description: Team identifier (optional)
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -205,10 +232,10 @@ paths:
                   type: string
                   description: Optional CLI parameters as string (e.g., '--param1 value1 --param2 value2')
             example:
-              host_name: "backend_host_1"
-              device_id: "device_001"
-              script_name: "validation_test.py"
-              parameters: "--mode full --timeout 300"
+              host_name: "{{host_name}}"
+              device_id: "{{device_id}}"
+              script_name: "{{script_name}}"
+              parameters: "{{script_parameters}}"
       responses:
         '202':
           description: Script execution started asynchronously
@@ -244,14 +271,14 @@ paths:
           schema:
             type: string
           description: Task ID returned from /script/execute endpoint
-          example: "task_abc123"
+          example: "{{task_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       responses:
         '200':
           description: Task status information
@@ -296,7 +323,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -309,7 +336,7 @@ paths:
                 task_id:
                   type: string
                   description: Task ID returned from /script/execute
-                  example: "task_abc123"
+                  example: "{{task_id}}"
                 result:
                   type: object
                   description: Execution result data (optional)

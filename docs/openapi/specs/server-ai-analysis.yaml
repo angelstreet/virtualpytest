@@ -11,6 +11,27 @@ x-postman-variables:
   - key: server_url
     value: 'http://localhost:5109'
     description: Backend server URL
+  - key: team_id
+    value: 'team_123'
+    description: Team identifier
+  - key: api_key
+    value: 'your_api_key_here'
+    description: API authentication key
+  - key: host_name
+    value: 'backend_host_1'
+    description: Host name
+  - key: device_id
+    value: 'device_001'
+    description: Device identifier
+  - key: userinterface_name
+    value: 'horizon_android_mobile'
+    description: User interface name
+  - key: task_id
+    value: 'task_abc123'
+    description: Task identifier
+  - key: ai_prompt
+    value: 'Navigate to settings and verify WiFi option'
+    description: AI prompt text
 paths:
   /server/ai/analyzeCompatibility:
     post:
@@ -24,14 +45,14 @@ paths:
           schema:
             type: string
           description: Team identifier (optional)
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -55,10 +76,10 @@ paths:
                   type: string
                   description: User interface name (optional)
             example:
-              prompt: "Navigate to settings and verify WiFi option"
-              host_name: "backend_host_1"
-              device_id: "device1"
-              userinterface_name: "horizon_android_mobile"
+              prompt: "{{ai_prompt}}"
+              host_name: "{{host_name}}"
+              device_id: "{{device_id}}"
+              userinterface_name: "{{userinterface_name}}"
       responses:
         '200':
           description: Compatibility analysis result
@@ -87,14 +108,14 @@ paths:
           schema:
             type: string
           description: Team identifier (optional)
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -108,11 +129,11 @@ paths:
                 prompt:
                   type: string
                   description: AI task prompt
-                  example: "Navigate to settings and verify WiFi option"
+                  example: "{{ai_prompt}}"
                 host_name:
                   type: string
                   description: Host name where AI task will run
-                  example: "backend_host_1"
+                  example: "{{host_name}}"
                 device_id:
                   type: string
                   description: Device identifier (optional)
@@ -120,7 +141,7 @@ paths:
                 userinterface_name:
                   type: string
                   description: User interface name (optional)
-                  example: "horizon_android_mobile"
+                  example: "{{userinterface_name}}"
       responses:
         '200':
           description: Generated execution plan
@@ -151,14 +172,14 @@ paths:
           schema:
             type: string
           description: Team identifier (optional)
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -172,11 +193,11 @@ paths:
                 task_id:
                   type: string
                   description: AI task identifier
-                  example: "task_abc123"
+                  example: "{{task_id}}"
                 host_name:
                   type: string
                   description: Host name where AI task is running
-                  example: "backend_host_1"
+                  example: "{{host_name}}"
                 device_id:
                   type: string
                   description: Device identifier (optional)
@@ -210,14 +231,14 @@ paths:
           schema:
             type: string
           description: Team identifier (optional)
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -231,11 +252,11 @@ paths:
                 task_id:
                   type: string
                   description: AI task identifier to stop
-                  example: "task_abc123"
+                  example: "{{task_id}}"
                 host_name:
                   type: string
                   description: Host name where AI task is running
-                  example: "backend_host_1"
+                  example: "{{host_name}}"
                 device_id:
                   type: string
                   description: Device identifier (optional)
@@ -266,14 +287,14 @@ paths:
           schema:
             type: string
           description: Team identifier (optional)
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -287,11 +308,11 @@ paths:
                 prompt:
                   type: string
                   description: AI prompt to analyze
-                  example: "Navigate to settings and verify WiFi option"
+                  example: "{{ai_prompt}}"
                 host_name:
                   type: string
                   description: Host name for analysis context
-                  example: "backend_host_1"
+                  example: "{{host_name}}"
                 device_id:
                   type: string
                   description: Device identifier (optional)
@@ -299,7 +320,7 @@ paths:
                 userinterface_name:
                   type: string
                   description: User interface name (optional)
-                  example: "horizon_android_mobile"
+                  example: "{{userinterface_name}}"
       responses:
         '200':
           description: Prompt analysis with disambiguation suggestions
@@ -332,14 +353,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "team_123"
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer your_api_key_here
+          example: Bearer {{api_key}}
       requestBody:
         required: true
         content:
@@ -352,7 +373,7 @@ paths:
                 host_name:
                   type: string
                   description: Host name for cache invalidation
-                  example: "backend_host_1"
+                  example: "{{host_name}}"
       responses:
         '200':
           description: Cache cleared successfully
