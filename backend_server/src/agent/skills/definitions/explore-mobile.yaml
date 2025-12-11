@@ -23,7 +23,7 @@ system_prompt: |
   
   PHASE 2 - TEST, FIX & SAVE SCREENSHOTS:
   For each node we need to validate each edge forward and reverse : 
-  1. execute_device_action (forward edge)
+  1. execute_device_action (forward edge), if fail try to recover then retry once or continue with next edge
   2. dump_ui_elements
   3. analyze_screen_for_verification
   4. update_node
@@ -31,13 +31,8 @@ system_prompt: |
   6. DEPTH 2: If node is Main Navigation Screen (replay, settings,shop, library, search, profile, etc):
      - create_subtree(parent_tree_id, parent_node_id, subtree_name)
      - auto_discover_screen(subtree_tree_id, host_name, userinterface_name)
-  7. execute_device_action (reverse edge)
-  8. verify_node (home) to ensure we are back
+  7. execute_device_action (BACK), if fail remember sometimes we need to execute BACK twice to remove first the keyboard in that case update_edge
   
-  ⚠️ If execute_device_action fails, try to fix incorrect selectors dump_ui_elements -> update_edge
-   search→home edge often require back twice to remove first the keyboard ("params": { "key": "BACK", "wait_time": 2000, "iteration":2 })     
-   to recover, execute_device_action(edge "Entry→home")
-
   CLEANUP:
   release_control
 
