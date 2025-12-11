@@ -99,19 +99,23 @@ This runs the embedded verifications in a node, useful for:
 Args:
     node_id: Node identifier (REQUIRED)
     tree_id: Navigation tree ID (REQUIRED)
-    device_id: Device identifier (optional - defaults to 'device1')
-    host_name: Host name (optional - defaults to 'use get_compatible_hosts to discover')
     userinterface_name: User interface name (REQUIRED)
+    host_name: Host name where device is connected (REQUIRED - use get_compatible_hosts to discover)
+    device_id: Device identifier (optional - defaults to 'device1')
     team_id: Team ID (optional - defaults to default)
 
 Returns:
     Verification results with pass/fail status
 
 Example:
+    # First get compatible host for the interface
+    hosts = get_compatible_hosts(userinterface_name='netflix_mobile')
+    
     verify_node({
         "node_id": "home",
         "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
-        "userinterface_name": "netflix_mobile"
+        "userinterface_name": "netflix_mobile",
+        "host_name": hosts['recommended_host']
     })""",
             "inputSchema": {
                 "type": "object",
@@ -119,11 +123,11 @@ Example:
                     "node_id": {"type": "string", "description": "Node identifier"},
                     "tree_id": {"type": "string", "description": "Navigation tree ID"},
                     "userinterface_name": {"type": "string", "description": "User interface name"},
+                    "host_name": {"type": "string", "description": "Host name where device is connected (use get_compatible_hosts to discover)"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'use get_compatible_hosts to discover')"},
                     "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                 },
-                "required": ["node_id", "tree_id", "userinterface_name"]
+                "required": ["node_id", "tree_id", "userinterface_name", "host_name"]
             }
         }
     ]

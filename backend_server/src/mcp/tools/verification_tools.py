@@ -255,9 +255,13 @@ class VerificationTools:
             node_id = params['node_id']
             tree_id = params['tree_id']
             userinterface_name = params['userinterface_name']
-            device_id = params.get('device_id')
             host_name = params.get('host_name')
+            device_id = params.get('device_id')
             team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+            
+            # Validate required parameters
+            if not host_name:
+                return {"content": [{"type": "text", "text": "Error: host_name is required. Use get_compatible_hosts(userinterface_name='...') to discover the correct host."}], "isError": True}
             
             print(f"[@MCP:verify_node] Verifying node {node_id} in tree {tree_id}")
             
