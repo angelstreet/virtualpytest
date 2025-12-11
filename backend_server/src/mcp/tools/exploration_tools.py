@@ -47,9 +47,29 @@ class ExplorationTools:
             nodes = response.get('nodes', [])
             edges = response.get('edges', [])
             
-            result_text = f"✅ Auto-Discovery Complete\n\n"
-            result_text += f"Nodes ({len(nodes)}): {', '.join(nodes)}\n"
-            result_text += f"Edges ({len(edges)}): {', '.join(edges)}\n"
+            # Format output
+            result_text = f"✅ Exploration Complete!\n\n"
+            result_text += f"🗺️ Navigation Tree Structure:\n"
+            result_text += f"  • {len(nodes)} nodes\n"
+            result_text += f"  • {len(edges)} edges\n\n"
+            
+            # List nodes
+            result_text += f"📱 Nodes:\n"
+            for idx, node in enumerate(nodes, 1):
+                result_text += f"  {idx}. {node}\n"
+            
+            # List edges (parse edge IDs to show connections)
+            if edges:
+                result_text += f"\n🔗 Edges:\n"
+                for idx, edge in enumerate(edges, 1):
+                    # Parse edge ID like "edge_home_search" to "home ↔ search"
+                    edge_clean = edge.replace('edge_', '').replace('_temp', '')
+                    parts = edge_clean.split('_', 1)
+                    if len(parts) == 2:
+                        connection = f"{parts[0]} ↔ {parts[1]}"
+                    else:
+                        connection = edge_clean
+                    result_text += f"  {idx}. {connection}\n"
             
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
