@@ -507,13 +507,21 @@ export const useAgentChat = () => {
     
     // Create conversation for this task WITH initial message
     const emoji = isDryRun ? '🌙' : '🔍';
+    
+    // Ensure event has type 'message' so AgentChat.tsx renders the content
+    // (AgentChat only renders events with type 'message' or 'result')
+    const renderableEvent: AgentEvent = {
+      ...event,
+      type: 'message', // Override to ensure rendering
+    };
+    
     const initialMessage = {
       id: `${Date.now()}-${Math.random()}`,
       role: 'agent' as const,
       content: event.content || `${taskType} received`,
       agent: agentNickname,
       timestamp: new Date().toISOString(),
-      events: [event],
+      events: [renderableEvent],
     };
     
     const newConvo: Conversation = {
@@ -529,7 +537,8 @@ export const useAgentChat = () => {
       title: newConvo.title,
       messageContent: initialMessage.content,
       eventContent: event.content,
-      eventType: event.type,
+      originalEventType: event.type,
+      convertedEventType: renderableEvent.type,
       taskData: event.task_data,
       taskId,
       isDryRun
@@ -643,13 +652,19 @@ export const useAgentChat = () => {
     }
     
     // Add event to conversation (for subsequent events only - initial event added with conversation)
+    // Convert event to renderable type (AgentChat only renders 'message' or 'result' events)
+    const subsequentRenderableEvent: AgentEvent = {
+      ...event,
+      type: event.type === 'session_ended' ? 'session_ended' : 'message',
+    };
+    
     setConversations(prev => prev.map(c => {
       if (c.id !== conversationId) return c;
       
       const lastMsg = c.messages[c.messages.length - 1];
       
-      // Skip if event already exists in last message (prevents duplicate on initial event)
-      if (lastMsg?.events?.some(e => e.task_id === event.task_id && e.type === event.type)) {
+      // Skip if event already exists in last message (check by task_id and timestamp to handle type conversion)
+      if (lastMsg?.events?.some(e => e.task_id === event.task_id && e.timestamp === event.timestamp)) {
         console.log(`[Background:${agentNickname}] Skipping duplicate event:`, event.type, event.task_id);
         return c;
       }
@@ -662,8 +677,8 @@ export const useAgentChat = () => {
             ...c.messages.slice(0, -1),
             {
               ...lastMsg,
-              content: event.type === 'message' ? event.content : lastMsg.content,
-              events: [...(lastMsg.events || []), event]
+              content: event.content || lastMsg.content,
+              events: [...(lastMsg.events || []), subsequentRenderableEvent]
             }
           ],
           updatedAt: new Date().toISOString(),
@@ -680,7 +695,7 @@ export const useAgentChat = () => {
               content: event.content || `${event.type} event`,
               agent: agentNickname,
               timestamp: new Date().toISOString(),
-              events: [event],
+              events: [subsequentRenderableEvent],
             }
           ],
           updatedAt: new Date().toISOString(),
