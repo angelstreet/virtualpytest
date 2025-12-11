@@ -1,4 +1,49 @@
-# RESULT ANALYSIS SYSTEM v3.0
+# AI AGENTS SYSTEM v3.0
+
+## 🎯 OVERVIEW
+
+Two specialized AI agents monitor and analyze your QA infrastructure:
+
+| Agent | Purpose | Queue | Slack Channel |
+|-------|---------|-------|---------------|
+| **Sherlock** (Analyzer) | Analyze script results, classify failures | `p2_scripts` | `#sherlock` |
+| **Nightwatch** (Monitor) | Monitor device health, analyze alerts | `p1_alerts` | `#nightwatch` |
+
+---
+
+## 🏗️ SHARED ARCHITECTURE
+
+### Agent Handler Pattern
+
+**Clean Separation of Concerns:**
+- **Manager** (`manager.py`): Generic background task orchestration for all agents
+- **Handlers** (e.g., `nightwatch_handler.py`, `sherlock_handler.py`): Agent-specific logic
+
+```python
+# Manager delegates to handler
+if hasattr(handler, 'should_process_with_ai'):
+    if not handler.should_process_with_ai(task_id, task_data):
+        return  # Handler decided to skip
+
+# Handler owns filtering logic
+class NightwatchHandler:
+    ALERT_MIN_DURATION_SECONDS = 30
+    ALERT_RATE_LIMIT_SECONDS = 3600
+    
+    def should_process_with_ai(self, task_id, task_data) -> bool:
+        # Duration check, rate limit check, etc.
+        pass
+```
+
+**Benefits:**
+- ✅ Generic manager works for all agents
+- ✅ Agent-specific logic isolated in handlers
+- ✅ Easy to add new agents
+- ✅ Clear ownership of filtering/processing rules
+
+---
+
+## 🔍 SHERLOCK - RESULT ANALYZER
 
 ## 🎯 CORE OBJECTIVE
 Analyze script/testcase execution results in real-time to detect false positives, classify failures, and determine result reliability. Provides visibility through AgentChat UI and Slack notifications.
