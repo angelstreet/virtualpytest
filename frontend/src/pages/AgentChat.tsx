@@ -549,11 +549,14 @@ useEffect(() => {
             }}>
               {event.tool_name}
             </Typography>
-            <Tooltip title="Copy tool name and result">
+            <Tooltip title="Copy tool name, input, and result">
               <IconButton
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation();
+                  const inputText = event.tool_params 
+                    ? JSON.stringify(event.tool_params, null, 2) 
+                    : 'No input parameters';
                   const resultText = hasError && errorMessage
                     ? errorMessage
                     : event.tool_result === undefined || event.tool_result === null
@@ -561,7 +564,7 @@ useEffect(() => {
                       : typeof event.tool_result === 'string'
                         ? event.tool_result
                         : JSON.stringify(event.tool_result, null, 2);
-                  const fullText = `Tool: ${event.tool_name}\n\nResult:\n${resultText}`;
+                  const fullText = `Tool: ${event.tool_name}\n\nInput:\n${inputText}\n\nResult:\n${resultText}`;
                   navigator.clipboard.writeText(fullText);
                 }}
                 sx={{
