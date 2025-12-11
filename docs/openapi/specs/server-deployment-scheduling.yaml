@@ -5,6 +5,12 @@ info:
   description: Deployment management and scheduling
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/deployment/create:
     post:
@@ -18,14 +24,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -43,45 +49,46 @@ paths:
                 name:
                   type: string
                   description: Deployment name
-                  example: "Daily Regression Test"
                 host_name:
                   type: string
                   description: Host name where deployment will run
-                  example: "{{host_name}}"
                 device_id:
                   type: string
                   description: Device identifier
-                  example: "{{device_id}}"
                 script_name:
                   type: string
                   description: Script to execute
-                  example: "{{script_name}}"
                 userinterface_name:
                   type: string
                   description: User interface name
-                  example: "{{userinterface_name}}"
                 parameters:
                   type: string
                   description: Script parameters (optional)
-                  example: "--mode full"
                 cron_expression:
                   type: string
                   description: Cron schedule expression (e.g., '0 2 * * *' for 2 AM daily)
-                  example: "0 2 * * *"
                 start_date:
                   type: string
                   format: date-time
                   description: Start date for deployment (optional)
-                  example: "2024-01-01T00:00:00Z"
                 end_date:
                   type: string
                   format: date-time
                   description: End date for deployment (optional)
-                  example: "2024-12-31T23:59:59Z"
                 max_executions:
                   type: integer
                   description: Maximum number of executions (optional)
-                  example: 100
+            example:
+              name: "Daily Regression Test"
+              host_name: "backend_host_1"
+              device_id: "device_001"
+              script_name: "validation_test.py"
+              userinterface_name: "horizon_android_mobile"
+              parameters: "--mode full"
+              cron_expression: "0 2 * * *"
+              start_date: "2024-01-01T00:00:00Z"
+              end_date: "2024-12-31T23:59:59Z"
+              max_executions: 100
       responses:
         '200':
           description: Deployment created successfully
@@ -110,14 +117,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: List of deployments retrieved successfully
@@ -150,21 +157,21 @@ paths:
           schema:
             type: string
           description: Deployment identifier
-          example: "{{deployment_id}}"
+          example: "deploy_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Deployment paused successfully
@@ -189,21 +196,21 @@ paths:
           schema:
             type: string
           description: Deployment identifier
-          example: "{{deployment_id}}"
+          example: "deploy_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Deployment resumed successfully
@@ -228,21 +235,21 @@ paths:
           schema:
             type: string
           description: Deployment identifier
-          example: "{{deployment_id}}"
+          example: "deploy_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Deployment deleted successfully

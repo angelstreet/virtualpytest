@@ -5,6 +5,12 @@ info:
   description: Performance metrics and navigation analytics
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/metrics/tree/{navigation_id}:
     get:
@@ -18,14 +24,14 @@ paths:
           schema:
             type: string
           description: Navigation tree identifier
-          example: "{{navigation_id}}"
+          example: "nav_tree_001"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Tree metrics retrieved successfully
@@ -58,21 +64,21 @@ paths:
           schema:
             type: string
           description: Navigation tree identifier
-          example: "{{navigation_id}}"
+          example: "nav_tree_001"
         - name: node_id
           in: query
           required: true
           schema:
             type: string
           description: Node identifier
-          example: "{{node_id}}"
+          example: "node_home"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Node metrics retrieved successfully
@@ -103,21 +109,21 @@ paths:
           schema:
             type: string
           description: Navigation tree identifier
-          example: "{{navigation_id}}"
+          example: "nav_tree_001"
         - name: edge_id
           in: query
           required: true
           schema:
             type: string
           description: Edge identifier
-          example: "{{edge_id}}"
+          example: "edge_login_action"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Edge metrics retrieved successfully
@@ -148,21 +154,21 @@ paths:
           schema:
             type: string
           description: Navigation tree identifier
-          example: "{{navigation_id}}"
+          example: "nav_tree_001"
         - name: edge_id
           in: query
           required: true
           schema:
             type: string
           description: Edge identifier
-          example: "{{edge_id}}"
+          example: "edge_login_action"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Action history retrieved successfully
@@ -194,21 +200,21 @@ paths:
           schema:
             type: string
           description: Navigation tree identifier
-          example: "{{navigation_id}}"
+          example: "nav_tree_001"
         - name: node_id
           in: query
           required: true
           schema:
             type: string
           description: Node identifier
-          example: "{{node_id}}"
+          example: "node_home"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Verification history retrieved successfully

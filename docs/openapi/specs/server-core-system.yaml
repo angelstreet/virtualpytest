@@ -7,6 +7,12 @@ info:
     and service monitoring.
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/system/health:
     get:
@@ -44,7 +50,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -58,11 +64,9 @@ paths:
                 host_name:
                   type: string
                   description: Unique host name identifier
-                  example: "{{host_name}}"
                 host_url:
                   type: string
                   description: Host URL endpoint
-                  example: "http://{{host_name}}:5001"
                 devices:
                   type: array
                   description: List of devices on this host (optional)
@@ -71,6 +75,15 @@ paths:
                 system_info:
                   type: object
                   description: System information (optional)
+            example:
+              host_name: "backend_host_1"
+              host_url: "http://localhost:5109"
+              devices:
+                - device_id: "device1"
+                  model: "Samsung S21"
+              system_info:
+                os: "Linux"
+                version: "5.10"
       responses:
         '200':
           description: Host registered successfully
@@ -98,7 +111,7 @@ paths:
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -111,7 +124,6 @@ paths:
                 host_name:
                   type: string
                   description: Host name identifier
-                  example: "{{host_name}}"
                 system_stats:
                   type: object
                   description: System-level statistics (CPU, memory, disk, etc.)
@@ -127,6 +139,16 @@ paths:
                   description: Per-device metrics (device_id as key)
                   additionalProperties:
                     type: object
+            example:
+              host_name: "backend_host_1"
+              system_stats:
+                cpu_percent: 45.5
+                memory_percent: 62.3
+                disk_percent: 78.1
+              per_device_metrics:
+                device1:
+                  status: "active"
+                  uptime: 3600
       responses:
         '200':
           description: Ping received successfully

@@ -5,6 +5,12 @@ info:
   description: UI definition management
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/userinterface/getAllUserInterfaces:
     get:
@@ -18,14 +24,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: List of user interfaces retrieved successfully
@@ -56,14 +62,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -77,21 +83,24 @@ paths:
                 name:
                   type: string
                   description: User interface name (must be unique)
-                  example: "{{userinterface_name}}"
                 models:
                   type: array
                   description: List of compatible device models (at least one required)
                   items:
                     type: string
-                  example: ["Samsung S21", "Samsung S22"]
                 description:
                   type: string
                   description: User interface description (optional)
-                  example: "Android mobile interface for Samsung devices"
                 capabilities:
                   type: object
                   description: Interface capabilities (optional)
-                  example: {"touch": true, "voice": false}
+            example:
+              name: "horizon_android_mobile"
+              models: ["Samsung S21", "Samsung S22"]
+              description: "Android mobile interface for Samsung devices"
+              capabilities:
+                touch: true
+                voice: false
       responses:
         '201':
           description: User interface created successfully
@@ -120,21 +129,21 @@ paths:
           schema:
             type: string
           description: User interface identifier
-          example: "{{userinterface_id}}"
+          example: "ui_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: User interface details retrieved successfully
@@ -156,21 +165,21 @@ paths:
           schema:
             type: string
           description: User interface identifier
-          example: "{{userinterface_id}}"
+          example: "ui_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -225,21 +234,21 @@ paths:
           schema:
             type: string
           description: User interface identifier
-          example: "{{userinterface_id}}"
+          example: "ui_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: User interface deleted successfully

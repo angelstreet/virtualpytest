@@ -5,6 +5,12 @@ info:
   description: Device CRUD operations
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/devices/getAllDevices:
     get:
@@ -21,7 +27,7 @@ paths:
           required: true
           schema:
             type: string
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: List of devices
@@ -43,14 +49,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -64,19 +70,22 @@ paths:
                 name:
                   type: string
                   description: Device name
-                  example: "{{device_name}}"
                 description:
                   type: string
                   description: Device description (optional)
-                  example: "Test device for QA"
                 model:
                   type: string
                   description: Device model name
-                  example: "{{device_model}}"
                 controller_configs:
                   type: object
                   description: Controller configuration JSON (optional)
-                  example: {"av": "av_controller_1", "power": "power_controller_1"}
+            example:
+              name: "Samsung_S21_Device1"
+              description: "Test device for QA"
+              model: "Samsung S21"
+              controller_configs:
+                av: "av_controller_1"
+                power: "power_controller_1"
       responses:
         '201':
           description: Device created successfully
@@ -105,28 +114,28 @@ paths:
           schema:
             type: string
           description: Device identifier
-          example: "{{device_id}}"
+          example: "device_001"
         - name: host_name
           in: query
           required: false
           schema:
             type: string
           description: Host name where device is located (optional)
-          example: "{{host_name}}"
+          example: "backend_host_1"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Device details retrieved successfully
@@ -167,21 +176,21 @@ paths:
           schema:
             type: string
           description: Device identifier
-          example: "{{device_id}}"
+          example: "device_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -192,7 +201,7 @@ paths:
                 name:
                   type: string
                   description: Device name
-                  example: "{{device_name}}"
+                  example: "Samsung_S21_Device1"
                 description:
                   type: string
                   description: Device description
@@ -200,7 +209,7 @@ paths:
                 model:
                   type: string
                   description: Device model name
-                  example: "{{device_model}}"
+                  example: "Samsung S21"
                 controller_configs:
                   type: object
                   description: Controller configuration JSON

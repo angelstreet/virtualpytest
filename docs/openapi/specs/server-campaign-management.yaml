@@ -5,6 +5,12 @@ info:
   description: Campaign CRUD operations
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/campaigns/getAllCampaigns:
     get:
@@ -42,21 +48,21 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
         - name: X-User-ID
           in: header
           required: false
           schema:
             type: string
           description: User identifier (optional)
-          example: "{{user_id}}"
+          example: "user_456"
       requestBody:
         required: true
         content:
@@ -72,23 +78,18 @@ paths:
                 campaign_name:
                   type: string
                   description: Campaign name
-                  example: "{{campaign_name}}"
                 campaign_description:
                   type: string
                   description: Campaign description (optional)
-                  example: "Regression test campaign"
                 userinterface_name:
                   type: string
                   description: User interface name (optional)
-                  example: "{{userinterface_name}}"
                 host_name:
                   type: string
                   description: Host name where devices are located
-                  example: "{{host_name}}"
                 device_name:
                   type: string
                   description: Device name for execution
-                  example: "{{device_name}}"
                 script_configurations:
                   type: array
                   description: List of scripts to execute in the campaign
@@ -99,11 +100,23 @@ paths:
                         type: string
                       parameters:
                         type: string
-                  example: [{"script_name": "validation.py", "parameters": "--mode full"}]
                 execution_config:
                   type: object
                   description: Additional execution configuration (optional)
-                  example: {"timeout": 3600, "retry": true}
+            example:
+              campaign_name: "Regression_Test_Campaign"
+              campaign_description: "Regression test campaign"
+              userinterface_name: "horizon_android_mobile"
+              host_name: "backend_host_1"
+              device_name: "Samsung_S21_Device1"
+              script_configurations:
+                - script_name: "validation.py"
+                  parameters: "--mode full"
+                - script_name: "performance.py"
+                  parameters: "--duration 300"
+              execution_config:
+                timeout: 3600
+                retry: true
       responses:
         '200':
           description: Campaign created successfully
@@ -159,28 +172,28 @@ paths:
           schema:
             type: string
           description: Campaign identifier
-          example: "{{campaign_id}}"
+          example: "campaign_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
         - name: X-User-ID
           in: header
           required: false
           schema:
             type: string
           description: User identifier (optional)
-          example: "{{user_id}}"
+          example: "user_456"
       requestBody:
         required: true
         content:
@@ -191,7 +204,7 @@ paths:
                 campaign_name:
                   type: string
                   description: Campaign name
-                  example: "{{campaign_name}}"
+                  example: "Updated_Campaign_Name"
                 campaign_description:
                   type: string
                   description: Campaign description
@@ -199,15 +212,15 @@ paths:
                 userinterface_name:
                   type: string
                   description: User interface name
-                  example: "{{userinterface_name}}"
+                  example: "horizon_android_mobile"
                 host_name:
                   type: string
                   description: Host name where devices are located
-                  example: "{{host_name}}"
+                  example: "backend_host_1"
                 device_name:
                   type: string
                   description: Device name for execution
-                  example: "{{device_name}}"
+                  example: "Samsung_S21_Device1"
                 script_configurations:
                   type: array
                   description: Updated list of scripts to execute

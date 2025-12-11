@@ -1045,9 +1045,10 @@ export const useAgentChat = () => {
   const sendMessage = useCallback(() => {
     if (!input.trim() || isProcessing) return;
 
-    // Create new conversation if none exists
+    // Create new conversation if none exists OR if active conversation is a background/system one
+    // Background conversations (bg_*) are read-only system views - user messages should go to regular chats
     let targetConvoId = activeConversationId;
-    if (!targetConvoId) {
+    if (!targetConvoId || targetConvoId.startsWith('bg_')) {
       const newConvo: Conversation = {
         id: generateId(),
         title: 'New Chat',

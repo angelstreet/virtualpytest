@@ -5,6 +5,12 @@ info:
   description: Test case CRUD operations
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/testcase/list:
     get:
@@ -46,14 +52,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -67,50 +73,39 @@ paths:
                 testcase_id:
                   type: string
                   description: Testcase ID (required for updates, omit for new testcase)
-                  example: "{{testcase_id}}"
                 testcase_name:
                   type: string
                   description: Testcase name
-                  example: "{{testcase_name}}"
                 graph_json:
                   type: object
                   description: Graph JSON defining the testcase workflow (nodes and edges)
-                  example: {"nodes": [], "edges": []}
                 description:
                   type: string
                   description: Testcase description (optional)
-                  example: "Validation testcase for login flow"
                 userinterface_name:
                   type: string
                   description: User interface name (optional)
-                  example: "{{userinterface_name}}"
                 folder:
                   type: string
                   description: Folder name to organize testcase (optional)
-                  example: "Regression Tests"
                 tags:
                   type: array
                   description: List of tag names (optional)
                   items:
                     type: string
-                  example: ["login", "regression"]
                 overwrite:
                   type: boolean
                   description: Allow overwriting existing testcase with same name (optional, default false)
-                  example: false
                 created_by:
                   type: string
                   description: User ID of creator (optional)
-                  example: "{{user_id}}"
                 creation_method:
                   type: string
                   description: Creation method (optional, default 'visual')
                   enum: [visual, ai, import]
-                  example: "visual"
                 ai_prompt:
                   type: string
                   description: AI prompt used if created with AI (optional)
-                  example: "Create a login validation test"
                 ai_analysis:
                   type: object
                   description: AI analysis result if created with AI (optional)
@@ -119,6 +114,25 @@ paths:
                   description: Available nodes from AI generation (optional)
                   items:
                     type: object
+            example:
+              testcase_name: "Login_Flow_Test"
+              graph_json:
+                nodes:
+                  - id: "node1"
+                    label: "Home"
+                  - id: "node2"
+                    label: "Login"
+                edges:
+                  - source: "node1"
+                    target: "node2"
+                    action: "click_login"
+              description: "Validation testcase for login flow"
+              userinterface_name: "horizon_android_mobile"
+              folder: "Regression Tests"
+              tags: ["login", "regression"]
+              overwrite: false
+              created_by: "user_456"
+              creation_method: "visual"
       responses:
         '200':
           description: Testcase created or updated successfully

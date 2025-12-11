@@ -5,6 +5,12 @@ info:
   description: Requirements tracking and coverage
 servers:
   - url: '{{server_url}}'
+    description: Development Server
+    variables: {}
+x-postman-variables:
+  - key: server_url
+    value: 'http://localhost:5109'
+    description: Backend server URL
 paths:
   /server/requirements/create:
     post:
@@ -18,14 +24,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -39,49 +45,50 @@ paths:
                 requirement_code:
                   type: string
                   description: Unique requirement code (e.g., REQ-001)
-                  example: "REQ-001"
                 requirement_name:
                   type: string
                   description: Requirement name
-                  example: "User Login Functionality"
                 category:
                   type: string
                   description: Requirement category (optional)
-                  example: "Authentication"
                 priority:
                   type: string
                   description: Priority level (default P2)
                   enum: [P0, P1, P2, P3, P4]
-                  example: "P1"
                 description:
                   type: string
                   description: Detailed description (optional)
-                  example: "Users must be able to log in with username and password"
                 acceptance_criteria:
                   type: string
                   description: Acceptance criteria (optional)
-                  example: "Login succeeds with valid credentials"
                 app_type:
                   type: string
                   description: Application type (default 'all')
-                  example: "mobile"
                 device_model:
                   type: string
                   description: Device model (default 'all')
-                  example: "Samsung S21"
                 status:
                   type: string
                   description: Status (default 'active')
                   enum: [active, inactive, deprecated]
-                  example: "active"
                 source_document:
                   type: string
                   description: Source document reference (optional)
-                  example: "PRD-2024-001"
                 created_by:
                   type: string
                   description: Creator user ID (optional)
-                  example: "{{user_id}}"
+            example:
+              requirement_code: "REQ-001"
+              requirement_name: "User Login Functionality"
+              category: "Authentication"
+              priority: "P1"
+              description: "Users must be able to log in with username and password"
+              acceptance_criteria: "Login succeeds with valid credentials"
+              app_type: "mobile"
+              device_model: "Samsung S21"
+              status: "active"
+              source_document: "PRD-2024-001"
+              created_by: "user_456"
       responses:
         '200':
           description: Requirement created successfully
@@ -112,14 +119,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: List of requirements retrieved successfully
@@ -141,21 +148,21 @@ paths:
           schema:
             type: string
           description: Requirement identifier
-          example: "{{requirement_id}}"
+          example: "req_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Requirement details retrieved successfully
@@ -176,21 +183,21 @@ paths:
           schema:
             type: string
           description: Requirement identifier
-          example: "{{requirement_id}}"
+          example: "req_001"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -237,14 +244,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       requestBody:
         required: true
         content:
@@ -258,11 +265,11 @@ paths:
                 requirement_id:
                   type: string
                   description: Requirement identifier
-                  example: "{{requirement_id}}"
+                  example: "req_001"
                 testcase_id:
                   type: string
                   description: Testcase identifier
-                  example: "{{testcase_id}}"
+                  example: "tc_001"
       responses:
         '200':
           description: Testcase linked successfully
@@ -287,14 +294,14 @@ paths:
           schema:
             type: string
           description: Team identifier
-          example: "{{team_id}}"
+          example: "team_123"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
           description: Bearer token for authentication
-          example: Bearer {{api_key}}
+          example: Bearer your_api_key_here
       responses:
         '200':
           description: Coverage summary retrieved successfully
