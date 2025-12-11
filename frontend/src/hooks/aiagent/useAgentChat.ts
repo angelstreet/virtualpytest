@@ -666,8 +666,6 @@ export const useAgentChat = () => {
     backgroundSessionsRef.current.set(agentId, { conversationId, taskId, title });
     
     // Create conversation for this task WITH initial message
-    const emoji = isDryRun ? '🌙' : '🔍';
-    
     // Ensure event has type 'message' so AgentChat.tsx renders the content
     // (AgentChat only renders events with type 'message' or 'result')
     const renderableEvent: AgentEvent = {
@@ -686,7 +684,7 @@ export const useAgentChat = () => {
     
     const newConvo: Conversation = {
       id: conversationId,
-      title: subtitle ? `${emoji} ${title} - ${subtitle}` : `${emoji} ${title}`,
+      title: subtitle ? `${title} - ${subtitle}` : title,
       messages: [initialMessage], // Start with initial message
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

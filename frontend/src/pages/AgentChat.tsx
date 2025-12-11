@@ -870,12 +870,7 @@ useEffect(() => {
                         }}
                         noWrap
                       >
-                        {(() => {
-                          // Combine title and subtitle
-                          const titlePart = task.subtitle ? `${task.title}-${task.subtitle}` : task.title;
-                          // Remove asterisks, quotes, and extra whitespace
-                          return titlePart.replace(/[*'"]/g, '').trim();
-                        })()}
+                        {task.subtitle ? `${task.title}-${task.subtitle}` : task.title}
                       </Typography>
                     </Box>
                   </Box>
