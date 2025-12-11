@@ -476,8 +476,25 @@ export const useAgentChat = () => {
     // For non-dry-run agents (like Sherlock): only create task for MESSAGE events with real content
     // Skip intermediate events (thinking, skill_loaded, tool_call) to avoid creating multiple entries
     if (!isDryRun) {
-      // Skip thinking/skill events entirely - don't create tasks for these
+      // Skip thinking/skill events - but extract script name if present
       if (event.type === 'thinking' || event.type === 'skill_loaded') {
+        // Try to extract script name from thinking content (contains "SCRIPT: goto")
+        const scriptFromThinking = event.content?.match(/SCRIPT:\s*([^\n]+)/i)?.[1]?.trim();
+        const taskIdFromThinking = event.content?.match(/SCRIPT_RESULT_ID:\s*([a-f0-9-]+)/i)?.[1];
+        
+        if (scriptFromThinking || taskIdFromThinking) {
+          console.log(`[Background:${agentNickname}] Found script info in ${event.type}: script=${scriptFromThinking}, id=${taskIdFromThinking}`);
+          // Store for later use when MESSAGE arrives
+          const existingInfo = backgroundSessionsRef.current.get(`${agentId}_pending_info`) as any || {};
+          backgroundSessionsRef.current.set(`${agentId}_pending_info`, { 
+            ...existingInfo,
+            conversationId: '', 
+            taskId: taskIdFromThinking || existingInfo.taskId || '', 
+            title: scriptFromThinking || existingInfo.title || '',
+            scriptName: scriptFromThinking || existingInfo.scriptName,
+            taskType: 'script'
+          } as any);
+        }
         console.log(`[Background:${agentNickname}] Skipping ${event.type} event - no task creation`);
         return true; // Handled but skipped
       }
@@ -507,13 +524,25 @@ export const useAgentChat = () => {
         }
         // If we have a task ID from update_execution_analysis, store it for the upcoming MESSAGE event
         if (realTaskId && event.type === 'tool_call' && event.tool_name === 'update_execution_analysis') {
-          console.log(`[Background:${agentNickname}] Storing pending task ID: ${realTaskId}`);
+          // Also try to extract script name from tool params or content
+          const scriptName = (event.tool_params?.script_name as string) || 
+            event.content?.match(/script[:\s]+["']?([^"'\n,]+)/i)?.[1]?.trim();
+          
+          console.log(`[Background:${agentNickname}] Storing pending task ID: ${realTaskId}, scriptName: ${scriptName}`);
           // Store pending task ID - will be used when MESSAGE arrives
           backgroundSessionsRef.current.set(`${agentId}_pending`, { 
             conversationId: '', 
             taskId: realTaskId, 
             title: '' 
           });
+          // Store additional info for title extraction
+          backgroundSessionsRef.current.set(`${agentId}_pending_info`, { 
+            conversationId: '', 
+            taskId: realTaskId, 
+            title: scriptName || '',
+            scriptName: scriptName,
+            taskType: 'script'
+          } as any);
         }
         console.log(`[Background:${agentNickname}] Skipping ${event.type} - waiting for MESSAGE event`);
         return true; // Don't create task from tool events
@@ -548,23 +577,26 @@ export const useAgentChat = () => {
         return true; // Don't create a new task for session_ended
       }
       
-      // For message events without real task ID, pending task, or existing session, skip
+      // For message events without real task ID, pending task/info, or existing session, skip
       const pendingCheck = backgroundSessionsRef.current.get(`${agentId}_pending`);
-      if (!realTaskId && !existingSession && !pendingCheck && event.type === 'message') {
-        console.log(`[Background:${agentNickname}] Skipping message - no task ID, pending task, or session`);
+      const pendingInfoCheck = backgroundSessionsRef.current.get(`${agentId}_pending_info`);
+      if (!realTaskId && !existingSession && !pendingCheck && !pendingInfoCheck && event.type === 'message') {
+        console.log(`[Background:${agentNickname}] Skipping message - no task ID, pending task/info, or session`);
         return true;
       }
     }
     
-    // Check for pending task ID (stored from tool_call with update_execution_analysis)
+    // Check for pending task ID (stored from tool_call or thinking events)
     const pendingSession = backgroundSessionsRef.current.get(`${agentId}_pending`);
+    const pendingInfo = backgroundSessionsRef.current.get(`${agentId}_pending_info`) as any;
     
     // Use real task ID, pending task ID, existing session's task ID, or generate temp (only for dry-run)
-    const taskId = realTaskId || pendingSession?.taskId || existingSession?.taskId || (isDryRun ? `temp_${Date.now()}` : null);
+    const taskId = realTaskId || pendingSession?.taskId || pendingInfo?.taskId || existingSession?.taskId || (isDryRun ? `temp_${Date.now()}` : null);
     
-    // Clear pending task ID once used
+    // Clear pending task ID and info once used
     if (pendingSession && event.type === 'message') {
       backgroundSessionsRef.current.delete(`${agentId}_pending`);
+      backgroundSessionsRef.current.delete(`${agentId}_pending_info`);
     }
     
     // If still no task ID and not dry-run, skip
@@ -573,17 +605,38 @@ export const useAgentChat = () => {
       return true;
     }
     
-    const taskType: string = event.task_type || (taskData.type as string) || 'task';
+    // Check if there's stored script info from the tool_call
+    const storedPendingInfo = backgroundSessionsRef.current.get(`${agentId}_pending_info`);
+    
+    const taskType: string = event.task_type || (taskData.type as string) || storedPendingInfo?.taskType || 'script';
     
     // Build title and subtitle based on task type
-    // Try task_data first, then parse from event.content
-    let title = 'Task';
+    // Try stored info first, then task_data, then parse from event.content
+    let title = 'Script';
     let subtitle: string | undefined;
     let severity: string | undefined;
     let classification: string | undefined;
     
-    if (taskType === 'script' || event.content?.includes('SCRIPT:')) {
-      title = event.content?.match(/SCRIPT:\s*([^\n]+)/)?.[1]?.trim() || (taskData.script_name as string) || 'Script';
+    // Extract script name from various formats:
+    // - Stored from tool_call: storedPendingInfo.scriptName
+    // - Plain text: "SCRIPT: goto"
+    // - Markdown: "**Script:** `goto`" or "**Script:** goto"
+    // - Markdown with newlines: "**Script:**\n`goto`"
+    const scriptNameFromContent = 
+      event.content?.match(/SCRIPT:\s*([^\n]+)/i)?.[1]?.trim() ||
+      event.content?.match(/\*\*Script:\*\*\s*`([^`]+)`/i)?.[1]?.trim() ||
+      event.content?.match(/\*\*Script:\*\*\s*(\S+)/i)?.[1]?.trim();
+    
+    // Detect if this is a script analysis (Sherlock always analyzes scripts)
+    const isScriptAnalysis = taskType === 'script' || 
+      event.content?.includes('Analysis Complete') ||
+      event.content?.includes('Script:') || 
+      event.content?.includes('SCRIPT:') ||
+      agentId === 'analyzer'; // Sherlock/Analyzer always does script analysis
+    
+    if (isScriptAnalysis) {
+      title = (storedPendingInfo as any)?.scriptName || scriptNameFromContent || (taskData.script_name as string) || 'Script';
+      console.log(`[Background:${agentNickname}] Extracted script name: "${title}" from storedInfo: ${(storedPendingInfo as any)?.scriptName}, content: ${scriptNameFromContent}`);
     } else if (taskType === 'alert' || taskType === 'incident') {
       // For alerts: title = "host_name - device_name", subtitle = incident_type
       const hostName = (taskData.host_name as string) || event.content?.match(/HOST:\s*([^\n(]+)/)?.[1]?.trim();
