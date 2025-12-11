@@ -439,7 +439,13 @@ export const useAgentChat = () => {
   // Handles events from any agent with background_queues config
   
   // Track active background sessions per agent
-  const backgroundSessionsRef = useRef<Map<string, { conversationId: string; taskId: string; title: string }>>(new Map());
+  const backgroundSessionsRef = useRef<Map<string, { 
+    conversationId: string; 
+    taskId: string; 
+    title: string;
+    scriptName?: string;
+    taskType?: string;
+  }>>(new Map());
   
   const handleBackgroundEvent = useCallback((event: AgentEvent): boolean => {
     // Check if this event is from a background agent
