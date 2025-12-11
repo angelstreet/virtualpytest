@@ -220,9 +220,9 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
         const defaultId = defaultAgent?.id || selectableAgents[0]?.id || 'assistant';
         setSelectedAgentId(defaultId);
         
-        // Identify background agents (those with background_queues config)
+        // Identify background agents (those with background_queues config AND enabled)
         const bgAgents: BackgroundAgentInfo[] = data.agents
-          .filter((a: any) => a.config?.background_queues?.length > 0)
+          .filter((a: any) => a.config?.background_queues?.length > 0 && a.config?.enabled !== false)
           .map((a: any) => ({
             id: a.metadata?.id || a.id,
             nickname: a.metadata?.nickname || a.nickname || a.name,
