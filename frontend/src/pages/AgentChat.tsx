@@ -69,6 +69,7 @@ import { APP_CONFIG } from '../config/constants';
 import { AGENT_CHAT_PALETTE as PALETTE, AGENT_CHAT_LAYOUT, AGENT_COLORS } from '../constants/agentChatTheme';
 import { getInitials, mergeToolEvents, groupConversationsByTime } from '../utils/agentChatUtils';
 import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 const { 
   sidebarWidth: SIDEBAR_WIDTH, 
@@ -271,6 +272,19 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   
   // Feedback state - tracks ratings per message ID (shared concept with badge)
   const [messageFeedback, setMessageFeedback] = useState<Record<string, number>>({});
+  
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
   
   // Submit feedback for a message
   const submitMessageFeedback = async (messageId: string, rating: number, agentId: string, prompt?: string) => {
@@ -784,9 +798,15 @@ useEffect(() => {
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`Clear all ${agent.nickname} alert history?`)) {
-                    clearBackgroundHistory(agent.id);
-                  }
+                  setConfirmDialog({
+                    open: true,
+                    title: 'Clear History',
+                    message: `Clear all ${agent.nickname} alert history?`,
+                    onConfirm: () => {
+                      clearBackgroundHistory(agent.id);
+                      setConfirmDialog(prev => ({ ...prev, open: false }));
+                    },
+                  });
                 }}
                 sx={{
                   p: 0.25,
@@ -2230,6 +2250,18 @@ useEffect(() => {
         {/* Right Panel */}
         {renderRightPanel()}
       </Box>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText="OK"
+        cancelText="Cancel"
+        confirmColor="error"
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 };
