@@ -118,7 +118,16 @@ export const useAgentChat = () => {
       console.log(`[useAgentChat] Conversation found:`, activeConversation ? 'YES' : 'NO');
       console.log(`[useAgentChat] Messages count:`, messages.length);
       if (messages.length > 0) {
-        console.log(`[useAgentChat] Messages:`, messages.map(m => `${m.role}: ${m.content?.slice(0, 50)}...`));
+        console.log(`[useAgentChat] Messages summary:`, messages.map(m => `${m.role}: ${m.content?.slice(0, 50)}...`));
+        console.log(`[useAgentChat] Full message details:`, messages.map(m => ({
+          id: m.id,
+          role: m.role,
+          agent: m.agent,
+          contentLength: m.content?.length || 0,
+          fullContent: m.content,
+          eventsCount: m.events?.length || 0,
+          events: m.events
+        })));
       }
     }
   }, [activeConversationId, activeConversation, messages]);
@@ -515,6 +524,17 @@ export const useAgentChat = () => {
       updatedAt: new Date().toISOString(),
     };
     
+    console.log(`[Background:${agentNickname}] Creating conversation:`, {
+      conversationId,
+      title: newConvo.title,
+      messageContent: initialMessage.content,
+      eventContent: event.content,
+      eventType: event.type,
+      taskData: event.task_data,
+      taskId,
+      isDryRun
+    });
+    
     setConversations(prev => {
       const exists = prev.find(c => c.id === conversationId);
       if (exists) {
@@ -522,7 +542,6 @@ export const useAgentChat = () => {
         return prev;
       }
       console.log(`[Background:${agentNickname}] Created conversation with message:`, conversationId);
-      console.log(`[Background:${agentNickname}] New conversation details:`, JSON.stringify(newConvo, null, 2));
       return [newConvo, ...prev];
     });
     
@@ -631,10 +650,12 @@ export const useAgentChat = () => {
       
       // Skip if event already exists in last message (prevents duplicate on initial event)
       if (lastMsg?.events?.some(e => e.task_id === event.task_id && e.type === event.type)) {
+        console.log(`[Background:${agentNickname}] Skipping duplicate event:`, event.type, event.task_id);
         return c;
       }
       
       if (lastMsg && lastMsg.role === 'agent' && event.type !== 'session_ended') {
+        console.log(`[Background:${agentNickname}] Appending event to last message:`, event.type);
         return {
           ...c,
           messages: [
@@ -648,6 +669,7 @@ export const useAgentChat = () => {
           updatedAt: new Date().toISOString(),
         };
       } else if (event.type !== 'session_ended') {
+        console.log(`[Background:${agentNickname}] Creating new message for event:`, event.type);
         return {
           ...c,
           messages: [
