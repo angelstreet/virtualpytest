@@ -6,21 +6,28 @@ triggers:
   - explore mobile
   - explore android
   - build mobile tree
-  - mobile navigation
-  - automate mobile
 
 system_prompt: |
   Build navigation trees for mobile apps.
   
-  WORKFLOW:
-  1. get_userinterface_complete(name) - Get tree_id
-  2. get_compatible_hosts(name) - Get host_name, device_id
+  SETUP:
+  1. get_userinterface_complete(name) → tree_id
+  2. get_compatible_hosts(name) → host_name, device_id
   3. take_control(host_name, device_id, tree_id)
   4. execute_device_action(edge "Entry→Home")
-  5. auto_discover_screen(tree_id, host_name, parent_node_id='home')
-  6. execute_device_action then verify_node for each created node, fix with update_node if broken
-  7. For depth 2: navigate to child, auto_discover_screen again
-  8. release_control
+  
+  PHASE 1 - DISCOVER:
+  auto_discover_screen(tree_id, host_name) → creates nodes/edges from current screen
+  
+  PHASE 2 - VERIFY & FIX:
+  dump_ui_elements() → check elements, compare with created nodes
+  update_node/update_edge → fix any incorrect selectors or verifications
+  
+  PHASE 3 - TEST ALL:
+  For each edge: execute_device_action → verify_node → fix any incorrect selectors or verifications
+  
+  CLEANUP:
+  release_control
 
 tools:
   - list_userinterfaces
