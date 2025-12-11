@@ -417,6 +417,9 @@ useEffect(() => {
     lastToolEventCount.current = completedToolCount;
   }, [messages.length, currentEvents]);
   
+  // Track the last URL we synced to (to avoid creating duplicate history entries)
+  const lastSyncedConversationRef = useRef<string | null>(null);
+
   // Sync active conversation ID to URL for back/forward navigation
   useEffect(() => {
     if (!initialConversationRestored) return; // Don't update URL until we've restored
@@ -428,17 +431,25 @@ useEffect(() => {
       if (currentConvoParam !== activeConversationId) {
         const newParams = new URLSearchParams(searchParams);
         newParams.set('conversation', activeConversationId);
-        setSearchParams(newParams, { replace: true });
+        
+        // Use replace for initial sync or if we just restored from URL
+        // Use push (false) for user-initiated switches to enable back/forward
+        const shouldReplace = lastSyncedConversationRef.current === null || 
+                              currentConvoParam === activeConversationId;
+        
+        setSearchParams(newParams, { replace: shouldReplace });
+        lastSyncedConversationRef.current = activeConversationId;
       }
     } else if (currentConvoParam && !activeConversationId) {
       // Clear conversation param if no active conversation
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('conversation');
       setSearchParams(newParams, { replace: true });
+      lastSyncedConversationRef.current = null;
     }
   }, [activeConversationId, searchParams, setSearchParams, initialConversationRestored]);
 
-  // Restore conversation from URL on mount/navigation (before processing prompts)
+  // Restore conversation from URL on mount (before processing prompts)
   useEffect(() => {
     if (initialConversationRestored) return;
     
@@ -450,6 +461,7 @@ useEffect(() => {
       if (convoExists) {
         console.log('[AgentChat] Restoring conversation from URL:', conversationParam);
         switchConversation(conversationParam);
+        lastSyncedConversationRef.current = conversationParam;
       }
     }
     
@@ -458,6 +470,28 @@ useEffect(() => {
       setInitialConversationRestored(true);
     }
   }, [searchParams, conversations, switchConversation, status, initialConversationRestored]);
+
+  // Handle back/forward navigation - restore conversation from URL when it changes
+  useEffect(() => {
+    if (!initialConversationRestored) return; // Wait for initial restore
+    
+    const conversationParam = searchParams.get('conversation');
+    
+    // If URL conversation differs from active, and it's not because we just synced
+    if (conversationParam && conversationParam !== activeConversationId) {
+      // Check if the conversation exists
+      const convoExists = conversations.find(c => c.id === conversationParam);
+      if (convoExists) {
+        console.log('[AgentChat] Back/forward navigation - restoring conversation:', conversationParam);
+        switchConversation(conversationParam);
+        lastSyncedConversationRef.current = conversationParam;
+      }
+    } else if (!conversationParam && activeConversationId && !activeConversationId.startsWith('bg_')) {
+      // URL has no conversation param but we have an active one - user navigated back to before first conversation
+      // In this case, we keep the current conversation (don't clear it)
+      // This prevents losing conversation when navigating back to initial page state
+    }
+  }, [searchParams, conversations, activeConversationId, switchConversation, initialConversationRestored]);
 
   // Handle URL params from command bar (prompt & agent)
   useEffect(() => {
