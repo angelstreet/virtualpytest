@@ -31,10 +31,13 @@ system_prompt: |
   NAVIGATION: Use execute_device_action + verify_node (NOT navigate_to_node)
   SELECTOR PRIORITY: resource-id > content-desc > text > xpath
   
+  WAIT TIME: params.wait_time (ms) - default 2000ms if not specified
+  
   IMPORTANT:
-  - Use list_nodes/list_edges before creating
-  - Use analyze_screen_for_action for selectors (don't guess!)
-  - Use update_node/update_edge to fix broken items
+  - Use list_nodes/list_edges to see what already exists before creating
+  - Use analyze_screen_for_action to get reliable selectors (don't guess!)
+  - Use update_node/update_edge to fix broken edges instead of recreating
+  - Use verify_node to test verifications before moving on
 
 tools:
   - list_userinterfaces

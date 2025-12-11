@@ -41,61 +41,37 @@ Example:
 
 REQUIRED: device_id, host_name (from get_compatible_hosts()), actions array.
 
-MOBILE: click_element(element_id="Text"), press_key, swipe_up/down/left/right, launch_app, input_text
-WEB: click_element_by_id(element_id="selector"), click_element(text), input_text, press_key""",
+MOBILE: click_element(element_id="Text", "wait_time": 2000), press_key, swipe_up/down/left/right, launch_app, input_text
+WEB: click_element_by_id(element_id="selector", "wait_time": 2000), click_element(text), input_text, press_key
+
+params.wait_time (ms): wait after action. Default 2000ms if not specified.""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "device_id": {"type": "string", "description": "Device identifier (REQUIRED) - Get from get_compatible_hosts() or list_devices()"},
-                    "host_name": {"type": "string", "description": "Host name where device is connected (REQUIRED) - Get from get_compatible_hosts()"},
-                    "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                    "device_id": {"type": "string", "description": "Device identifier (REQUIRED)"},
+                    "host_name": {"type": "string", "description": "Host name (REQUIRED)"},
+                    "team_id": {"type": "string", "description": "Team ID (optional)"},
                     "actions": {
                         "type": "array",
-                        "description": "Array of action objects. Each action must have a 'command' field. Use list_actions() to discover available commands and their required parameters.",
+                        "description": "Action objects with command and params. Include wait_time in params (default 2000ms).",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "command": {
-                                    "type": "string",
-                                    "description": "Action command to execute (e.g., 'launch_app', 'click_element', 'swipe', 'type_text', 'press_key'). Call list_actions() first to see all available commands."
-                                },
-                                "params": {
-                                    "type": "object",
-                                    "description": "Parameters for the command. Structure varies by command - use list_actions() to see required params."
-                                },
-                                "delay": {
-                                    "type": "number",
-                                    "description": "Optional delay in seconds after executing this action"
-                                }
+                                "command": {"type": "string", "description": "Action command"},
+                                "params": {"type": "object", "description": "Command params. Include wait_time (ms), default 2000"}
                             },
                             "required": ["command"]
                         }
                     },
                     "retry_actions": {
                         "type": "array",
-                        "description": "Actions to retry on failure",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "command": {"type": "string"},
-                                "params": {"type": "object"},
-                                "delay": {"type": "number"}
-                            },
-                            "required": ["command"]
-                        }
+                        "description": "Retry actions on failure",
+                        "items": {"type": "object", "properties": {"command": {"type": "string"}, "params": {"type": "object"}}, "required": ["command"]}
                     },
                     "failure_actions": {
                         "type": "array",
-                        "description": "Actions to execute on failure",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "command": {"type": "string"},
-                                "params": {"type": "object"},
-                                "delay": {"type": "number"}
-                            },
-                            "required": ["command"]
-                        }
+                        "description": "Actions on failure",
+                        "items": {"type": "object", "properties": {"command": {"type": "string"}, "params": {"type": "object"}}, "required": ["command"]}
                     }
                 },
                 "required": ["device_id", "host_name", "actions"]
