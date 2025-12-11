@@ -699,38 +699,16 @@ useEffect(() => {
     const totalActive = allTasks.length;
     const isExpanded = backgroundExpanded[agent.id] || false;
     
-    // Get status/severity icon based on task properties
+    // Get status icon - simplified to tick or cross
     const getTaskIcon = (task: BackgroundTask & { isInProgress?: boolean }) => {
       if (task.isInProgress) return null; // Will show pulsing dot
       
-      // If task has severity (alerts/incidents)
-      if (task.severity) {
-        switch (task.severity.toLowerCase()) {
-          case 'critical': return '🔴';
-          case 'high': return '🟠';
-          case 'normal': return '🟡';
-          case 'low': return '🟢';
-          default: return '⚪';
-        }
-      }
+      // Check for failure indicators
+      const isFailed = task.classification && [
+        'VALID_FAIL', 'BUG', 'SCRIPT_ISSUE', 'SYSTEM_ISSUE'
+      ].includes(task.classification);
       
-      // If task has classification (analysis)
-      if (task.classification) {
-        switch (task.classification) {
-          case 'VALID_PASS':
-          case 'COMPLETED':
-            return '✓';
-          case 'VALID_FAIL':
-          case 'BUG':
-          case 'SCRIPT_ISSUE':
-          case 'SYSTEM_ISSUE':
-            return '✗';
-          default: 
-            return '✓';
-        }
-      }
-      
-      return '•';
+      return isFailed ? '✗' : '✓';
     };
     
     return (
@@ -867,11 +845,20 @@ useEffect(() => {
                         },
                       }} />
                     ) : (
-                      <Box sx={{ fontSize: 10, minWidth: 10, textAlign: 'center', flexShrink: 0 }}>{icon}</Box>
+                      <Box sx={{ 
+                        fontSize: 12, 
+                        minWidth: 12, 
+                        textAlign: 'center', 
+                        flexShrink: 0,
+                        fontWeight: 600,
+                        color: icon === '✗' ? '#ef4444' : '#22c55e'
+                      }}>
+                        {icon}
+                      </Box>
                     )}
                     
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      {/* Single compact line: host-device - HH:MM DD/MM */}
+                      {/* Simplified: just script name */}
                       <Typography 
                         variant="caption" 
                         sx={{ 
@@ -884,11 +871,10 @@ useEffect(() => {
                         noWrap
                       >
                         {(() => {
-                          const d = new Date(task.startedAt);
-                          const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-                          const date = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                          // Combine title and subtitle
                           const titlePart = task.subtitle ? `${task.title}-${task.subtitle}` : task.title;
-                          return `${titlePart} - ${time} ${date}`;
+                          // Remove asterisks, quotes, and extra whitespace
+                          return titlePart.replace(/[*'"]/g, '').trim();
                         })()}
                       </Typography>
                     </Box>
