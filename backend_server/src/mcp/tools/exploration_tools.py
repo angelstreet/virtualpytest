@@ -18,18 +18,20 @@ class ExplorationTools:
         """Auto-discover elements and create nodes/edges"""
         tree_id = params.get('tree_id')
         host_name = params.get('host_name')
+        userinterface_name = params.get('userinterface_name')
         device_id = params.get('device_id', 'device1')
         parent_node_id = params.get('parent_node_id', 'home')
         team_id = params.get('team_id', DEFAULT_TEAM_ID)
         
-        if not all([tree_id, host_name]):
-            return self.formatter.format_error("tree_id and host_name are required")
+        if not all([tree_id, host_name, userinterface_name]):
+            return self.formatter.format_error("tree_id, host_name and userinterface_name are required")
         
         try:
             response = self.api_client.post(
                 '/server/ai-generation/auto-discover-screen',
                 data={
                     'tree_id': tree_id,
+                    'userinterface_name': userinterface_name,
                     'device_id': device_id,
                     'parent_node_id': parent_node_id
                 },

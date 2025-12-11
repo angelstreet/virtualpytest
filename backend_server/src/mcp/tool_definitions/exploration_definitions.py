@@ -8,8 +8,8 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "auto_discover_screen",
-            "description": """Auto-discover UI elements on current screen and create nodes/edges.
-Analyzes screen dump, filters interactive elements, creates nodes with verifications and edges from parent.""",
+            "description": """Auto-discover UI elements and create nodes/edges.
+Calls start_exploration() + continue_exploration() with all elements selected.""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -21,6 +21,10 @@ Analyzes screen dump, filters interactive elements, creates nodes with verificat
                         "type": "string",
                         "description": "Host name"
                     },
+                    "userinterface_name": {
+                        "type": "string",
+                        "description": "User interface name"
+                    },
                     "device_id": {
                         "type": "string",
                         "description": "Device ID (default: device1)"
@@ -28,13 +32,9 @@ Analyzes screen dump, filters interactive elements, creates nodes with verificat
                     "parent_node_id": {
                         "type": "string",
                         "description": "Parent node for edges (default: home)"
-                    },
-                    "team_id": {
-                        "type": "string",
-                        "description": "Team ID (optional)"
                     }
                 },
-                "required": ["tree_id", "host_name"]
+                "required": ["tree_id", "host_name", "userinterface_name"]
             }
         }
     ]

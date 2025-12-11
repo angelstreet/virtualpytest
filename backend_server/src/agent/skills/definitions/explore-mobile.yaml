@@ -18,14 +18,15 @@ system_prompt: |
   5. execute_device_action(edge "Entry→Home")
   
   PHASE 1 - DISCOVER:
-  auto_discover_screen(tree_id, host_name) → creates nodes/edges from current screen
+  auto_discover_screen(tree_id, host_name, userinterface_name) will automatically creates nodes/edges
   
   PHASE 2 - VERIFY & FIX:
-  dump_ui_elements() → check elements, compare with created nodes
-  update_node/update_edge → fix any incorrect selectors or verifications
+  dump_ui_elements() → check elements, compare with created nodes and edges
+  update_node/update_edge → if required, fix any incorrect selectors or verifications
   
-  PHASE 3 - TEST ALL:
+  PHASE 3 - TEST ALL & SAVE SCREENSHOTS:
   For each edge: execute_device_action → verify_node → fix any incorrect selectors or verifications
+  save_node_screenshot(node_id) - Save screenshot of node
   
   CLEANUP:
   release_control

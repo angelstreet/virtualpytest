@@ -691,93 +691,44 @@ class ExplorationExecutor:
         """
         return phase2_execute_next(self)
     
-    def auto_discover_screen(self, tree_id: str, team_id: str, parent_node_id: str = 'home') -> Dict[str, Any]:
+    def auto_discover_screen(self, tree_id: str, team_id: str, userinterface_name: str, parent_node_id: str = 'home') -> Dict[str, Any]:
         """
-        Auto-discover UI elements on current screen and create nodes/edges.
-        Uses screen_analyzer.anticipate_tree() - NO AI tokens.
-        
-        Args:
-            tree_id: Navigation tree ID
-            team_id: Team ID
-            parent_node_id: Parent node for edges (default: 'home')
-        
-        Returns:
-            {success, nodes_created, edges_created, elements_found}
+        Auto-discover UI elements and create nodes/edges.
+        Uses SAME code as frontend: start_exploration() + continue_exploration()
         """
-        from backend_host.src.services.ai_exploration.screen_analyzer import ScreenAnalyzer
-        from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
-        
         print(f"[@ExplorationExecutor:auto_discover_screen] tree_id={tree_id}, parent={parent_node_id}")
         
-        # Get controller based on device model
-        device_model = self.device_model.lower() if self.device_model else ''
-        if 'host' in device_model or 'web' in device_model:
-            controller = self.device._get_controller('web')
-        else:
-            controller = self.device._get_controller('remote')
+        # Step 1: start_exploration() - discovers elements (same as frontend)
+        start_result = self.start_exploration(
+            tree_id=tree_id,
+            root_tree_id=tree_id,
+            userinterface_name=userinterface_name,
+            team_id=team_id,
+            start_node=parent_node_id
+        )
         
-        if not controller:
-            return {'success': False, 'error': 'No controller available'}
+        if not start_result.get('success'):
+            return {'success': False, 'error': start_result.get('error', 'start_exploration failed')}
         
-        # Discover elements
-        screen_analyzer = ScreenAnalyzer(device=self.device, controller=controller)
-        prediction = screen_analyzer.anticipate_tree()
-        elements_found = prediction.get('items', [])
-        
+        elements_found = start_result.get('exploration_plan', {}).get('items', [])
         print(f"[@ExplorationExecutor:auto_discover_screen] Found {len(elements_found)} elements")
         
         if not elements_found:
-            return {'success': True, 'nodes_created': [], 'edges_created': [], 'elements_found': []}
+            return {'success': True, 'nodes_created': 0, 'edges_created': 0, 'elements_found': []}
         
-        # Create nodes and edges
-        node_generator = NodeGenerator(tree_id, team_id)
-        nodes_created = []
-        edges_created = []
+        # Step 2: continue_exploration() - creates nodes/edges (same as frontend)
+        continue_result = self.continue_exploration(
+            team_id=team_id,
+            selected_items=elements_found,
+            selected_screen_items=elements_found
+        )
         
-        for element_name in elements_found:
-            node_id = node_generator.target_to_node_name(element_name)
-            
-            if node_id == parent_node_id or node_id in ['home', 'entry_node', 'entry-node']:
-                continue
-            
-            # Create node
-            node_data = {
-                'node_id': node_id,
-                'label': node_id,
-                'data': {
-                    'verifications': [{
-                        'command': 'waitForElementToAppear',
-                        'verification_type': 'adb' if 'mobile' in device_model else 'web',
-                        'params': {'text': element_name}
-                    }]
-                },
-                'position': {'x': 300, 'y': 200 + len(nodes_created) * 150}
-            }
-            
-            if save_node(tree_id, node_data, team_id).get('success'):
-                nodes_created.append(node_id)
-            
-            # Create edge
-            edge_id = f"edge-{parent_node_id}-to-{node_id}"
-            action = {'command': 'click_element', 'params': {'text': element_name}}
-            
-            edge_data = {
-                'edge_id': edge_id,
-                'source_node_id': parent_node_id,
-                'target_node_id': node_id,
-                'label': f"{parent_node_id} → {node_id}",
-                'data': {'actions': [action]}
-            }
-            
-            if save_edge(tree_id, edge_data, team_id).get('success'):
-                edges_created.append(edge_id)
-        
-        print(f"[@ExplorationExecutor:auto_discover_screen] Created {len(nodes_created)} nodes, {len(edges_created)} edges")
+        if not continue_result.get('success'):
+            return {'success': False, 'error': continue_result.get('error', 'continue_exploration failed')}
         
         return {
             'success': True,
-            'nodes_created': nodes_created,
-            'edges_created': edges_created,
-            'elements_found': elements_found,
-            'parent_node_id': parent_node_id
+            'nodes_created': continue_result.get('nodes_created', 0),
+            'edges_created': continue_result.get('edges_created', 0),
+            'elements_found': elements_found
         }

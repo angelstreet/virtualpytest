@@ -721,22 +721,23 @@ def cancel_exploration():
 
 @host_ai_exploration_bp.route('/auto-discover-screen', methods=['POST'])
 def auto_discover_screen():
-    """Auto-discover elements and create nodes/edges - delegates to exploration_executor"""
+    """Auto-discover elements and create nodes/edges"""
     try:
         data = request.get_json() or {}
         team_id = request.args.get('team_id')
         tree_id = data.get('tree_id')
         device_id = data.get('device_id', 'device1')
+        userinterface_name = data.get('userinterface_name')
         parent_node_id = data.get('parent_node_id', 'home')
         
-        if not team_id or not tree_id:
-            return jsonify({'success': False, 'error': 'team_id and tree_id required'}), 400
+        if not all([team_id, tree_id, userinterface_name]):
+            return jsonify({'success': False, 'error': 'team_id, tree_id and userinterface_name required'}), 400
         
         if device_id not in current_app.host_devices:
             return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
         
         device = current_app.host_devices[device_id]
-        result = device.exploration_executor.auto_discover_screen(tree_id, team_id, parent_node_id)
+        result = device.exploration_executor.auto_discover_screen(tree_id, team_id, userinterface_name, parent_node_id)
         
         return jsonify(result)
         
