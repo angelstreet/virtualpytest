@@ -144,12 +144,15 @@ export const useAgentChat = () => {
   
   // Set background agents (called by parent after loading from API)
   const setBackgroundAgents = useCallback((agents: BackgroundAgentInfo[]) => {
+    console.log(`[useAgentChat] setBackgroundAgents called with ${agents.length} agents:`, agents.map(a => `${a.id}/${a.nickname}`));
     const map = new Map<string, BackgroundAgentInfo>();
     agents.forEach(a => {
       map.set(a.id, a);
       map.set(a.nickname, a); // Also index by nickname for event matching
+      console.log(`[useAgentChat] Registered background agent: id="${a.id}", nickname="${a.nickname}"`);
     });
     backgroundAgentsRef.current = map;
+    console.log(`[useAgentChat] Background agents map keys:`, Array.from(map.keys()));
     
     // Initialize empty state for each background agent
     const initialState: Record<string, { inProgress: BackgroundTask[]; recent: BackgroundTask[] }> = {};
@@ -353,8 +356,13 @@ export const useAgentChat = () => {
   
   const handleBackgroundEvent = useCallback((event: AgentEvent): boolean => {
     // Check if this event is from a background agent
+    console.log(`[handleBackgroundEvent] Checking event.agent="${event.agent}", available agents:`, Array.from(backgroundAgentsRef.current.keys()));
     const agentInfo = backgroundAgentsRef.current.get(event.agent);
-    if (!agentInfo) return false; // Not a background agent event
+    if (!agentInfo) {
+      console.log(`[handleBackgroundEvent] Agent "${event.agent}" NOT FOUND in background agents map`);
+      return false; // Not a background agent event
+    }
+    console.log(`[handleBackgroundEvent] Agent "${event.agent}" FOUND! agentInfo:`, agentInfo);
     
     const agentId = agentInfo.id;
     const agentNickname = agentInfo.nickname;
@@ -699,12 +707,16 @@ export const useAgentChat = () => {
       };
       
       // Debug: Log every event received
-      console.log(`[useAgentChat] Event received: type=${event.type}, agent=${event.agent}`);
+      console.log(`[useAgentChat] Event received: type=${event.type}, agent=${event.agent}, task_id=${event.task_id}, dry_run=${event.dry_run}`);
+      console.log(`[useAgentChat] Full event:`, JSON.stringify(event, null, 2));
       
       // Handle background agent events (any agent with background_queues config)
       // The handler checks if the event.agent is a background agent
       if (event.agent && handleBackgroundEvent(event)) {
+        console.log(`[useAgentChat] Background event handled for agent: ${event.agent}`);
         // Event was handled by a background agent, don't return - still process for conversation view
+      } else if (event.agent) {
+        console.log(`[useAgentChat] Event NOT handled as background (agent: ${event.agent})`);
       }
       
       // Track mode

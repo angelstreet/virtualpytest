@@ -367,7 +367,7 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
                     yield AgentEvent(type=EventType.TOOL_RESULT, agent=self.nickname, content="Success", tool_name=tool_use.name, tool_result=result, success=True)
                     
-                    turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": str(result)}]})
+                    turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": json.dumps(result)}]})
                 except Exception as e:
                     if LANGFUSE_ENABLED:
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, str(e), False, session.id)

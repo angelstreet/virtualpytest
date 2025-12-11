@@ -224,9 +224,12 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
           }));
         
         if (bgAgents.length > 0) {
-          console.log(`[AgentChat] Found ${bgAgents.length} background agents:`, bgAgents.map(a => a.nickname));
+          console.log(`[AgentChat] Found ${bgAgents.length} background agents:`, bgAgents.map(a => `${a.id}/${a.nickname}`));
+          console.log(`[AgentChat] Background agents full details:`, JSON.stringify(bgAgents, null, 2));
           setBackgroundAgentsState(bgAgents);
           setBackgroundAgents(bgAgents); // Pass to hook
+        } else {
+          console.warn('[AgentChat] No background agents found - check agent YAML config for background_queues');
         }
         
         setAgentsLoading(false);
