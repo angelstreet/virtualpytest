@@ -30,9 +30,9 @@ system_prompt: |
   5. save_node_screenshot(node_id) - Save screenshot of node
   6. execute_device_action (reverse edge), if fail, execute_device_action(edge "Entry→Home")
   
-  ⚠️ If execute_device_action,dump_ui_elements -> update_node/update_edge then execute_device_action(edge "Entry→Home") to recover
-  fix any incorrect selectors or verifications dump_ui_elements -> update_node/update_edge
-  ⚠️ often search nodes require back iteration 2 to remove first the keyboard
+  ⚠️ if execute_device_action fails, try to fix incorrect selectors dump_ui_elements -> update_edge
+  remember search nodes often require back iteration x2 to remove first the keyboard
+  to recover, execute_device_action(edge "Entry→Home")
 
   CLEANUP:
   release_control
