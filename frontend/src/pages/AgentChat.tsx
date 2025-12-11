@@ -130,6 +130,7 @@ const AgentChat: React.FC = () => {
   
   // Track if we've processed URL params
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
+  const [initialConversationRestored, setInitialConversationRestored] = useState(false);
   
   // Background agents expanded state (keyed by agent ID)
   const [backgroundExpanded, setBackgroundExpanded] = useState<Record<string, boolean>>({});
@@ -416,9 +417,52 @@ useEffect(() => {
     lastToolEventCount.current = completedToolCount;
   }, [messages.length, currentEvents]);
   
+  // Sync active conversation ID to URL for back/forward navigation
+  useEffect(() => {
+    if (!initialConversationRestored) return; // Don't update URL until we've restored
+    
+    const currentConvoParam = searchParams.get('conversation');
+    
+    // Only update URL if conversation changed and it's not a background conversation
+    if (activeConversationId && !activeConversationId.startsWith('bg_')) {
+      if (currentConvoParam !== activeConversationId) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set('conversation', activeConversationId);
+        setSearchParams(newParams, { replace: true });
+      }
+    } else if (currentConvoParam && !activeConversationId) {
+      // Clear conversation param if no active conversation
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('conversation');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [activeConversationId, searchParams, setSearchParams, initialConversationRestored]);
+
+  // Restore conversation from URL on mount/navigation (before processing prompts)
+  useEffect(() => {
+    if (initialConversationRestored) return;
+    
+    const conversationParam = searchParams.get('conversation');
+    
+    if (conversationParam && conversations.length > 0) {
+      // Check if the conversation exists
+      const convoExists = conversations.find(c => c.id === conversationParam);
+      if (convoExists) {
+        console.log('[AgentChat] Restoring conversation from URL:', conversationParam);
+        switchConversation(conversationParam);
+      }
+    }
+    
+    // Mark as restored after first check (even if conversation not found)
+    if (conversations.length > 0 || status === 'ready') {
+      setInitialConversationRestored(true);
+    }
+  }, [searchParams, conversations, switchConversation, status, initialConversationRestored]);
+
   // Handle URL params from command bar (prompt & agent)
   useEffect(() => {
     if (urlParamsProcessed) return;
+    if (!initialConversationRestored) return; // Wait for conversation restore first
     
     const prompt = searchParams.get('prompt');
     const agentParam = searchParams.get('agent');
@@ -430,8 +474,13 @@ useEffect(() => {
         setAgentId(agentParam);
       }
       
-      // Clear URL params
-      setSearchParams({}, { replace: true });
+      // Clear prompt/agent params but preserve conversation param
+      const newParams = new URLSearchParams();
+      const conversationParam = searchParams.get('conversation');
+      if (conversationParam) {
+        newParams.set('conversation', conversationParam);
+      }
+      setSearchParams(newParams, { replace: true });
       setUrlParamsProcessed(true);
       
       // Set input and trigger send after a brief delay
@@ -440,7 +489,7 @@ useEffect(() => {
         sendMessage();
       }, 150);
     }
-  }, [searchParams, status, urlParamsProcessed, setSearchParams, setAgentId, setInput, sendMessage]);
+  }, [searchParams, status, urlParamsProcessed, setSearchParams, setAgentId, setInput, sendMessage, initialConversationRestored]);
 
   // Handle incoming Slack messages (bidirectional chat)
   useEffect(() => {
