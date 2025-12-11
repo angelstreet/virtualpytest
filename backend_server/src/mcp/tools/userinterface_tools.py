@@ -159,13 +159,15 @@ class UserInterfaceTools:
             if not interfaces:
                 return {"content": [{"type": "text", "text": "No userinterfaces found"}], "isError": False}
             
+            # Text output with IDs for AI to use
             lines = [f"{len(interfaces)} interfaces:"]
             for ui in interfaces:
-                lines.append(f"- {ui.get('name')} ({', '.join(ui.get('models', []))})")
+                lines.append(f"- {ui.get('name')} (id:{ui.get('id')}) [{', '.join(ui.get('models', []))}]")
             
             return {
                 "content": [{"type": "text", "text": "\n".join(lines)}],
-                "isError": False
+                "isError": False,
+                "interfaces": [{"name": ui.get('name'), "id": ui.get('id')} for ui in interfaces]
             }
         
         except Exception as e:
