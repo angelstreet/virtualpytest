@@ -350,11 +350,12 @@ useEffect(() => {
   // Only show processing state if viewing the conversation that's being processed
   const showProcessing = isProcessing && activeConversationId === pendingConversationId;
   
-  // Reset scroll state when conversation changes
+  // Reset scroll state and tool expanded state when conversation changes
   useEffect(() => {
     isUserScrolledUp.current = false;
     lastMessageCount.current = 0;
     lastToolEventCount.current = 0;
+    setToolExpanded({}); // Clear tool expanded state for new conversation
   }, [activeConversationId]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
