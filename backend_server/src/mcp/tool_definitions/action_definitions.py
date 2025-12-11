@@ -13,8 +13,6 @@ def get_tools() -> List[Dict[str, Any]]:
 Returns categorized list of actions with commands and parameters.
 Useful for discovering what actions can be executed on a device.
 
-PREREQUISITE: Device must be registered with the host.
-
 Device Model Specific:
 - android_mobile/android_tv: Returns mobile commands (click_element with text only, press_key, swipe, etc)
 - web/desktop: Returns web automation commands (click_element_by_id, click_element, input_text, etc)
@@ -39,43 +37,12 @@ Example:
         },
         {
             "name": "execute_device_action",
-            "description": """Execute actions on device (ADB, web, remote)
+            "description": """Execute actions on device. Call list_actions() first to get available commands.
 
-CLICK STRATEGY BY PLATFORM:
-- MOBILE (android_mobile/android_tv): ONLY click_element with text parameter, NOT coordinates. Do not use IDs. Use Tap coordinates as a last resort.
-- WEB (web/desktop): Use click_element_by_id for stable selectors, or click_element(text) as fallback.
+REQUIRED: device_id, host_name (from get_compatible_hosts()), actions array.
 
-PREREQUISITES:
-1. host_name REQUIRED - use get_compatible_hosts() first
-2. For navigation: call take_control() once before any operations
-
-MOBILE COMMANDS (android_mobile/android_tv):
-- click_element(element_id="Search") - Click by text, resource_id, or content_desc (searches all)
-- press_key(key="BACK") - Press hardware key
-- swipe_up, swipe_down, swipe_left, swipe_right - Swipe gestures
-- launch_app(package="com.example.app") - Launch application
-- input_text(text="hello") - Type text into focused field
-
-WEB COMMANDS (web/desktop):
-- click_element_by_id(element_id="btn") - Click by CSS selector or ID
-- click_element(text="Search") - Click by visible text
-- input_text(selector="#field", text="...") - Type into specific field
-- press_key(key="Enter") - Press keyboard key
-
-WAIT TIMES (in params):
-- launch_app: 8000ms, click_element: 2000ms, press_key: 1500ms, input_text: 1000ms
-
-Examples:
-  # Mobile click by text/id/desc (searches content_desc, resource_id, text)
-  {"command": "click_element", "params": {"element_id": "Shop", "wait_time": 2000}}
-  
-  # Web click by ID
-  {"command": "click_element_by_id", "params": {"element_id": "login-btn", "wait_time": 2000}}
-  
-  # Press key
-  {"command": "press_key", "params": {"key": "BACK", "wait_time": 1500}}
-
-Use list_actions() to see all available commands.""",
+MOBILE: click_element(element_id="Text"), press_key, swipe_up/down/left/right, launch_app, input_text
+WEB: click_element_by_id(element_id="selector"), click_element(text), input_text, press_key""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
