@@ -11,27 +11,33 @@ from shared.src.lib.database.navigation_trees_db import (
 from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
 
 
-def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tuple[str, int]:
+def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tuple[str, int, list]:
     """
     Smart backward: 1.Entry→home main, 2.BACK, 3.BACK, 4.Entry→home retry
-    Returns: ('success'|'failed', step_used: 1-4 or 0)
+    Returns: ('success'|'failed', step_used: 1-4 or 0, reverse_actions: list)
+    
+    reverse_actions to use in edge:
+      Step 1: Entry→home main actions (click Home tab)
+      Step 2: [{'command': 'press_key', 'params': {'key': 'BACK'}, 'iterator': 1}]
+      Step 3: [{'command': 'press_key', 'params': {'key': 'BACK'}, 'iterator': 2}]
+      Step 4: [] (empty - recovery needed, no reliable backward)
     """
     entry_edge = executor.exploration_state.get('entry_to_home_edge')
     
     # Step 1: Entry→home main action (click Home)
     if entry_edge:
-        actions = entry_edge.get('action_sets', [{}])[0].get('actions', [])
-        if actions:
+        main_actions = entry_edge.get('action_sets', [{}])[0].get('actions', [])
+        if main_actions:
             print(f"    🔄 Step 1: Entry→home main action")
-            for action in actions:
+            for action in main_actions:
                 text = action.get('params', {}).get('text', action.get('params', {}).get('element_id', ''))
                 if text:
                     result = controller.click_element(text)
                     if inspect.iscoroutine(result): asyncio.run(result)
             time.sleep(3)
             if verify_func(): 
-                print(f"    ✅ Step 1 worked")
-                return 'success', 1
+                print(f"    ✅ Step 1 worked → reverse = Entry→home main actions")
+                return 'success', 1, main_actions  # Use same actions for reverse
     
     # Step 2: BACK
     print(f"    🔄 Step 2: BACK")
@@ -39,8 +45,8 @@ def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tup
     if inspect.iscoroutine(result): asyncio.run(result)
     time.sleep(3)
     if verify_func(): 
-        print(f"    ✅ Step 2 worked")
-        return 'success', 2
+        print(f"    ✅ Step 2 worked → reverse = BACK x1")
+        return 'success', 2, [{'command': 'press_key', 'params': {'key': 'BACK'}, 'iterator': 1}]
     
     # Step 3: BACK again
     print(f"    🔄 Step 3: BACK again")
@@ -48,14 +54,14 @@ def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tup
     if inspect.iscoroutine(result): asyncio.run(result)
     time.sleep(3)
     if verify_func(): 
-        print(f"    ✅ Step 3 worked")
-        return 'success', 3
+        print(f"    ✅ Step 3 worked → reverse = BACK x2")
+        return 'success', 3, [{'command': 'press_key', 'params': {'key': 'BACK'}, 'iterator': 2}]
     
-    # Step 4: Entry→home retry action
+    # Step 4: Entry→home retry action (recovery)
     if entry_edge:
         retry_actions = entry_edge.get('action_sets', [{}])[0].get('retry_actions', [])
         if retry_actions:
-            print(f"    🔄 Step 4: Entry→home retry action")
+            print(f"    🔄 Step 4: Entry→home retry action (recovery)")
             for action in retry_actions:
                 cmd = action.get('command', '')
                 params = action.get('params', {})
@@ -66,11 +72,11 @@ def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tup
                     if inspect.iscoroutine(result): asyncio.run(result)
             time.sleep(5)
             if verify_func(): 
-                print(f"    ✅ Step 4 worked")
-                return 'success', 4
+                print(f"    ✅ Step 4 worked → reverse = EMPTY (recovery needed)")
+                return 'success', 4, []  # Empty - no reliable backward action
     
     print(f"    ❌ All 4 steps failed")
-    return 'failed', 0
+    return 'failed', 0, []
 
 
 def start_validation(executor) -> Dict[str, Any]:
@@ -1250,8 +1256,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 except: return False
             
             print(f"    🔍 Verifying return to home: {home_indicator}")
-            back_result, step = smart_backward(executor, controller, verify_mobile_web)
+            back_result, step, reverse_actions = smart_backward(executor, controller, verify_mobile_web)
             print(f"    {'✅' if back_result == 'success' else '❌'} Back via smart_backward step {step}")
+            
+            # Store reverse_actions for edge update
+            executor.exploration_state['_discovered_reverse_actions'] = reverse_actions
+            executor.exploration_state['_discovered_reverse_step'] = step
             
         except Exception as e:
             print(f"    ⚠️ Back failed: {e}")
@@ -1324,6 +1334,10 @@ def validate_next_item(executor) -> Dict[str, Any]:
         home_id = executor.exploration_state['home_id']
         edge_id = f"edge_{home_id}_to_{node_name}_temp"
         
+        # Get discovered reverse actions from smart_backward
+        discovered_reverse_actions = executor.exploration_state.pop('_discovered_reverse_actions', None)
+        discovered_reverse_step = executor.exploration_state.pop('_discovered_reverse_step', 0)
+        
         edge_result = get_edge_by_id(tree_id, edge_id, team_id)
         edge_updated = False
         
@@ -1331,7 +1345,6 @@ def validate_next_item(executor) -> Dict[str, Any]:
             edge = edge_result['edge']
             
             # ✅ CORRECT: action_sets[0] = forward (with actions), action_sets[1] = reverse (with actions)
-            # NOT: action_sets[0] with reverse_actions - that's wrong!
             action_sets = edge.get('action_sets', [])
             if len(action_sets) >= 2:
                 # Update forward direction (action_sets[0])
@@ -1340,8 +1353,14 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     action_sets[0]['actions'][0]['validated_at'] = time.time()
                     action_sets[0]['actions'][0]['actual_result'] = click_result
                 
-                # ✅ FIX: Update reverse direction (action_sets[1].actions, NOT action_sets[0].reverse_actions)
-                if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
+                # ✅ UPDATE: Replace reverse actions with discovered actions from smart_backward
+                if discovered_reverse_actions is not None:
+                    action_sets[1]['actions'] = discovered_reverse_actions
+                    action_sets[1]['validation_status'] = back_result
+                    action_sets[1]['discovered_step'] = discovered_reverse_step
+                    print(f"    💾 Edge reverse updated: step {discovered_reverse_step} → {len(discovered_reverse_actions)} action(s)")
+                elif action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
+                    # Fallback: just update status
                     action_sets[1]['actions'][0]['validation_status'] = back_result
                     action_sets[1]['actions'][0]['validated_at'] = time.time()
                     action_sets[1]['actions'][0]['actual_result'] = back_result
@@ -1394,7 +1413,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 'reverse': {
                     'source': node_name_display,
                     'target': home_id,
-                    'action': 'press_key(BACK)',
+                    'action': f'smart_backward step {discovered_reverse_step}' if discovered_reverse_step else 'press_key(BACK)',
+                    'discovered_actions': discovered_reverse_actions,
                     'result': back_result
                 }
             },
