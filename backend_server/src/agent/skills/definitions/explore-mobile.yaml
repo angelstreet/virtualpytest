@@ -47,6 +47,7 @@ tools:
   - navigate_to_node
   - get_device_info
   - get_compatible_hosts
+
   - analyze_screen_for_action
   - analyze_screen_for_verification
   - capture_screenshot
