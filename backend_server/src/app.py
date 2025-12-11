@@ -418,7 +418,7 @@ _background_agents = {}
 
 
 def start_agent_background_workers():
-    """Auto-start background workers for agents with background_queues configured"""
+    """Auto-start background workers for agents with background_queues configured AND enabled=true"""
     global _background_agents
     
     try:
@@ -432,8 +432,13 @@ def start_agent_background_workers():
             agent_id = agent_def.metadata.id
             config = agent_def.config
             
-            # Check if agent has background_queues configured
+            # Check if agent has background_queues configured AND is enabled
             if config and hasattr(config, 'background_queues') and config.background_queues:
+                # CRITICAL: Respect enabled flag - skip disabled agents
+                if hasattr(config, 'enabled') and not config.enabled:
+                    print(f"[@backend_server:background] ⏭️ Skipping {agent_id} (enabled=false)")
+                    continue
+                    
                 queues = config.background_queues
                 print(f"[@backend_server:background] Starting background for {agent_id}, queues: {queues}")
                 
