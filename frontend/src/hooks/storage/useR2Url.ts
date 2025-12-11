@@ -183,21 +183,21 @@ export const useR2UrlsBatch = (
 
       const resultMap = await getR2UrlsBatch(r2Paths, expiresIn);
       
+      // Map original paths to signed URLs (preserves key format from input)
+      const originalPathMap: Record<string, string> = {};
+      validPaths.forEach((originalPath, i) => {
+        const signedUrl = resultMap[r2Paths[i]];
+        if (signedUrl) originalPathMap[originalPath] = signedUrl;
+      });
+      
       // Convert map back to array in original order
       const resultUrls = stablePaths.map(path => {
         if (!path) return null;
-        
-        let r2Path = path;
-        if (path.includes('r2.cloudflarestorage.com') || path.includes('r2.dev')) {
-          const extracted = extractR2Path(path);
-          r2Path = extracted || path;
-        }
-        
-        return resultMap[r2Path] || null;
+        return originalPathMap[path] || null;
       });
 
       setUrls(resultUrls);
-      setUrlMap(resultMap);
+      setUrlMap(originalPathMap);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to get R2 URLs';
       console.error('[@hooks:useR2UrlsBatch] Error:', errorMsg);
