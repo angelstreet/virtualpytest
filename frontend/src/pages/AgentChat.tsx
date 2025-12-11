@@ -1490,15 +1490,29 @@ useEffect(() => {
                     <Box>
                       {/* Show thinking/reasoning accordion only if meaningful content exists */}
                       {(() => {
+                        // Filter out internal routing/analysis messages that aren't real reasoning
+                        const internalPatterns = [
+                          /^Analyzing\.{0,3}\s*\[[\w-]+\]$/i,  // "Analyzing... [router]", "Analyzing... [run-script]"
+                          /^Analyzing your request\.{0,3}$/i,  // "Analyzing your request..."
+                          /^Processing\.{0,3}$/i,              // "Processing..."
+                          /^Routing\.{0,3}$/i,                 // "Routing..."
+                          /^Delegating\.{0,3}$/i,              // "Delegating..."
+                        ];
+                        
                         const thinkingContent = msg.events
                           .filter(e => e.type === 'thinking')
                           .map(e => e.content)
+                          .filter(content => {
+                            // Filter out internal routing messages
+                            const trimmed = content?.trim() || '';
+                            return !internalPatterns.some(pattern => pattern.test(trimmed));
+                          })
                           .join('\n\n')
                           .replace(/\n{3,}/g, '\n\n')
                           .trim();
-                        // Only show if there's real reasoning, not just placeholder
-                        const hasRealThinking = thinkingContent.length > 50 && 
-                          !thinkingContent.match(/^Analyzing your request\.{0,3}$/i);
+                        
+                        // Only show if there's meaningful reasoning content
+                        const hasRealThinking = thinkingContent.length > 50;
                         
                         if (!hasRealThinking) return null;
                         
