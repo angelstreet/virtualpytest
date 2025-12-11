@@ -157,6 +157,8 @@ class ActionTools:
         failure_actions = params.get('failure_actions', [])
         
         # Validate required parameters
+        if not device_id:
+            return {"content": [{"type": "text", "text": "Error: device_id is required"}], "isError": True}
         if not actions:
             return {"content": [{"type": "text", "text": "Error: actions array is required"}], "isError": True}
         

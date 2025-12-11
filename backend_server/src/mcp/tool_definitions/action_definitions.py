@@ -79,8 +79,8 @@ Use list_actions() to see all available commands.""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "host_name": {"type": "string", "description": "Host name where device is connected (REQUIRED - use get_compatible_hosts to discover)"},
-                    "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1') - MUST match take_control"},
+                    "device_id": {"type": "string", "description": "Device identifier (REQUIRED) - Get from get_compatible_hosts() or list_devices()"},
+                    "host_name": {"type": "string", "description": "Host name where device is connected (REQUIRED) - Get from get_compatible_hosts()"},
                     "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                     "actions": {
                         "type": "array",
@@ -131,7 +131,7 @@ Use list_actions() to see all available commands.""",
                         }
                     }
                 },
-                "required": ["host_name", "actions"]
+                "required": ["device_id", "host_name", "actions"]
             }
         }
     ]
