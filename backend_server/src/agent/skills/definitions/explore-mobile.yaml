@@ -27,8 +27,9 @@ system_prompt: |
   
   PHASE 3 - TEST ALL & SAVE SCREENSHOTS:
   For each edge: execute_device_action → verify_node → fix any incorrect selectors or verifications
+  ⚠️ often search nodes require back iteration 2 to remove first the keyboard
   save_node_screenshot(node_id) - Save screenshot of node
-  
+ 
   CLEANUP:
   release_control
 
