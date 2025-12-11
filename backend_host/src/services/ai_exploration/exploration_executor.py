@@ -694,11 +694,15 @@ class ExplorationExecutor:
     def auto_discover_screen(self, tree_id: str, team_id: str, userinterface_name: str, parent_node_id: str = 'home') -> Dict[str, Any]:
         """
         Auto-discover UI elements and create nodes/edges.
+        
+        SYNCHRONOUS: Waits for Phase 1 (analysis) to complete before creating nodes/edges.
         Uses SAME code as frontend: start_exploration() + continue_exploration()
         """
+        import time
+        
         print(f"[@ExplorationExecutor:auto_discover_screen] tree_id={tree_id}, parent={parent_node_id}")
         
-        # Step 1: start_exploration() - discovers elements (same as frontend)
+        # Step 1: start_exploration() - starts background thread for Phase 1 analysis
         start_result = self.start_exploration(
             tree_id=tree_id,
             root_tree_id=tree_id,
@@ -710,13 +714,59 @@ class ExplorationExecutor:
         if not start_result.get('success'):
             return {'success': False, 'error': start_result.get('error', 'start_exploration failed')}
         
-        elements_found = start_result.get('exploration_plan', {}).get('items', [])
-        print(f"[@ExplorationExecutor:auto_discover_screen] Found {len(elements_found)} elements")
+        exploration_id = start_result.get('exploration_id')
+        print(f"[@ExplorationExecutor:auto_discover_screen] Exploration started: {exploration_id}")
+        
+        # ✅ Step 2: WAIT for Phase 1 to complete (poll until 'awaiting_approval')
+        print(f"[@ExplorationExecutor:auto_discover_screen] ⏳ Waiting for Phase 1 analysis to complete...")
+        max_wait = 60  # 1 minutes timeout (generous for slow AI vision)
+        start_time = time.time()
+        poll_interval = 1  # Poll every 500ms
+        
+        exploration_plan = None
+        while True:
+            with self._lock:
+                status = self.exploration_state.get('status')
+                current_step = self.exploration_state.get('current_step', '')
+                exploration_plan = self.exploration_state.get('exploration_plan')
+                error = self.exploration_state.get('error')
+                
+                if status == 'awaiting_approval' and exploration_plan:
+                    # ✅ Phase 1 complete!
+                    print(f"[@ExplorationExecutor:auto_discover_screen] ✅ Phase 1 complete after {time.time() - start_time:.1f}s")
+                    break
+                elif status == 'failed':
+                    print(f"[@ExplorationExecutor:auto_discover_screen] ❌ Phase 1 failed: {error}")
+                    return {'success': False, 'error': error or 'Exploration failed during analysis'}
+                elif time.time() - start_time > max_wait:
+                    print(f"[@ExplorationExecutor:auto_discover_screen] ⏱️ Timeout after {max_wait}s (status: {status})")
+                    return {'success': False, 'error': f'Timeout waiting for analysis (status: {status}, step: {current_step})'}
+            
+            # Print progress every 5 seconds
+            if int(time.time() - start_time) % 5 == 0 and int(time.time() - start_time) > 0:
+                elapsed = int(time.time() - start_time)
+                if elapsed not in getattr(self, '_logged_intervals', set()):
+                    if not hasattr(self, '_logged_intervals'):
+                        self._logged_intervals = set()
+                    self._logged_intervals.add(elapsed)
+                    print(f"[@ExplorationExecutor:auto_discover_screen] ⏳ Still waiting... ({elapsed}s elapsed, status: {status}, step: {current_step[:50]})")
+            
+            time.sleep(poll_interval)
+        
+        # Reset logged intervals for next call
+        if hasattr(self, '_logged_intervals'):
+            delattr(self, '_logged_intervals')
+        
+        # ✅ Step 3: Extract elements from completed plan
+        elements_found = exploration_plan.get('items', [])
+        print(f"[@ExplorationExecutor:auto_discover_screen] Found {len(elements_found)} elements: {elements_found[:5]}{'...' if len(elements_found) > 5 else ''}")
         
         if not elements_found:
+            print(f"[@ExplorationExecutor:auto_discover_screen] No elements found - returning early")
             return {'success': True, 'nodes_created': 0, 'edges_created': 0, 'elements_found': []}
         
-        # Step 2: continue_exploration() - creates nodes/edges (same as frontend)
+        # ✅ Step 4: continue_exploration() - creates nodes/edges (Phase 2)
+        print(f"[@ExplorationExecutor:auto_discover_screen] Starting Phase 2: Creating {len(elements_found)} nodes/edges...")
         continue_result = self.continue_exploration(
             team_id=team_id,
             selected_items=elements_found,
@@ -724,11 +774,16 @@ class ExplorationExecutor:
         )
         
         if not continue_result.get('success'):
+            print(f"[@ExplorationExecutor:auto_discover_screen] ❌ Phase 2 failed: {continue_result.get('error')}")
             return {'success': False, 'error': continue_result.get('error', 'continue_exploration failed')}
+        
+        nodes_created = continue_result.get('nodes_created', 0)
+        edges_created = continue_result.get('edges_created', 0)
+        print(f"[@ExplorationExecutor:auto_discover_screen] ✅ Complete: {nodes_created} nodes, {edges_created} edges created")
         
         return {
             'success': True,
-            'nodes_created': continue_result.get('nodes_created', 0),
-            'edges_created': continue_result.get('edges_created', 0),
+            'nodes_created': nodes_created,
+            'edges_created': edges_created,
             'elements_found': elements_found
         }
