@@ -24,14 +24,16 @@ system_prompt: |
   ⚠️ If fails: release_control and STOP
   
   PHASE 2 - TEST, FIX & SAVE SCREENSHOTS:
-  For each node we need to validate each edge forward and reverse : 
-  1. execute_device_action(forward edge), if fail try to recover then retry once or continue with next edge
-  2. dump_ui_elements
-  3. analyze_screen_for_verification
-  4. update_node
-  5. save_node_screenshot(node_id) - Save screenshot of node
-  6. execute_device_action (reverse edge)
-  7. verify_node(home) to ensure we are back, if fail execute_device_action(reverse edge) again then verify_node(home) if success update_edge else recover with execute_device_action(edge "Entry→home")
+  For each edge:
+  1. execute_device_action(forward) - if fail: recover via "Entry→home" edge then retry once
+  2. dump_ui_elements → analyze_screen_for_verification → update_node
+  3. save_node_screenshot
+  4. execute_device_action(reverse)
+  5. ⚠️ MANDATORY: verify_node(home) - ALWAYS verify after reverse
+     - If fail: retry reverse + verify_node(home)
+     - If still fail: recover via "Entry→home" edge
+  
+  ⚠️ KEYBOARD SCREENS (search): Need 2x BACK (dismiss keyboard + go back)
   
   CLEANUP:
   release_control
