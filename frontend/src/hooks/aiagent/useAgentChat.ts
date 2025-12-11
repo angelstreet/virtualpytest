@@ -357,9 +357,8 @@ export const useAgentChat = () => {
       const limited = sorted.slice(0, AGENT_CHAT_LAYOUT.maxStoredConversations);
       
       if (limited.length < conversations.length) {
-        console.log(`[useAgentChat] Trimmed conversations: ${conversations.length} -> ${limited.length} (max: ${AGENT_CHAT_LAYOUT.maxStoredConversations})`);
-        // Update state to reflect the trimmed list
-        setConversations(limited);
+        console.log(`[useAgentChat] Trimming for storage: ${conversations.length} -> ${limited.length} (max: ${AGENT_CHAT_LAYOUT.maxStoredConversations})`);
+        // Note: We only save the limited version to localStorage, not update state (to avoid infinite loop)
       }
       
       localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(limited));
