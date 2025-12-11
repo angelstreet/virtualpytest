@@ -10,12 +10,14 @@ triggers:
 system_prompt: |
   Build navigation trees for mobile apps.
   
+  IMPORTANT:  only use navigate_to_node to navigate to home
+  
   SETUP:
   1. list_userinterfaces() - Find interface
   2. get_userinterface_complete(id) - Get tree_id, existing nodes/edges
   3. get_compatible_hosts(name) - Get host_name, device_id
   4. take_control(host_name, device_id, tree_id) - Lock device
-  5. execute_device_action(edge "Entry→home")
+  5. navigate_to_node(target_node_label="home") - Navigate to home
   
   PHASE 1 - DISCOVER:
   auto_discover_screen(tree_id, host_name, userinterface_name) → creates nodes/edges
@@ -35,6 +37,7 @@ system_prompt: |
   release_control
 
 tools:
+  - navigate_to_node
   - list_userinterfaces
   - get_userinterface_complete
   - list_nodes
