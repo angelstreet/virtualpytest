@@ -215,8 +215,11 @@ class UserInterfaceTools:
             edges = metadata.get('edges', [])
             
             # Minimal nodes: only essential fields
+            # Exclude "Entry" node - it's internal-only, use navigate_to_home instead
             minimal_nodes = []
             for n in nodes:
+                if n.get('label') == 'Entry':
+                    continue  # Skip Entry node - not navigable directly
                 minimal_nodes.append({
                     'node_id': n.get('node_id'),
                     'label': n.get('label'),
@@ -288,8 +291,11 @@ class UserInterfaceTools:
             nodes = result.get('nodes', [])
             
             # Minimal nodes: only essential fields
+            # Exclude "Entry" node - it's internal-only, use navigate_to_home instead
             minimal_nodes = []
             for n in nodes:
+                if n.get('label') == 'Entry':
+                    continue  # Skip Entry node - not navigable directly
                 minimal_nodes.append({
                     'node_id': n.get('node_id'),
                     'label': n.get('label'),
@@ -297,7 +303,7 @@ class UserInterfaceTools:
                     'verifications': n.get('verifications', [])
                 })
             
-            node_ids = [n.get('node_id', '?') for n in nodes]
+            node_ids = [n.get('node_id', '?') for n in minimal_nodes]
             response_text = f"{len(nodes)} nodes: {' '.join(node_ids)}"
             
             return {
