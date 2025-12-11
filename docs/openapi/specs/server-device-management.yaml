@@ -40,11 +40,14 @@ paths:
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
           example: Bearer {{api_key}}
       responses:
         '200':
