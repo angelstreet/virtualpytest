@@ -129,6 +129,9 @@ const AgentChat: React.FC = () => {
   // Background agents expanded state (keyed by agent ID)
   const [backgroundExpanded, setBackgroundExpanded] = useState<Record<string, boolean>>({});
   
+  // Tool accordion expanded state (keyed by tool event key)
+  const [toolExpanded, setToolExpanded] = useState<Record<string, boolean>>({});
+  
   // Background agents info (agents with background_queues)
   const [backgroundAgents, setBackgroundAgentsState] = useState<BackgroundAgentInfo[]>([]);
   
@@ -477,12 +480,19 @@ useEffect(() => {
       }
     }
     
+    // Initialize expanded state for this tool if not set
+    const shouldAutoExpand = hasError || showExecutingAnimation;
+    if (toolExpanded[toolKey] === undefined && shouldAutoExpand) {
+      setToolExpanded(prev => ({ ...prev, [toolKey]: true }));
+    }
+    
     return (
       <Accordion 
         key={`${event.tool_name}-${idx}-${event.success ?? 'pending'}-${event.tool_result ? 'done' : 'waiting'}`} 
         disableGutters 
         elevation={0}
-        defaultExpanded={hasError || showExecutingAnimation} // Auto-expand errors and executing tools (after delay)
+        expanded={toolExpanded[toolKey] ?? shouldAutoExpand}
+        onChange={(_, isExpanded) => setToolExpanded(prev => ({ ...prev, [toolKey]: isExpanded }))}
         sx={{ 
           bgcolor: showExecutingAnimation ? 'rgba(212, 165, 116, 0.05)' : 'transparent',
           border: showExecutingAnimation ? '1px solid' : 'none',

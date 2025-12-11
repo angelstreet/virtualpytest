@@ -110,6 +110,18 @@ export const useAgentChat = () => {
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const messages = activeConversation?.messages || [];
   
+  // Debug: Log active conversation details
+  useEffect(() => {
+    if (activeConversationId) {
+      console.log(`[useAgentChat] Active conversation changed: ${activeConversationId}`);
+      console.log(`[useAgentChat] Conversation found:`, activeConversation ? 'YES' : 'NO');
+      console.log(`[useAgentChat] Messages count:`, messages.length);
+      if (messages.length > 0) {
+        console.log(`[useAgentChat] Messages:`, messages.map(m => `${m.role}: ${m.content?.slice(0, 50)}...`));
+      }
+    }
+  }, [activeConversationId, activeConversation, messages]);
+  
   // Session & UI state
   const [status, setStatus] = useState<Status>('checking');
   const [session, setSession] = useState<Session | null>(null);
@@ -439,8 +451,12 @@ export const useAgentChat = () => {
     
     setConversations(prev => {
       const exists = prev.find(c => c.id === conversationId);
-      if (exists) return prev;
+      if (exists) {
+        console.log(`[Background:${agentNickname}] Conversation already exists:`, conversationId);
+        return prev;
+      }
       console.log(`[Background:${agentNickname}] Created conversation with message:`, conversationId);
+      console.log(`[Background:${agentNickname}] New conversation details:`, JSON.stringify(newConvo, null, 2));
       return [newConvo, ...prev];
     });
     
