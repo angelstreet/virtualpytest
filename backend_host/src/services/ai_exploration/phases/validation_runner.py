@@ -113,11 +113,19 @@ def start_validation(executor) -> Dict[str, Any]:
         items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
     
     # ✅ Load Entry→home edge for smart_backward
-    entry_result = get_edge_by_id(tree_id, "edge_entry_to_home", team_id)
+    entry_result = get_edge_by_id(tree_id, "edge-entry-node-to-home", team_id)
     if entry_result.get('success') and entry_result.get('edge'):
+        edge = entry_result['edge']
         with executor._lock:
-            executor.exploration_state['entry_to_home_edge'] = entry_result['edge']
+            executor.exploration_state['entry_to_home_edge'] = edge
         print(f"[@start_validation] ✅ Loaded Entry→home edge for smart_backward")
+        # Show available actions
+        action_sets = edge.get('action_sets', [])
+        if action_sets:
+            main_actions = action_sets[0].get('actions', [])
+            retry_actions = action_sets[0].get('retry_actions', [])
+            print(f"    Main actions: {[a.get('command') + '(' + str(a.get('params', {})) + ')' for a in main_actions]}")
+            print(f"    Retry actions: {[a.get('command') + '(' + str(a.get('params', {})) + ')' for a in retry_actions]}")
     else:
         print(f"[@start_validation] ⚠️ Entry→home edge not found - smart_backward will use BACK only")
     
