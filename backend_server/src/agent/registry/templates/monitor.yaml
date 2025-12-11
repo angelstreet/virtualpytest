@@ -51,7 +51,7 @@ permissions:
     - jira
 
 config:
-  enabled: true
+  enabled: false
   background_queues: ['p1_alerts']
   dry_run: true  # Just print events, don't process (save tokens)
   max_parallel_tasks: 3
