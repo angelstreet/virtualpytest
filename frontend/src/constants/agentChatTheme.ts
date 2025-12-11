@@ -26,6 +26,8 @@ export const AGENT_CHAT_PALETTE = {
 export const AGENT_CHAT_LAYOUT = {
   sidebarWidth: 240,
   rightPanelWidth: 320,
+  maxRecentBackgroundTasks: 10, // Max number of recent background tasks to keep per agent
+  maxStoredConversations: 20, // Max total conversations to keep in localStorage (prevents unlimited growth)
 };
 
 /**

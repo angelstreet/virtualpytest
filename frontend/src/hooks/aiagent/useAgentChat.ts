@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { buildServerUrl, getServerBaseUrl } from '../../utils/buildUrlUtils';
 import { APP_CONFIG } from '../../config/constants';
+import { AGENT_CHAT_LAYOUT } from '../../constants/agentChatTheme';
 
 // --- Constants ---
 
@@ -166,12 +167,62 @@ export const useAgentChat = () => {
     backgroundAgentsRef.current = map;
     console.log(`[useAgentChat] Background agents map keys:`, Array.from(map.keys()));
     
-    // Initialize empty state for each background agent
-    const initialState: Record<string, { inProgress: BackgroundTask[]; recent: BackgroundTask[] }> = {};
+    // Restore background tasks from existing conversations (on page refresh)
+    const restoredTasks: Record<string, { inProgress: BackgroundTask[]; recent: BackgroundTask[] }> = {};
     agents.forEach(a => {
-      initialState[a.id] = { inProgress: [], recent: [] };
+      restoredTasks[a.id] = { inProgress: [], recent: [] };
     });
-    setBackgroundTasks(prev => ({ ...initialState, ...prev }));
+    
+    // Find all background conversations and convert to tasks
+    setConversations(prevConvos => {
+      prevConvos.forEach(convo => {
+        if (!convo.id.startsWith('bg_')) return;
+        
+        // Extract agent ID from conversation ID: bg_{agentId}_{taskId}
+        const parts = convo.id.split('_');
+        if (parts.length < 3) return;
+        const agentId = parts[1]; // e.g., "monitor" from "bg_monitor_xxx"
+        
+        // Check if this agent is in our list
+        if (!restoredTasks[agentId]) return;
+        
+        // Parse title to extract info (format: "🌙 host-device - type" or "🌙 title")
+        const titleWithoutEmoji = convo.title.replace(/^🌙\s*/, '');
+        const titleParts = titleWithoutEmoji.split(' - ');
+        let title = titleParts[0] || 'Unknown';
+        let subtitle = titleParts[1];
+        
+        // Create task from conversation
+        const task: BackgroundTask = {
+          id: parts.slice(2).join('_'), // taskId from conversation ID
+          agentId,
+          agentNickname: map.get(agentId)?.nickname || agentId,
+          title,
+          subtitle,
+          status: 'completed', // Restored tasks are always completed
+          conversationId: convo.id,
+          startedAt: convo.createdAt,
+          completedAt: convo.updatedAt,
+          viewed: false,
+          taskType: 'alert',
+        };
+        
+        restoredTasks[agentId].recent.push(task);
+      });
+      
+      // Sort by createdAt descending and keep only most recent N
+      Object.keys(restoredTasks).forEach(agentId => {
+        restoredTasks[agentId].recent.sort((a, b) => 
+          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+        );
+        restoredTasks[agentId].recent = restoredTasks[agentId].recent.slice(0, AGENT_CHAT_LAYOUT.maxRecentBackgroundTasks);
+      });
+      
+      console.log(`[useAgentChat] Restored background tasks from conversations:`, restoredTasks);
+      setBackgroundTasks(restoredTasks);
+      
+      return prevConvos; // Don't modify conversations
+    });
   }, []);
 
   // --- Conversation Persistence ---
@@ -296,10 +347,22 @@ export const useAgentChat = () => {
     };
   }, [loadConversations]);
 
-  // Save conversations on change
+  // Save conversations on change (with limit to prevent localStorage bloat)
   useEffect(() => {
     if (conversations.length > 0) {
-      localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
+      // Keep only most recent N conversations (sorted by updatedAt)
+      const sorted = [...conversations].sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+      const limited = sorted.slice(0, AGENT_CHAT_LAYOUT.maxStoredConversations);
+      
+      if (limited.length < conversations.length) {
+        console.log(`[useAgentChat] Trimmed conversations: ${conversations.length} -> ${limited.length} (max: ${AGENT_CHAT_LAYOUT.maxStoredConversations})`);
+        // Update state to reflect the trimmed list
+        setConversations(limited);
+      }
+      
+      localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(limited));
     }
   }, [conversations]);
 
@@ -490,7 +553,7 @@ export const useAgentChat = () => {
           ...prev,
           [agentId]: {
             ...agentTasks,
-            recent: [task, ...agentTasks.recent].slice(0, 5),
+            recent: [task, ...agentTasks.recent].slice(0, AGENT_CHAT_LAYOUT.maxRecentBackgroundTasks),
           }
         };
       } else {
@@ -527,7 +590,7 @@ export const useAgentChat = () => {
           ...prev,
           [agentId]: {
             inProgress: agentTasks.inProgress.filter(t => t.conversationId !== conversationId),
-            recent: [completedTask, ...agentTasks.recent].slice(0, 5),
+            recent: [completedTask, ...agentTasks.recent].slice(0, AGENT_CHAT_LAYOUT.maxRecentBackgroundTasks),
           }
         };
       });
@@ -553,7 +616,7 @@ export const useAgentChat = () => {
             ...prev,
             [agentId]: {
               inProgress: agentTasks.inProgress.filter(t => t.conversationId !== sessionInfo.conversationId),
-              recent: [completedTask, ...agentTasks.recent].slice(0, 5),
+              recent: [completedTask, ...agentTasks.recent].slice(0, AGENT_CHAT_LAYOUT.maxRecentBackgroundTasks),
             }
           };
         });

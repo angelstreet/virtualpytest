@@ -70,7 +70,11 @@ import { AGENT_CHAT_PALETTE as PALETTE, AGENT_CHAT_LAYOUT, AGENT_COLORS } from '
 import { getInitials, mergeToolEvents, groupConversationsByTime } from '../utils/agentChatUtils';
 import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming';
 
-const { sidebarWidth: SIDEBAR_WIDTH, rightPanelWidth: RIGHT_PANEL_WIDTH } = AGENT_CHAT_LAYOUT;
+const { 
+  sidebarWidth: SIDEBAR_WIDTH, 
+  rightPanelWidth: RIGHT_PANEL_WIDTH,
+  maxRecentBackgroundTasks: MAX_RECENT_TASKS 
+} = AGENT_CHAT_LAYOUT;
 
 // Colorize PASSED (green) and FAILED (red) in agent responses
 // Handles both strings and React node arrays from ReactMarkdown
@@ -674,7 +678,7 @@ useEffect(() => {
     // Combine in-progress and recent tasks
     const allTasks = [
       ...agentTasks.inProgress.map(t => ({ ...t, isInProgress: true })),
-      ...agentTasks.recent.slice(0, 5).map(t => ({ ...t, isInProgress: false }))
+      ...agentTasks.recent.slice(0, MAX_RECENT_TASKS).map(t => ({ ...t, isInProgress: false }))
     ];
     
     const totalActive = allTasks.length;
@@ -794,7 +798,7 @@ useEffect(() => {
                       alignItems: 'center',
                       gap: 0.75,
                       px: 1,
-                      py: 0.5,
+                      py: 0.4,
                       borderRadius: 1,
                       cursor: 'pointer',
                       bgcolor: task.conversationId === activeConversationId && sidebarTab === 'system'
@@ -820,36 +824,28 @@ useEffect(() => {
                         },
                       }} />
                     ) : (
-                      <Box sx={{ fontSize: 11, minWidth: 12, textAlign: 'center', flexShrink: 0 }}>{icon}</Box>
+                      <Box sx={{ fontSize: 10, minWidth: 10, textAlign: 'center', flexShrink: 0 }}>{icon}</Box>
                     )}
                     
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      {/* Line 1: title - subtitle (e.g., sunri-pi1 - S21x - freeze) */}
+                      {/* Single compact line: host-device - HH:MM DD/MM */}
                       <Typography 
                         variant="caption" 
                         sx={{ 
                           display: 'block',
-                          fontSize: '0.75rem',
+                          fontSize: '0.7rem',
                           color: task.isInProgress ? 'text.primary' : 'text.secondary',
                           fontWeight: task.isInProgress ? 500 : 400,
+                          lineHeight: 1.4,
                         }}
                         noWrap
                       >
-                        {task.subtitle ? `${task.title} - ${task.subtitle}` : task.title}
-                      </Typography>
-                      {/* Line 2: date */}
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          display: 'block',
-                          fontSize: '0.6rem',
-                          color: 'text.disabled',
-                          opacity: 0.7,
-                        }}
-                      >
                         {(() => {
                           const d = new Date(task.startedAt);
-                          return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                          const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                          const date = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                          const titlePart = task.subtitle ? `${task.title}-${task.subtitle}` : task.title;
+                          return `${titlePart} - ${time} ${date}`;
                         })()}
                       </Typography>
                     </Box>
@@ -2143,7 +2139,20 @@ useEffect(() => {
               const isSystemConversation = activeConversationId?.startsWith('bg_');
               const hasNoMessages = messages.length === 0;
               const onChatsTabWithNoRegularConvo = sidebarTab === 'chats' && (!activeConversationId || isSystemConversation);
-              const onSystemTabWithNoSelection = sidebarTab === 'system' && (!activeConversationId || !isSystemConversation || hasNoMessages);
+              // Show system placeholder only when on system tab AND (no conversation selected OR selected conversation is not a system one)
+              const onSystemTabWithNoSelection = sidebarTab === 'system' && (!activeConversationId || !isSystemConversation);
+              
+              // Debug: Log render conditions
+              console.log('[AgentChat] Render check:', {
+                activeConversationId,
+                sidebarTab,
+                messagesLength: messages.length,
+                isSystemConversation,
+                hasNoMessages,
+                onChatsTabWithNoRegularConvo,
+                onSystemTabWithNoSelection,
+                status
+              });
               
               // Show system placeholder when on system tab with no incident selected
               if (status === 'ready' && onSystemTabWithNoSelection) {
