@@ -779,11 +779,15 @@ class ExplorationExecutor:
         
         nodes_created = continue_result.get('nodes_created', 0)
         edges_created = continue_result.get('edges_created', 0)
+        node_ids = continue_result.get('node_ids', [])
+        edge_ids = continue_result.get('edge_ids', [])
+        
         print(f"[@ExplorationExecutor:auto_discover_screen] ✅ Complete: {nodes_created} nodes, {edges_created} edges created")
+        print(f"[@ExplorationExecutor:auto_discover_screen] Nodes: {node_ids}")
+        print(f"[@ExplorationExecutor:auto_discover_screen] Edges: {edge_ids}")
         
         return {
             'success': True,
-            'nodes_created': nodes_created,
-            'edges_created': edges_created,
-            'elements_found': elements_found
+            'nodes': node_ids,
+            'edges': edge_ids
         }
