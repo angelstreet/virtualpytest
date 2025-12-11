@@ -1,6 +1,6 @@
 name: explore-mobile
-version: 3.0.0
-description: Build navigation tree for mobile apps
+version: 4.0.0
+description: Build navigation tree for mobile apps with auto-validation
 
 triggers:
   - explore mobile
@@ -10,7 +10,7 @@ triggers:
 system_prompt: |
   Build navigation trees for mobile apps.
   
-  IMPORTANT:  only use navigate_to_node to navigate to home
+  IMPORTANT: auto_discover_screen now INCLUDES validation (no manual testing needed)
   
   SETUP:
   1. list_userinterfaces() - Find interface
@@ -19,21 +19,41 @@ system_prompt: |
   4. take_control(host_name, device_id, tree_id) - Lock device
   5. navigate_to_node(target_node_label="home") - Navigate to home
   
-  PHASE 1 - DISCOVER:
-  auto_discover_screen(tree_id, host_name, userinterface_name) → creates nodes/edges
-  ⚠️ If fails: release_control and STOP
+  PHASE 1 - DISCOVER & VALIDATE (automatic):
+  auto_discover_screen(tree_id, host_name, userinterface_name)
+  → Creates nodes/edges
+  → AUTOMATICALLY validates each edge (forward + backward)
+  → Returns validation results including FAILED_ITEMS
   
-  PHASE 2 - TEST, FIX & SAVE SCREENSHOTS:
-  For each edge:
-  1. execute_device_action(forward) - if fail: recover via "Entry→home" edge then retry once
-  2. dump_ui_elements → analyze_screen_for_verification → update_node
-  3. save_node_screenshot
-  4. execute_device_action(reverse)
-  5. ⚠️ MANDATORY: verify_node(home) - ALWAYS verify after reverse
-     - If fail: retry reverse + verify_node(home)
-     - If still fail: recover via "Entry→home" edge
+  PHASE 2 - FIX FAILURES ONLY (if any):
+  Check the 'failed_items' in auto_discover_screen response.
   
-  ⚠️ KEYBOARD SCREENS (search): Need 2x BACK (dismiss keyboard + go back)
+  If there are failures:
+  1. dump_ui_elements() - See current screen state
+  2. For each failed edge:
+     - If forward failed: analyze_screen_for_action() to find correct selector
+     - If backward failed: check if 2x BACK needed (keyboard screens)
+  3. update_edge() to fix the edge actions
+  4. Optionally: execute_device_action() to test the fix
+  
+  ⚠️ KEYBOARD SCREENS: Need 2x BACK
+  When backward validation fails, update_edge with iterator:2:
+  ```
+  update_edge(
+    tree_id=..., edge_id=...,
+    action_sets=[
+      {...forward...},
+      {"id": "x_to_home", "label": "x → home",
+       "actions": [{"command": "press_key", "params": {"key": "BACK"}, "iterator": 2}],
+       "retry_actions": [], "failure_actions": []}
+    ]
+  )
+  ```
+  
+  PHASE 3 - SCREENSHOTS (optional, for nodes without them):
+  For nodes that need screenshots:
+  - navigate_to_node(target_node_label="...")
+  - save_node_screenshot(...)
   
   CLEANUP:
   release_control

@@ -782,12 +782,38 @@ class ExplorationExecutor:
         node_ids = continue_result.get('node_ids', [])
         edge_ids = continue_result.get('edge_ids', [])
         
-        print(f"[@ExplorationExecutor:auto_discover_screen] ✅ Complete: {nodes_created} nodes, {edges_created} edges created")
-        print(f"[@ExplorationExecutor:auto_discover_screen] Nodes: {node_ids}")
-        print(f"[@ExplorationExecutor:auto_discover_screen] Edges: {edge_ids}")
+        print(f"[@ExplorationExecutor:auto_discover_screen] ✅ Phase 2 complete: {nodes_created} nodes, {edges_created} edges")
+        
+        # ============================================================================
+        # PHASE 3: Validate (same as frontend - just call existing methods, no duplication)
+        # ============================================================================
+        print(f"[@ExplorationExecutor:auto_discover_screen] Starting Phase 3: VALIDATION")
+        
+        validation_start = self.start_validation()  # Same as frontend calls
+        if not validation_start.get('success'):
+            return {
+                'success': True,
+                'nodes': node_ids,
+                'edges': edge_ids,
+                'validation': {'error': validation_start.get('error')}
+            }
+        
+        # Same loop as frontend's pollValidation() - collect raw results, no processing
+        validation_results = []
+        while True:
+            result = self.validate_next_item()  # Same as frontend calls
+            if not result.get('success'):
+                break
+            validation_results.append(result)  # Raw result, same format frontend receives
+            print(f"[@ExplorationExecutor:auto_discover_screen] Validated: {result.get('item')}")
+            if not result.get('has_more_items', False):
+                break
+        
+        print(f"[@ExplorationExecutor:auto_discover_screen] ✅ Complete: {len(validation_results)} items validated")
         
         return {
             'success': True,
             'nodes': node_ids,
-            'edges': edge_ids
+            'edges': edge_ids,
+            'validation_results': validation_results  # Raw results - AI reads directly
         }

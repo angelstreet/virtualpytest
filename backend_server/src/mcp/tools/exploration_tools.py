@@ -1,5 +1,6 @@
 """AI Exploration Tools - Automated tree building via screen analysis"""
 
+import json
 from typing import Dict, Any
 from ..utils.mcp_formatter import MCPFormatter, ErrorCategory
 from ..utils.api_client import MCPAPIClient
@@ -15,7 +16,7 @@ class ExplorationTools:
         self.formatter = MCPFormatter()
     
     def auto_discover_screen(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Auto-discover elements and create nodes/edges"""
+        """Auto-discover elements, create nodes/edges, and validate them."""
         tree_id = params.get('tree_id')
         host_name = params.get('host_name')
         userinterface_name = params.get('userinterface_name')
@@ -46,30 +47,34 @@ class ExplorationTools:
             
             nodes = response.get('nodes', [])
             edges = response.get('edges', [])
+            validation_results = response.get('validation_results', [])
             
-            # Format output
-            result_text = f"✅ Exploration Complete!\n\n"
-            result_text += f"🗺️ Navigation Tree Structure:\n"
-            result_text += f"  • {len(nodes)} nodes\n"
-            result_text += f"  • {len(edges)} edges\n\n"
+            # Format output - just show raw data, no extra processing
+            result_text = f"🗺️ EXPLORATION + VALIDATION COMPLETE\n{'='*50}\n\n"
+            result_text += f"📦 CREATED: {len(nodes)} nodes, {len(edges)} edges\n\n"
             
-            # List nodes
-            result_text += f"📱 Nodes:\n"
-            for idx, node in enumerate(nodes, 1):
-                result_text += f"  {idx}. {node}\n"
+            if nodes:
+                result_text += f"Nodes: {', '.join(nodes)}\n\n"
             
-            # List edges (parse edge IDs to show connections)
-            if edges:
-                result_text += f"\n🔗 Edges:\n"
-                for idx, edge in enumerate(edges, 1):
-                    # Parse edge ID like "edge_home_search" to "home ↔ search"
-                    edge_clean = edge.replace('edge_', '').replace('_temp', '')
-                    parts = edge_clean.split('_', 1)
-                    if len(parts) == 2:
-                        connection = f"{parts[0]} ↔ {parts[1]}"
-                    else:
-                        connection = edge_clean
-                    result_text += f"  {idx}. {connection}\n"
+            # Show validation results (raw format from validate_next_item)
+            result_text += f"🧪 VALIDATION: {len(validation_results)} items tested\n\n"
+            
+            for r in validation_results:
+                item = r.get('item', '')
+                # Mobile/Web format
+                if 'click_result' in r:
+                    fwd = r.get('click_result', '?')
+                    bck = r.get('back_result', '?')
+                    symbol = '✅' if fwd == 'success' and bck == 'success' else '❌'
+                    result_text += f"{symbol} {item}: forward={fwd}, back={bck}\n"
+                # TV format
+                elif 'edges' in r:
+                    for edge in r.get('edges', []):
+                        et = edge.get('edge_type', '')
+                        fwd = edge.get('action_sets', {}).get('forward', {}).get('result', '?')
+                        bck = edge.get('action_sets', {}).get('reverse', {}).get('result', '?')
+                        symbol = '✅' if fwd == 'success' and bck == 'success' else '❌'
+                        result_text += f"{symbol} {item} ({et}): forward={fwd}, back={bck}\n"
             
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             

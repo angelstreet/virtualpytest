@@ -8,8 +8,14 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "auto_discover_screen",
-            "description": """Auto-discover UI elements and create nodes/edges.
-Calls start_exploration() + continue_exploration() with all elements selected.""",
+            "description": """Auto-discover UI elements, create nodes/edges, AND validate them.
+
+Runs 3 phases automatically:
+1. AI vision analysis (finds UI elements)
+2. Creates nodes/edges
+3. Validates each edge (same validation as frontend)
+
+Returns raw validation_results - check for failures and fix with update_edge().""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
