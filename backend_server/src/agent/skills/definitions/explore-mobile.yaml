@@ -22,10 +22,16 @@ system_prompt: |
   ⚠️ If fails: release_control and STOP
   
   PHASE 2 - TEST, FIX & SAVE SCREENSHOTS:
-  For each edge: execute_device_action → verify_node → fix any incorrect selectors or verifications
-  In case edge action or node verification fails, dump_ui_elements to find selector, then update_node/update_edge
+  For each node we need to validate each edge forward and reverse : 
+  1. execute_device_action (forward edge)
+  2. dump_ui_elements
+  3. analyze_screen_for_verification
+  4. update_node
+  5. save_node_screenshot(node_id) - Save screenshot of node
+  6. execute_device_action (reverse edge), if fail, execute_device_action(edge "Entry→Home")
+  
+  fix any incorrect selectors or verifications dump_ui_elements -> update_node/update_edge
   ⚠️ often search nodes require back iteration 2 to remove first the keyboard
-  save_node_screenshot(node_id) - Save screenshot of node
 
   CLEANUP:
   release_control
