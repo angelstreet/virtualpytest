@@ -600,14 +600,18 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 
                 forward_actions = [{
                     "command": "click_element",
-                    "params": {"element_id": item},
-                    "delay": 2000
+                    "params": {
+                        "element_id": item,
+                        "wait_time": 2000
+                    }
                 }]
                 
                 reverse_actions = [{
                     "command": "press_key",
-                    "params": {"key": "BACK"},
-                    "delay": 2000
+                    "params": {
+                        "key": "BACK",
+                        "wait_time": 2000
+                    }
                 }]
                 
                 edge_data = node_gen.create_edge_data(
