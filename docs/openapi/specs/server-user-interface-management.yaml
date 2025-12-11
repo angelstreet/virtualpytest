@@ -9,6 +9,7 @@ paths:
   /server/userinterface/getAllUserInterfaces:
     get:
       summary: Get All User Interfaces
+      description: Get a list of all user interface definitions for a team
       tags: [UserInterface]
       parameters:
         - name: team_id
@@ -16,23 +17,37 @@ paths:
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: List of user interfaces
+          description: List of user interfaces retrieved successfully
           content:
             application/json:
               schema:
                 type: array
                 items:
                   type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    models:
+                      type: array
+                      items:
+                        type: string
   /server/userinterface/createUserInterface:
     post:
       summary: Create User Interface
+      description: Create a new user interface definition
       tags: [UserInterface]
       parameters:
         - name: team_id
@@ -40,21 +55,63 @@ paths:
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - models
+              properties:
+                name:
+                  type: string
+                  description: User interface name (must be unique)
+                  example: "{{userinterface_name}}"
+                models:
+                  type: array
+                  description: List of compatible device models (at least one required)
+                  items:
+                    type: string
+                  example: ["Samsung S21", "Samsung S22"]
+                description:
+                  type: string
+                  description: User interface description (optional)
+                  example: "Android mobile interface for Samsung devices"
+                capabilities:
+                  type: object
+                  description: Interface capabilities (optional)
+                  example: {"touch": true, "voice": false}
       responses:
-        '200':
-          description: User interface created
+        '201':
+          description: User interface created successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  userinterface:
+                    type: object
+        '400':
+          description: Bad request - name is required, duplicate name, or no models selected
+        '500':
+          description: Failed to create user interface
   /server/userinterface/getUserInterface/{interface_id}:
     get:
       summary: Get User Interface by ID
+      description: Retrieve a specific user interface by its ID
       tags: [UserInterface]
       parameters:
         - name: interface_id
@@ -62,26 +119,35 @@ paths:
           required: true
           schema:
             type: string
+          description: User interface identifier
+          example: "{{userinterface_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: User interface details
+          description: User interface details retrieved successfully
           content:
             application/json:
               schema:
                 type: object
+        '404':
+          description: User interface not found
   /server/userinterface/updateUserInterface/{interface_id}:
     put:
       summary: Update User Interface
+      description: Update an existing user interface definition
       tags: [UserInterface]
       parameters:
         - name: interface_id
@@ -89,26 +155,68 @@ paths:
           required: true
           schema:
             type: string
+          description: User interface identifier
+          example: "{{userinterface_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: User interface name
+                  example: "Updated Mobile Interface"
+                models:
+                  type: array
+                  description: List of compatible device models
+                  items:
+                    type: string
+                  example: ["Samsung S21", "Samsung S22", "Samsung S23"]
+                description:
+                  type: string
+                  description: User interface description
+                  example: "Updated description"
+                capabilities:
+                  type: object
+                  description: Interface capabilities
       responses:
         '200':
-          description: User interface updated
+          description: User interface updated successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  userinterface:
+                    type: object
+        '400':
+          description: Bad request - invalid data
+        '404':
+          description: User interface not found
+        '500':
+          description: Failed to update user interface
   /server/userinterface/deleteUserInterface/{interface_id}:
     delete:
       summary: Delete User Interface
+      description: Delete a user interface definition permanently
       tags: [UserInterface]
       parameters:
         - name: interface_id
@@ -116,20 +224,33 @@ paths:
           required: true
           schema:
             type: string
+          description: User interface identifier
+          example: "{{userinterface_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: User interface deleted
+          description: User interface deleted successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+        '404':
+          description: User interface not found
+        '500':
+          description: Failed to delete user interface

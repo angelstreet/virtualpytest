@@ -1,216 +1,637 @@
-# Quick Guide: Network Configuration
+# QuickGuide 2: Network Setup
+
+> **Purpose**: Network architecture and connectivity for VirtualPyTest  
+> **Audience**: Network Engineers, DevOps, System Administrators
+
+---
 
 ## Overview
-This guide covers network configuration requirements for VirtualPytest components to communicate effectively.
 
-## Network Architecture
+VirtualPyTest requires network connectivity for:
+- Service communication (Frontend ↔ Server ↔ Host)
+- Device control (ADB, IR, Smart devices)
+- Cloud services (Database, Storage, AI)
+- Remote access (Web UI, VNC)
 
-### Basic Topology
+### Port Summary
+
+| Service | Port | Protocol | Direction |
+|---------|------|----------|-----------|
+| Frontend | 3000 | HTTP/S | Inbound |
+| Backend Server | 5109 | HTTP/WS | Inbound |
+| Backend Host | 6109+ | HTTP/WS | Inbound |
+| Grafana | 3001 | HTTP | Inbound |
+| NoVNC | 6080 | HTTP/WS | Inbound |
+| VNC (raw) | 5900 | TCP | Inbound |
+| PostgreSQL | 5432 | TCP | Outbound |
+| HTTPS (Cloud) | 443 | HTTPS | Outbound |
+
+---
+
+## Part A: Standalone Network
+
+### Topology
+
 ```
-[Client Devices] → [Network] → [VirtualPytest Server] → [Host Machines]
-                          ↓
-                     [Database]
-                          ↓
-                     [Grafana]
+┌──────────────────────────────────────────────────────────────┐
+│                    HOME/OFFICE LAN                           │
+│                    192.168.1.0/24                            │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│     ┌─────────┐                                              │
+│     │ Router  │◄────────────────► Internet                   │
+│     │  DHCP   │                                              │
+│     └────┬────┘                                              │
+│          │                                                   │
+│          │ LAN                                               │
+│          │                                                   │
+│     ┌────┴─────────────────────────────────────────┐         │
+│     │                                              │         │
+│  ┌──▼──────────────────┐    ┌──────────┐    ┌──────▼─────┐   │
+│  │ VirtualPyTest Host  │    │   STB    │    │  Mobile    │   │
+│  │ 192.168.1.100       │    │ .101     │    │  (DHCP)    │   │
+│  │                     │    └──────────┘    └────────────┘   │
+│  │ ├─ :3000  Frontend  │          │                │        │
+│  │ ├─ :5109  Server    │◄─────────┘ HDMI           │        │
+│  │ ├─ :6109  Host      │◄──────────────────────────┘ USB    │
+│  │ ├─ :6080  NoVNC     │                                    │
+│  │ └─ :3001  Grafana   │                                    │
+│  └─────────────────────┘                                    │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Port Requirements
 
-| Component | Port | Protocol | Description |
-|-----------|------|----------|-------------|
-| Frontend | 3000 | HTTP/HTTPS | Web interface |
-| Backend Server | 8000 | HTTP/HTTPS | API server |
-| Backend Host | 5000 | HTTP/HTTPS | Device control |
-| Grafana | 3001 | HTTP/HTTPS | Monitoring dashboard |
-| PostgreSQL | 5432 | TCP | Database |
-| VNC | 5900-5999 | TCP | Remote control |
-| NoVNC | 6080 | HTTP | Web-based VNC |
-| HLS Stream | 8080 | HTTP | Video streaming |
+| Port | Service | Access | Notes |
+|------|---------|--------|-------|
+| 3000 | Frontend | LAN | Web interface |
+| 5109 | Backend Server | LAN | API + WebSocket |
+| 6109 | Backend Host | LAN | Device control |
+| 6080 | NoVNC | LAN | Web-based VNC |
+| 5900 | VNC | LAN | Raw VNC (optional) |
+| 3001 | Grafana | LAN | Monitoring |
 
-## Network Configuration Steps
-
-### 1. Static IP Configuration
+### Firewall Rules (UFW)
 
 ```bash
-# Ubuntu/Debian with netplan
-sudo nano /etc/netplan/01-netcfg.yaml
+# Enable UFW
+sudo ufw enable
+
+# Allow SSH (if remote)
+sudo ufw allow 22/tcp
+
+# VirtualPyTest services
+sudo ufw allow 3000/tcp    # Frontend
+sudo ufw allow 5109/tcp    # Backend Server
+sudo ufw allow 6109/tcp    # Backend Host
+sudo ufw allow 6080/tcp    # NoVNC
+sudo ufw allow 3001/tcp    # Grafana (optional)
+
+# Verify
+sudo ufw status
 ```
 
-Example configuration:
+### Static IP Configuration
+
+**Recommended:** Assign static IP to host for consistent access.
+
+**/etc/netplan/01-netcfg.yaml** (Ubuntu):
 ```yaml
 network:
   version: 2
-  renderer: networkd
   ethernets:
     eth0:
       dhcp4: no
-      addresses: [192.168.1.100/24]
+      addresses:
+        - 192.168.1.100/24
       gateway4: 192.168.1.1
       nameservers:
-        addresses: [8.8.8.8, 8.8.4.4, 1.1.1.1]
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
 ```
 
-Apply configuration:
+Apply: `sudo netplan apply`
+
+### Router Configuration
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| DHCP Reservation | Host MAC → 192.168.1.100 | Consistent IP |
+| Port Forward (optional) | 443 → 192.168.1.100:5109 | External access |
+| DNS (optional) | virtualpytest.local → 192.168.1.100 | Friendly name |
+
+---
+
+## Part B: Production Network
+
+### Topology
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PRODUCTION NETWORK                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                              ┌─────────────┐                                │
+│           Internet ◄─────────┤  Firewall   │                                │
+│                              │  (pfSense)  │                                │
+│                              └──────┬──────┘                                │
+│                                     │                                       │
+│                              ┌──────▼──────┐                                │
+│                              │ Core Switch │                                │
+│                              │ Arista 10GbE│                                │
+│                              │ (L3 Routing)│                                │
+│                              └──────┬──────┘                                │
+│                                     │                                       │
+│          ┌──────────────────────────┼──────────────────────────┐            │
+│          │                          │                          │            │
+│   ┌──────▼──────┐           ┌───────▼──────┐           ┌───────▼──────┐     │
+│   │  VLAN 10    │           │   VLAN 20    │           │   VLAN 30    │     │
+│   │  COMPUTE    │           │   DEVICES    │           │  MANAGEMENT  │     │
+│   │ 10.0.1.0/24 │           │ 10.0.2.0/24  │           │ 10.0.3.0/24  │     │
+│   │             │           │              │           │              │     │
+│   │ • Servers   │◄─────────►│ • STBs       │           │ • IPMI/BMC   │     │
+│   │ • Capture   │   10GbE   │ • Mobiles    │           │ • Switch Mgmt│     │
+│   │ • IR Ctrl   │           │ • Smart TVs  │           │ • PDU Mgmt   │     │
+│   │             │           │              │           │              │     │
+│   │ Server 1:   │           │ Devices:     │           │ IPMI:        │     │
+│   │  10.0.1.11  │           │  10.0.2.1-80 │           │  10.0.3.11-15│     │
+│   │ Server 2:   │           │              │           │ Switch:      │     │
+│   │  10.0.1.12  │           │              │           │  10.0.3.1    │     │
+│   │ ...         │           │              │           │              │     │
+│   └─────────────┘           └──────────────┘           └──────────────┘     │
+│                                                                             │
+│   RACK A (Compute)          RACK B (Devices)                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### VLAN Configuration
+
+| VLAN | ID | Subnet | Purpose | Gateway |
+|------|-----|--------|---------|---------|
+| Compute | 10 | 10.0.1.0/24 | Servers, capture cards | 10.0.1.1 |
+| Devices | 20 | 10.0.2.0/24 | Test devices (STB, mobile) | 10.0.2.1 |
+| Management | 30 | 10.0.3.0/24 | IPMI, switch mgmt, PDU | 10.0.3.1 |
+
+### Core Switch Configuration (Arista)
+
 ```bash
-sudo netplan apply
+! VLAN definitions
+vlan 10
+   name COMPUTE
+vlan 20
+   name DEVICES
+vlan 30
+   name MANAGEMENT
+
+! Server ports (10GbE trunk)
+interface Ethernet1-5
+   description Server1-5
+   switchport mode trunk
+   switchport trunk allowed vlan 10,20,30
+
+! Device uplinks (1GbE access)
+interface Ethernet10-48
+   description Device-Ports
+   switchport mode access
+   switchport access vlan 20
+
+! Inter-VLAN routing
+interface Vlan10
+   ip address 10.0.1.1/24
+interface Vlan20
+   ip address 10.0.2.1/24
+interface Vlan30
+   ip address 10.0.3.1/24
+
+! Enable routing
+ip routing
 ```
 
-### 2. Firewall Configuration
+### Port Matrix by Service
 
-```bash
-# Install and enable UFW
-sudo apt install ufw
-sudo ufw enable
+| Service | Source | Destination | Port | Protocol |
+|---------|--------|-------------|------|----------|
+| Frontend → Server | Any | 10.0.1.x | 5109 | HTTPS/WSS |
+| Server → Host | 10.0.1.x | 10.0.1.x | 6109-6119 | HTTP |
+| Host → Devices | 10.0.1.x | 10.0.2.x | Various | ADB/HTTP |
+| IR Controller | 10.0.1.x | 10.0.1.x | 4998 | TCP |
+| IPMI Access | 10.0.3.x | 10.0.3.x | 443/623 | HTTPS/IPMI |
 
-# Allow required ports
-sudo ufw allow 22/tcp       # SSH
-sudo ufw allow 80/tcp       # HTTP
-sudo ufw allow 443/tcp      # HTTPS
-sudo ufw allow 3000/tcp     # Frontend
-sudo ufw allow 8000/tcp     # Backend Server
-sudo ufw allow 5000/tcp     # Backend Host
-sudo ufw allow 3001/tcp     # Grafana
-sudo ufw allow 5432/tcp     # PostgreSQL
-sudo ufw allow 5900:5999/tcp # VNC
-sudo ufw allow 6080/tcp     # NoVNC
-sudo ufw allow 8080/tcp     # HLS Stream
+### Firewall Rules (Production)
 
-# Check status
-sudo ufw status verbose
+**Inbound (Internet → DMZ):**
+```
+# HTTPS to reverse proxy
+ALLOW TCP 443 → 10.0.1.10 (Nginx)
+
+# Block all other inbound
+DENY ALL
 ```
 
-### 3. DNS Configuration
+**Inter-VLAN:**
+```
+# Compute → Devices (device control)
+ALLOW VLAN10 → VLAN20 (ADB: 5555, HTTP: 80/443)
 
-```bash
-# Edit resolv.conf
-sudo nano /etc/resolv.conf
+# Devices → Compute (responses only)
+ALLOW VLAN20 → VLAN10 ESTABLISHED
+
+# Management → All (admin access)
+ALLOW VLAN30 → VLAN10,20 (SSH: 22, HTTPS: 443)
+
+# Block device-to-device
+DENY VLAN20 → VLAN20
 ```
 
-Add nameservers:
+**Outbound (Internal → Internet):**
 ```
-nameserver 8.8.8.8
-nameserver 8.8.4.4
-nameserver 1.1.1.1
-```
+# Cloud services
+ALLOW 10.0.1.0/24 → ANY:443 (HTTPS)
+ALLOW 10.0.1.0/24 → ANY:5432 (PostgreSQL/Supabase)
 
-### 4. Hostname Configuration
-
-```bash
-# Set hostname
-sudo hostnamectl set-hostname virtualpytest-server
-
-# Edit hosts file
-sudo nano /etc/hosts
+# Block devices from internet
+DENY 10.0.2.0/24 → ANY
 ```
 
-Add entry:
+### Inter-Rack Connectivity
+
+| Connection | Cable Type | Speed | Distance |
+|------------|-----------|-------|----------|
+| Rack A ↔ Core Switch | DAC/SFP+ | 10GbE | <5m |
+| Rack A ↔ Rack B | Cat6a | 10GbE | 5m |
+| Server ↔ Server | DAC | 10GbE | <3m |
+
+---
+
+## Part C: External Connectivity
+
+### Cloud Services
+
 ```
-127.0.0.1   virtualpytest-server localhost
-192.168.1.100 virtualpytest-server
+┌─────────────────────────────────────────────────────────────────┐
+│                     EXTERNAL SERVICES                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   VirtualPyTest                                                 │
+│        │                                                        │
+│        ├───────► Supabase (Database)                            │
+│        │         └─ db.xxxx.supabase.co:5432                    │
+│        │         └─ Protocol: PostgreSQL (TCP)                  │
+│        │         └─ Auth: Connection string                     │
+│        │                                                        │
+│        ├───────► Cloudflare R2 (Storage)                        │
+│        │         └─ xxxx.r2.cloudflarestorage.com:443           │
+│        │         └─ Protocol: S3-compatible (HTTPS)             │
+│        │         └─ Auth: Access Key + Secret                   │
+│        │                                                        │
+│        ├───────► OpenRouter (AI/LLM)                            │
+│        │         └─ openrouter.ai:443                           │
+│        │         └─ Protocol: REST API (HTTPS)                  │
+│        │         └─ Auth: API Key                               │
+│        │                                                        │
+│        └───────► Vercel (Frontend CDN)                          │
+│                  └─ virtualpytest.vercel.app:443                │
+│                  └─ Protocol: HTTPS                             │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Network Security
+### Outbound Requirements
 
-### VPN Configuration (Optional)
-
-```bash
-# Install WireGuard
-sudo apt install wireguard
-
-# Generate keys
-wg genkey | sudo tee /etc/wireguard/privatekey
-sudo chmod go= /etc/wireguard/privatekey
-
-# Create configuration
-sudo nano /etc/wireguard/wg0.conf
-```
-
-Example WireGuard config:
-```ini
-[Interface]
-PrivateKey = <server-private-key>
-Address = 10.0.0.1/24
-ListenPort = 51820
-
-[Peer]
-PublicKey = <client-public-key>
-AllowedIPs = 10.0.0.2/32
-```
+| Service | Domain | Port | Protocol | Required |
+|---------|--------|------|----------|----------|
+| Supabase | *.supabase.co | 5432 | TCP | Yes |
+| Cloudflare R2 | *.r2.cloudflarestorage.com | 443 | HTTPS | Yes |
+| OpenRouter | openrouter.ai | 443 | HTTPS | Optional |
+| npm/pip | registry.npmjs.org, pypi.org | 443 | HTTPS | Build only |
+| Docker Hub | docker.io, registry-1.docker.io | 443 | HTTPS | Build only |
 
 ### SSL/TLS Configuration
 
+**Let's Encrypt Setup:**
 ```bash
-# Install Certbot
-sudo apt install certbot python3-certbot-nginx
+# Install certbot
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
 
 # Obtain certificate
-sudo certbot --nginx -d yourdomain.com
+sudo certbot --nginx -d api.yourdomain.com \
+    --non-interactive \
+    --agree-tos \
+    --email admin@yourdomain.com
 
-# Auto-renewal
+# Auto-renewal (already configured)
+sudo systemctl status certbot.timer
+
+# Test renewal
 sudo certbot renew --dry-run
 ```
 
-## Network Troubleshooting
+### Reverse Proxy (Nginx)
 
-### Common Issues
+**/etc/nginx/sites-available/virtualpytest:**
+```nginx
+# HTTP → HTTPS redirect
+server {
+    listen 80;
+    server_name api.yourdomain.com;
+    return 301 https://$server_name$request_uri;
+}
 
-1. **Port Conflicts**: Check with `netstat -tuln` or `ss -tuln`
-2. **Firewall Blocking**: Check UFW status and rules
-3. **DNS Resolution**: Test with `dig` or `nslookup`
-4. **Network Latency**: Use `ping` and `traceroute`
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    server_name api.yourdomain.com;
 
-### Diagnostic Commands
+    # SSL (managed by certbot)
+    ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Increase buffer sizes
+    client_max_body_size 100M;
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+
+    # Backend Server API
+    location /server/ {
+        proxy_pass http://127.0.0.1:5109/server/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Health check
+    location /health {
+        proxy_pass http://127.0.0.1:5109/health;
+    }
+
+    # Grafana (optional)
+    location /grafana/ {
+        proxy_pass http://127.0.0.1:3001/;
+        proxy_set_header Host $host;
+    }
+
+    # Backend Host 1
+    location /host1/ {
+        rewrite ^/host1/(.*)$ /host/$1 break;
+        proxy_pass http://127.0.0.1:6109;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+
+    # Backend Host 2
+    location /host2/ {
+        rewrite ^/host2/(.*)$ /host/$1 break;
+        proxy_pass http://127.0.0.1:6110;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+
+    # Default
+    location / {
+        proxy_pass http://127.0.0.1:5109;
+    }
+}
+```
+
+**Enable and test:**
+```bash
+sudo ln -sf /etc/nginx/sites-available/virtualpytest \
+            /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+## Part D: Remote Access Options
+
+### Comparison
+
+| Method | Public IP | Setup | Security | Latency | Best For |
+|--------|-----------|-------|----------|---------|----------|
+| **Direct** | Required | Easy | Medium | Low | Simple, static IP |
+| **Cloudflare Tunnel** | No | Medium | High | Low | Production |
+| **Tailscale** | No | Easy | High | Low | Teams |
+| **WireGuard** | No | Hard | High | Low | Self-hosted |
+| **ngrok** | No | Easy | Medium | Medium | Development |
+
+### Option 1: Direct (Public IP)
+
+**Requirements:**
+- Static public IP or Dynamic DNS
+- Port forwarding on router
+- SSL certificate
+
+**Router Port Forward:**
+| External | Internal | Service |
+|----------|----------|---------|
+| 443 | 192.168.1.100:443 | Nginx (HTTPS) |
+
+### Option 2: Cloudflare Tunnel (Recommended)
+
+**Zero Trust access without public IP.**
 
 ```bash
-# Check network interfaces
-ip a
+# Install cloudflared
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+    -o /usr/local/bin/cloudflared
+chmod +x /usr/local/bin/cloudflared
 
-# Check routing table
-ip route
+# Authenticate
+cloudflared tunnel login
 
-# Test connectivity
-ping google.com
+# Create tunnel
+cloudflared tunnel create virtualpytest
 
-# Check open ports
-netstat -tuln
+# Configure tunnel
+cat > ~/.cloudflared/config.yml << EOF
+tunnel: <TUNNEL_ID>
+credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
 
-# Test specific port
-nc -zv 192.168.1.100 8000
+ingress:
+  - hostname: api.yourdomain.com
+    service: http://localhost:5109
+  - hostname: vnc.yourdomain.com
+    service: http://localhost:6080
+  - service: http_status:404
+EOF
 
+# Run as service
+cloudflared service install
+systemctl start cloudflared
+```
+
+### Option 3: Tailscale
+
+**Mesh VPN with zero configuration.**
+
+```bash
+# Install
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Authenticate
+sudo tailscale up
+
+# Get Tailscale IP
+tailscale ip -4
+# Example: 100.x.y.z
+
+# Access from any Tailscale device
+# http://100.x.y.z:5109
+```
+
+### Option 4: WireGuard
+
+**Self-hosted VPN.**
+
+```bash
+# Install
+sudo apt install wireguard
+
+# Generate keys
+wg genkey | tee privatekey | wg pubkey > publickey
+
+# Server config (/etc/wireguard/wg0.conf)
+[Interface]
+Address = 10.200.200.1/24
+PrivateKey = <SERVER_PRIVATE_KEY>
+ListenPort = 51820
+
+[Peer]
+PublicKey = <CLIENT_PUBLIC_KEY>
+AllowedIPs = 10.200.200.2/32
+
+# Start
+sudo wg-quick up wg0
+sudo systemctl enable wg-quick@wg0
+```
+
+### Option 5: ngrok (Development)
+
+**Quick tunnels for testing.**
+
+```bash
+# Install
+snap install ngrok
+
+# Authenticate
+ngrok config add-authtoken <YOUR_TOKEN>
+
+# Tunnel to Backend Server
+ngrok http 5109
+
+# Output: https://xxxx.ngrok.io → localhost:5109
+```
+
+---
+
+## Appendix
+
+### A. Complete Port Reference
+
+| Port | Service | Protocol | Direction | Required | Notes |
+|------|---------|----------|-----------|----------|-------|
+| 22 | SSH | TCP | Inbound | Optional | Admin access |
+| 80 | HTTP | TCP | Inbound | Yes | Redirect to HTTPS |
+| 443 | HTTPS | TCP | Inbound | Yes | Main entry point |
+| 3000 | Frontend | HTTP | Inbound | Dev only | Direct access |
+| 3001 | Grafana | HTTP | Inbound | Optional | Monitoring |
+| 5109 | Backend Server | HTTP/WS | Internal | Yes | API |
+| 5432 | PostgreSQL | TCP | Outbound | Yes | Supabase |
+| 5900 | VNC | TCP | Internal | Optional | Raw VNC |
+| 6080 | NoVNC | HTTP/WS | Internal | Yes | Web VNC |
+| 6109-6119 | Backend Hosts | HTTP | Internal | Yes | Device control |
+| 51820 | WireGuard | UDP | Inbound | Optional | VPN |
+
+### B. Troubleshooting
+
+**Connection Issues:**
+
+```bash
+# Check if port is listening
+netstat -tlnp | grep 5109
+ss -tlnp | grep 5109
+
+# Test local connectivity
+curl http://localhost:5109/health
+
+# Test from another machine
+curl http://192.168.1.100:5109/health
+
+# Check firewall
+sudo ufw status verbose
+
+# Check Docker networking
+docker network ls
+docker network inspect virtualpytest-network
+```
+
+**DNS Issues:**
+
+```bash
 # Check DNS resolution
-dig google.com
-nslookup google.com
+nslookup api.yourdomain.com
+dig api.yourdomain.com
 
-# Network speed test
-speedtest-cli
+# Test with IP directly
+curl -H "Host: api.yourdomain.com" http://<IP>/health
 ```
 
-## Network Performance Optimization
-
-### Quality of Service (QoS)
+**SSL Issues:**
 
 ```bash
-# Install tc for traffic control
-sudo apt install iproute2
+# Check certificate
+openssl s_client -connect api.yourdomain.com:443
 
-# Limit bandwidth for specific interface
-sudo tc qdisc add dev eth0 root tbf rate 100mbit burst 32kbit latency 400ms
+# Check certificate expiry
+certbot certificates
+
+# Force renewal
+sudo certbot renew --force-renewal
 ```
 
-### Network Buffer Tuning
+### C. Network Security Checklist
 
-```bash
-# Increase TCP buffer sizes
-sudo sysctl -w net.core.rmem_max=16777216
-sudo sysctl -w net.core.wmem_max=16777216
-sudo sysctl -w net.core.rmem_default=16777216
-sudo sysctl -w net.core.wmem_default=16777216
-```
+**Standalone:**
+- [ ] Static IP configured
+- [ ] UFW enabled with required ports only
+- [ ] SSH key authentication (disable password)
+- [ ] Services bound to LAN interface only
 
-## Next Steps
+**Production:**
+- [ ] VLANs configured and isolated
+- [ ] Inter-VLAN firewall rules
+- [ ] Management VLAN restricted
+- [ ] SSL/TLS on all external endpoints
+- [ ] API keys rotated regularly
+- [ ] No direct internet access for devices (VLAN 20)
+- [ ] IPMI on isolated management network
+- [ ] Intrusion detection (optional)
+- [ ] Network monitoring (optional)
 
-After network configuration:
-1. Verify all ports are accessible
-2. Test connectivity between components
-3. Configure SSL/TLS for secure communication
-4. Proceed to software installation
+### D. DNS Records
+
+| Type | Name | Value | TTL | Purpose |
+|------|------|-------|-----|---------|
+| A | api | <Server IP> | 300 | Backend Server |
+| A | vnc | <Server IP> | 300 | NoVNC access |
+| CNAME | www | virtualpytest.vercel.app | 300 | Frontend |
+
+---
+
+**Previous:** [QuickGuide 1: Hardware Setup](./quickguide-hardware.md)  
+**Next:** [QuickGuide 3: Software Setup](./quickguide-software.md)

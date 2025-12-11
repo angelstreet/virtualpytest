@@ -9,6 +9,7 @@ paths:
   /server/navigation/goto:
     post:
       summary: Navigate to Node (Goto)
+      description: Navigate to a specific node in the navigation tree using the abstract navigation controller
       tags: [Navigation]
       parameters:
         - name: Authorization
@@ -16,6 +17,21 @@ paths:
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_node
+              properties:
+                target_node:
+                  type: string
+                  description: Node ID to navigate to
+                  example: "{{node_id}}"
       responses:
         '200':
           description: Navigation successful
@@ -23,9 +39,21 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: object
+                  message:
+                    type: string
+        '400':
+          description: Bad request - target_node required or navigation controller not available
+        '500':
+          description: Host device not initialized or navigation error
   /server/navigation/config/createEmpty/{ui_name}:
     post:
       summary: Create Empty Navigation Config
+      description: Create an empty navigation configuration for a user interface with entry and home nodes
       tags: [Navigation]
       parameters:
         - name: ui_name
@@ -33,26 +61,70 @@ paths:
           required: true
           schema:
             type: string
+          description: User interface name
+          example: "{{userinterface_name}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userinterface_data:
+                  type: object
+                  description: User interface data (optional - will lookup by name if not provided)
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
       responses:
         '200':
-          description: Config created
+          description: Navigation config created successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  tree:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                  edges:
+                    type: array
+                    items:
+                      type: object
+        '404':
+          description: User interface not found
+        '500':
+          description: Failed to create navigation tree
   /server/navigation-trees/getTree/{navigation_id}:
     get:
       summary: Get Navigation Tree
+      description: Retrieve a specific navigation tree with all its nodes and edges
       tags: [Navigation]
       parameters:
         - name: navigation_id
@@ -60,26 +132,48 @@ paths:
           required: true
           schema:
             type: string
+          description: Navigation tree identifier
+          example: "{{navigation_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Navigation tree details
+          description: Navigation tree details retrieved successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  tree:
+                    type: object
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                  edges:
+                    type: array
+                    items:
+                      type: object
+        '404':
+          description: Navigation tree not found
   /server/navigation-trees/getAllTrees:
     get:
       summary: Get All Navigation Trees
+      description: Get a list of all navigation trees for a team
       tags: [Navigation]
       parameters:
         - name: team_id
@@ -87,23 +181,39 @@ paths:
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: List of navigation trees
+          description: List of navigation trees retrieved successfully
           content:
             application/json:
               schema:
                 type: array
                 items:
                   type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    userinterface_id:
+                      type: string
+                    is_root_tree:
+                      type: boolean
+        '500':
+          description: Internal error retrieving trees
   /server/navigation-trees/deleteTree/{navigation_id}:
     delete:
       summary: Delete Navigation Tree
+      description: Delete a navigation tree and all its associated nodes and edges
       tags: [Navigation]
       parameters:
         - name: navigation_id
@@ -111,20 +221,35 @@ paths:
           required: true
           schema:
             type: string
+          description: Navigation tree identifier
+          example: "{{navigation_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Tree deleted
+          description: Tree deleted successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '404':
+          description: Navigation tree not found
+        '500':
+          description: Internal error deleting tree

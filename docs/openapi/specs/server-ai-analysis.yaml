@@ -8,14 +8,50 @@ servers:
 paths:
   /server/ai/analyzeCompatibility:
     post:
-      summary: Analyze Compatibility
+      summary: Analyze AI Task Compatibility
+      description: Analyze compatibility between AI task prompt and available device capabilities
       tags: [AI]
       parameters:
+        - name: team_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Team identifier (optional)
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prompt
+                - host_name
+              properties:
+                prompt:
+                  type: string
+                  description: AI task prompt to analyze
+                  example: "{{ai_prompt}}"
+                host_name:
+                  type: string
+                  description: Host name where AI task will run
+                  example: "{{host_name}}"
+                device_id:
+                  type: string
+                  description: Device identifier (optional)
+                  example: "{{device_id}}"
+                userinterface_name:
+                  type: string
+                  description: User interface name (optional)
+                  example: "{{userinterface_name}}"
       responses:
         '200':
           description: Compatibility analysis result
@@ -23,88 +59,306 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  compatible:
+                    type: boolean
+                  analysis:
+                    type: object
+        '400':
+          description: Bad request - missing required fields
   /server/ai/generatePlan:
     post:
-      summary: Generate Plan
+      summary: Generate AI Execution Plan
+      description: Generate a step-by-step execution plan from AI prompt
       tags: [AI]
       parameters:
+        - name: team_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Team identifier (optional)
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prompt
+                - host_name
+              properties:
+                prompt:
+                  type: string
+                  description: AI task prompt
+                  example: "{{ai_prompt}}"
+                host_name:
+                  type: string
+                  description: Host name where AI task will run
+                  example: "{{host_name}}"
+                device_id:
+                  type: string
+                  description: Device identifier (optional)
+                  example: "{{device_id}}"
+                userinterface_name:
+                  type: string
+                  description: User interface name (optional)
+                  example: "{{userinterface_name}}"
       responses:
         '200':
-          description: Generated plan
+          description: Generated execution plan
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  plan:
+                    type: object
+                  steps:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Bad request - missing required fields
   /server/ai/getStatus:
     post:
-      summary: Get AI Status
+      summary: Get AI Execution Status
+      description: Get the current status of an AI task execution
       tags: [AI]
       parameters:
+        - name: team_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Team identifier (optional)
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task_id
+                - host_name
+              properties:
+                task_id:
+                  type: string
+                  description: AI task identifier
+                  example: "{{task_id}}"
+                host_name:
+                  type: string
+                  description: Host name where AI task is running
+                  example: "{{host_name}}"
+                device_id:
+                  type: string
+                  description: Device identifier (optional)
+                  example: "{{device_id}}"
       responses:
         '200':
-          description: AI status
+          description: AI execution status
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [pending, running, completed, failed]
+                  result:
+                    type: object
+        '400':
+          description: Bad request - missing required fields
   /server/ai/stopExecution:
     post:
       summary: Stop AI Execution
+      description: Stop a running AI task execution
       tags: [AI]
       parameters:
+        - name: team_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Team identifier (optional)
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task_id
+                - host_name
+              properties:
+                task_id:
+                  type: string
+                  description: AI task identifier to stop
+                  example: "{{task_id}}"
+                host_name:
+                  type: string
+                  description: Host name where AI task is running
+                  example: "{{host_name}}"
+                device_id:
+                  type: string
+                  description: Device identifier (optional)
+                  example: "{{device_id}}"
       responses:
         '200':
-          description: Execution stopped
+          description: Execution stopped successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Bad request - missing required fields
   /server/ai/analyzePrompt:
     post:
-      summary: Analyze Prompt
+      summary: Analyze Prompt for Disambiguation
+      description: Pre-analyze AI prompt to detect ambiguities and suggest clarifications
       tags: [AI]
       parameters:
+        - name: team_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Team identifier (optional)
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prompt
+                - host_name
+              properties:
+                prompt:
+                  type: string
+                  description: AI prompt to analyze
+                  example: "{{ai_prompt}}"
+                host_name:
+                  type: string
+                  description: Host name for analysis context
+                  example: "{{host_name}}"
+                device_id:
+                  type: string
+                  description: Device identifier (optional)
+                  example: "{{device_id}}"
+                userinterface_name:
+                  type: string
+                  description: User interface name (optional)
+                  example: "{{userinterface_name}}"
       responses:
         '200':
-          description: Prompt analysis
+          description: Prompt analysis with disambiguation suggestions
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  ambiguities:
+                    type: array
+                    items:
+                      type: object
+                  suggestions:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad request - missing required fields
   /server/ai/resetCache:
     post:
-      summary: Reset AI Cache
+      summary: Reset AI Graph Cache
+      description: Clear all cached AI-generated graphs for a team
       tags: [AI]
       parameters:
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - host_name
+              properties:
+                host_name:
+                  type: string
+                  description: Host name for cache invalidation
+                  example: "{{host_name}}"
       responses:
         '200':
-          description: Cache reset
+          description: Cache cleared successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  deleted_count:
+                    type: integer
+        '400':
+          description: Bad request - missing host_name or team_id

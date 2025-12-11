@@ -34,6 +34,7 @@ paths:
   /server/devices/createDevice:
     post:
       summary: Create Device
+      description: Create a new device in the device_flags table (auto-registered from hosts)
       tags: [Devices]
       parameters:
         - name: team_id
@@ -41,21 +42,61 @@ paths:
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - model
+              properties:
+                name:
+                  type: string
+                  description: Device name
+                  example: "{{device_name}}"
+                description:
+                  type: string
+                  description: Device description (optional)
+                  example: "Test device for QA"
+                model:
+                  type: string
+                  description: Device model name
+                  example: "{{device_model}}"
+                controller_configs:
+                  type: object
+                  description: Controller configuration JSON (optional)
+                  example: {"av": "av_controller_1", "power": "power_controller_1"}
       responses:
-        '200':
-          description: Device created
+        '201':
+          description: Device created successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  device:
+                    type: object
+        '400':
+          description: Bad request - missing required fields
+        '500':
+          description: Internal error creating device
   /server/devices/getDevice/{device_id}:
     get:
       summary: Get Device by ID
+      description: Retrieve detailed information about a specific device
       tags: [Devices]
       parameters:
         - name: device_id
@@ -63,26 +104,61 @@ paths:
           required: true
           schema:
             type: string
+          description: Device identifier
+          example: "{{device_id}}"
+        - name: host_name
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Host name where device is located (optional)
+          example: "{{host_name}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Device details
+          description: Device details retrieved successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  model:
+                    type: string
+                  description:
+                    type: string
+                  controller_configs:
+                    type: object
+                  created_at:
+                    type: string
+                    format: date-time
+                  updated_at:
+                    type: string
+                    format: date-time
+        '404':
+          description: Device not found
+        '500':
+          description: Internal error retrieving device
   /server/devices/updateDevice/{device_id}:
     put:
       summary: Update Device
+      description: Update an existing device's information
       tags: [Devices]
       parameters:
         - name: device_id
@@ -90,23 +166,63 @@ paths:
           required: true
           schema:
             type: string
+          description: Device identifier
+          example: "{{device_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Device name
+                  example: "{{device_name}}"
+                description:
+                  type: string
+                  description: Device description
+                  example: "Updated description"
+                model:
+                  type: string
+                  description: Device model name
+                  example: "{{device_model}}"
+                controller_configs:
+                  type: object
+                  description: Controller configuration JSON
+                  example: {"av": "av_controller_1", "power": "power_controller_1"}
       responses:
         '200':
-          description: Device updated
+          description: Device updated successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  device:
+                    type: object
+        '400':
+          description: Bad request
+        '404':
+          description: Device not found
+        '500':
+          description: Internal error updating device
   /server/devices/deleteDevice/{device_id}:
     delete:
       summary: Delete Device

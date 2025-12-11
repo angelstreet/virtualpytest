@@ -9,6 +9,7 @@ paths:
   /server/metrics/tree/{navigation_id}:
     get:
       summary: Get Tree Metrics
+      description: Get performance metrics and analytics for a navigation tree
       tags: [Metrics]
       parameters:
         - name: navigation_id
@@ -16,21 +17,39 @@ paths:
           required: true
           schema:
             type: string
+          description: Navigation tree identifier
+          example: "{{navigation_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Tree metrics
+          description: Tree metrics retrieved successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  tree_id:
+                    type: string
+                  total_nodes:
+                    type: integer
+                  total_edges:
+                    type: integer
+                  execution_count:
+                    type: integer
+                  average_duration:
+                    type: number
+        '404':
+          description: Navigation tree not found
   /server/metrics/node/node-id/{navigation_id}:
     get:
       summary: Get Node Metrics
+      description: Get performance metrics for a specific node in a navigation tree
       tags: [Metrics]
       parameters:
         - name: navigation_id
@@ -38,21 +57,44 @@ paths:
           required: true
           schema:
             type: string
+          description: Navigation tree identifier
+          example: "{{navigation_id}}"
+        - name: node_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Node identifier
+          example: "{{node_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Node metrics
+          description: Node metrics retrieved successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  node_id:
+                    type: string
+                  execution_count:
+                    type: integer
+                  success_rate:
+                    type: number
+                  average_duration:
+                    type: number
+        '404':
+          description: Node not found
   /server/metrics/edge/edge-id/{navigation_id}:
     get:
       summary: Get Edge Metrics
+      description: Get performance metrics for a specific edge (action) in a navigation tree
       tags: [Metrics]
       parameters:
         - name: navigation_id
@@ -60,21 +102,44 @@ paths:
           required: true
           schema:
             type: string
+          description: Navigation tree identifier
+          example: "{{navigation_id}}"
+        - name: edge_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Edge identifier
+          example: "{{edge_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Edge metrics
+          description: Edge metrics retrieved successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  edge_id:
+                    type: string
+                  execution_count:
+                    type: integer
+                  success_rate:
+                    type: number
+                  average_duration:
+                    type: number
+        '404':
+          description: Edge not found
   /server/metrics/history/actions/edge-id/{navigation_id}:
     get:
       summary: Get Action History
+      description: Get execution history for actions performed on a specific edge
       tags: [Metrics]
       parameters:
         - name: navigation_id
@@ -82,23 +147,45 @@ paths:
           required: true
           schema:
             type: string
+          description: Navigation tree identifier
+          example: "{{navigation_id}}"
+        - name: edge_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Edge identifier
+          example: "{{edge_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Action history
+          description: Action history retrieved successfully
           content:
             application/json:
               schema:
                 type: array
                 items:
                   type: object
+                  properties:
+                    timestamp:
+                      type: string
+                      format: date-time
+                    success:
+                      type: boolean
+                    duration:
+                      type: number
+        '404':
+          description: Edge not found
   /server/metrics/history/verifications/node-id/{navigation_id}:
     get:
       summary: Get Verification History
+      description: Get verification execution history for a specific node
       tags: [Metrics]
       parameters:
         - name: navigation_id
@@ -106,17 +193,38 @@ paths:
           required: true
           schema:
             type: string
+          description: Navigation tree identifier
+          example: "{{navigation_id}}"
+        - name: node_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Node identifier
+          example: "{{node_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
       responses:
         '200':
-          description: Verification history
+          description: Verification history retrieved successfully
           content:
             application/json:
               schema:
                 type: array
                 items:
                   type: object
+                  properties:
+                    timestamp:
+                      type: string
+                      format: date-time
+                    success:
+                      type: boolean
+                    verification_type:
+                      type: string
+        '404':
+          description: Node not found

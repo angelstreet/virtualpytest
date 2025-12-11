@@ -34,7 +34,7 @@ paths:
   /server/system/register:
     post:
       summary: Register Host
-      description: Register a new host with the server for device management
+      description: Register a new host with the server for device management and monitoring
       tags:
         - System
       parameters:
@@ -43,6 +43,7 @@ paths:
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
           example: Bearer {{api_key}}
       requestBody:
         required: true
@@ -50,11 +51,26 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - host_name
+                - host_url
               properties:
                 host_name:
                   type: string
+                  description: Unique host name identifier
+                  example: "{{host_name}}"
                 host_url:
                   type: string
+                  description: Host URL endpoint
+                  example: "http://{{host_name}}:5001"
+                devices:
+                  type: array
+                  description: List of devices on this host (optional)
+                  items:
+                    type: object
+                system_info:
+                  type: object
+                  description: System information (optional)
       responses:
         '200':
           description: Host registered successfully
@@ -67,10 +83,12 @@ paths:
                     type: boolean
                   message:
                     type: string
+        '400':
+          description: Bad request - missing required fields
   /server/system/ping:
     post:
       summary: Host Ping
-      description: Hosts send periodic health ping to server
+      description: Hosts send periodic health ping to server with system stats and device metrics
       tags:
         - System
       parameters:
@@ -79,6 +97,7 @@ paths:
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
           example: Bearer {{api_key}}
       requestBody:
         required: true
@@ -86,13 +105,28 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - host_name
               properties:
                 host_name:
                   type: string
+                  description: Host name identifier
+                  example: "{{host_name}}"
                 system_stats:
                   type: object
+                  description: System-level statistics (CPU, memory, disk, etc.)
+                  properties:
+                    cpu_percent:
+                      type: number
+                    memory_percent:
+                      type: number
+                    disk_percent:
+                      type: number
                 per_device_metrics:
                   type: object
+                  description: Per-device metrics (device_id as key)
+                  additionalProperties:
+                    type: object
       responses:
         '200':
           description: Ping received successfully
@@ -105,3 +139,5 @@ paths:
                     type: boolean
                   message:
                     type: string
+        '400':
+          description: Bad request - missing host_name

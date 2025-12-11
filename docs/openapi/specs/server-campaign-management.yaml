@@ -33,6 +33,7 @@ paths:
   /server/campaigns/createCampaign:
     post:
       summary: Create Campaign
+      description: Create a new test campaign with multiple script configurations
       tags: [Campaigns]
       parameters:
         - name: team_id
@@ -40,18 +41,85 @@ paths:
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+        - name: X-User-ID
+          in: header
+          required: false
+          schema:
+            type: string
+          description: User identifier (optional)
+          example: "{{user_id}}"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - campaign_name
+                - host_name
+                - device_name
+                - script_configurations
+              properties:
+                campaign_name:
+                  type: string
+                  description: Campaign name
+                  example: "{{campaign_name}}"
+                campaign_description:
+                  type: string
+                  description: Campaign description (optional)
+                  example: "Regression test campaign"
+                userinterface_name:
+                  type: string
+                  description: User interface name (optional)
+                  example: "{{userinterface_name}}"
+                host_name:
+                  type: string
+                  description: Host name where devices are located
+                  example: "{{host_name}}"
+                device_name:
+                  type: string
+                  description: Device name for execution
+                  example: "{{device_name}}"
+                script_configurations:
+                  type: array
+                  description: List of scripts to execute in the campaign
+                  items:
+                    type: object
+                    properties:
+                      script_name:
+                        type: string
+                      parameters:
+                        type: string
+                  example: [{"script_name": "validation.py", "parameters": "--mode full"}]
+                execution_config:
+                  type: object
+                  description: Additional execution configuration (optional)
+                  example: {"timeout": 3600, "retry": true}
       responses:
         '200':
-          description: Campaign created
+          description: Campaign created successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  campaign:
+                    type: object
+        '400':
+          description: Bad request - missing required fields
+        '500':
+          description: Internal error creating campaign
   /server/campaigns/getCampaign/{campaign_id}:
     get:
       summary: Get Campaign by ID
@@ -82,6 +150,7 @@ paths:
   /server/campaigns/updateCampaign/{campaign_id}:
     put:
       summary: Update Campaign
+      description: Update an existing campaign's configuration
       tags: [Campaigns]
       parameters:
         - name: campaign_id
@@ -89,23 +158,89 @@ paths:
           required: true
           schema:
             type: string
+          description: Campaign identifier
+          example: "{{campaign_id}}"
         - name: team_id
           in: query
           required: true
           schema:
             type: string
+          description: Team identifier
+          example: "{{team_id}}"
         - name: Authorization
           in: header
           required: true
           schema:
             type: string
+          description: Bearer token for authentication
+          example: Bearer {{api_key}}
+        - name: X-User-ID
+          in: header
+          required: false
+          schema:
+            type: string
+          description: User identifier (optional)
+          example: "{{user_id}}"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                campaign_name:
+                  type: string
+                  description: Campaign name
+                  example: "{{campaign_name}}"
+                campaign_description:
+                  type: string
+                  description: Campaign description
+                  example: "Updated regression test campaign"
+                userinterface_name:
+                  type: string
+                  description: User interface name
+                  example: "{{userinterface_name}}"
+                host_name:
+                  type: string
+                  description: Host name where devices are located
+                  example: "{{host_name}}"
+                device_name:
+                  type: string
+                  description: Device name for execution
+                  example: "{{device_name}}"
+                script_configurations:
+                  type: array
+                  description: Updated list of scripts to execute
+                  items:
+                    type: object
+                    properties:
+                      script_name:
+                        type: string
+                      parameters:
+                        type: string
+                  example: [{"script_name": "validation.py", "parameters": "--mode full"}]
+                execution_config:
+                  type: object
+                  description: Additional execution configuration
+                  example: {"timeout": 3600, "retry": true}
       responses:
         '200':
-          description: Campaign updated
+          description: Campaign updated successfully
           content:
             application/json:
               schema:
                 type: object
+                properties:
+                  status:
+                    type: string
+                  campaign:
+                    type: object
+        '400':
+          description: Bad request
+        '404':
+          description: Campaign not found
+        '500':
+          description: Internal error updating campaign
   /server/campaigns/deleteCampaign/{campaign_id}:
     delete:
       summary: Delete Campaign
