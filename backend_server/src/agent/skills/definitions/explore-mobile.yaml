@@ -18,7 +18,8 @@ system_prompt: |
   5. execute_device_action(edge "Entry→Home")
   
   PHASE 1 - DISCOVER:
-  auto_discover_screen(tree_id, host_name, userinterface_name) will automatically creates nodes/edges
+  auto_discover_screen(tree_id, host_name, userinterface_name) → creates nodes/edges
+  ⚠️ If fails: release_control and STOP
   
   PHASE 2 - VERIFY & FIX:
   dump_ui_elements() → check elements, compare with created nodes and edges

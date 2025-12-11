@@ -44,17 +44,17 @@ class ExplorationTools:
                     ErrorCategory.BACKEND
                 )
             
-            nodes_created = response.get('nodes_created', [])
-            edges_created = response.get('edges_created', [])
+            nodes_created = response.get('nodes_created', 0)
+            edges_created = response.get('edges_created', 0)
             elements_found = response.get('elements_found', [])
             
             result_text = f"✅ Auto-Discovery Complete\n\n"
-            result_text += f"Elements: {len(elements_found)} | Nodes: {len(nodes_created)} | Edges: {len(edges_created)}\n\n"
+            result_text += f"Elements: {len(elements_found)} | Nodes: {nodes_created} | Edges: {edges_created}\n\n"
             
-            if nodes_created:
-                result_text += f"Nodes: {', '.join(nodes_created[:10])}"
-                if len(nodes_created) > 10:
-                    result_text += f" (+{len(nodes_created) - 10} more)"
+            if elements_found:
+                result_text += f"Elements: {', '.join(elements_found[:10])}"
+                if len(elements_found) > 10:
+                    result_text += f" (+{len(elements_found) - 10} more)"
             
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
