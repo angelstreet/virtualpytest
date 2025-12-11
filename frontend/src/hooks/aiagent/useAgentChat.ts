@@ -459,12 +459,119 @@ export const useAgentChat = () => {
     
     // Extract task info from event (generic patterns)
     const taskData = event.task_data || {};
-    const taskId = event.task_id || 
+    
+    // Try to extract a REAL task ID - don't use temp fallback here
+    // Also check tool_params for update_execution_analysis calls
+    const realTaskId = event.task_id || 
+      (event.tool_params?.script_result_id as string) ||
       event.content?.match(/SCRIPT_RESULT_ID:\s*([a-f0-9-]+)/)?.[1] ||
       event.content?.match(/INCIDENT_ID:\s*([^\n]+)/)?.[1]?.trim() ||
       event.content?.match(/ALERT_ID:\s*([^\n]+)/)?.[1]?.trim() ||
       event.content?.match(/TASK_ID:\s*([^\n]+)/)?.[1]?.trim() ||
-      `temp_${Date.now()}`;
+      null;
+    
+    // Check if there's an existing active session for this agent
+    const existingSession = backgroundSessionsRef.current.get(agentId);
+    
+    // For non-dry-run agents (like Sherlock): only create task for MESSAGE events with real content
+    // Skip intermediate events (thinking, skill_loaded, tool_call) to avoid creating multiple entries
+    if (!isDryRun) {
+      // Skip thinking/skill events entirely - don't create tasks for these
+      if (event.type === 'thinking' || event.type === 'skill_loaded') {
+        console.log(`[Background:${agentNickname}] Skipping ${event.type} event - no task creation`);
+        return true; // Handled but skipped
+      }
+      
+      // For tool_call/tool_result, add to existing session only (don't create new tasks)
+      // We want the MESSAGE event to create the task since it has the actual analysis content
+      if (event.type === 'tool_call' || event.type === 'tool_result') {
+        if (existingSession) {
+          console.log(`[Background:${agentNickname}] Adding ${event.type} to existing session`);
+          // Add to existing conversation
+          setConversations(prev => prev.map(c => {
+            if (c.id !== existingSession.conversationId) return c;
+            const lastMsg = c.messages[c.messages.length - 1];
+            if (lastMsg && lastMsg.role === 'agent') {
+              return {
+                ...c,
+                messages: [
+                  ...c.messages.slice(0, -1),
+                  { ...lastMsg, events: [...(lastMsg.events || []), event] }
+                ],
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return c;
+          }));
+          return true;
+        }
+        // If we have a task ID from update_execution_analysis, store it for the upcoming MESSAGE event
+        if (realTaskId && event.type === 'tool_call' && event.tool_name === 'update_execution_analysis') {
+          console.log(`[Background:${agentNickname}] Storing pending task ID: ${realTaskId}`);
+          // Store pending task ID - will be used when MESSAGE arrives
+          backgroundSessionsRef.current.set(`${agentId}_pending`, { 
+            conversationId: '', 
+            taskId: realTaskId, 
+            title: '' 
+          });
+        }
+        console.log(`[Background:${agentNickname}] Skipping ${event.type} - waiting for MESSAGE event`);
+        return true; // Don't create task from tool events
+      }
+      
+      // For session_ended, mark existing task as complete and don't create new
+      if (event.type === 'session_ended') {
+        if (existingSession) {
+          console.log(`[Background:${agentNickname}] Session ended - marking task complete`);
+          setBackgroundTasks(prev => {
+            const agentTasks = prev[agentId] || { inProgress: [], recent: [] };
+            const inProgressTask = agentTasks.inProgress.find(t => t.conversationId === existingSession.conversationId);
+            if (!inProgressTask) return prev;
+            
+            const completedTask: BackgroundTask = {
+              ...inProgressTask,
+              status: 'completed',
+              classification: 'COMPLETED',
+              completedAt: new Date().toISOString(),
+            };
+            
+            return {
+              ...prev,
+              [agentId]: {
+                inProgress: agentTasks.inProgress.filter(t => t.conversationId !== existingSession.conversationId),
+                recent: [completedTask, ...agentTasks.recent].slice(0, AGENT_CHAT_LAYOUT.maxRecentBackgroundTasks),
+              }
+            };
+          });
+          backgroundSessionsRef.current.delete(agentId);
+        }
+        return true; // Don't create a new task for session_ended
+      }
+      
+      // For message events without real task ID, pending task, or existing session, skip
+      const pendingCheck = backgroundSessionsRef.current.get(`${agentId}_pending`);
+      if (!realTaskId && !existingSession && !pendingCheck && event.type === 'message') {
+        console.log(`[Background:${agentNickname}] Skipping message - no task ID, pending task, or session`);
+        return true;
+      }
+    }
+    
+    // Check for pending task ID (stored from tool_call with update_execution_analysis)
+    const pendingSession = backgroundSessionsRef.current.get(`${agentId}_pending`);
+    
+    // Use real task ID, pending task ID, existing session's task ID, or generate temp (only for dry-run)
+    const taskId = realTaskId || pendingSession?.taskId || existingSession?.taskId || (isDryRun ? `temp_${Date.now()}` : null);
+    
+    // Clear pending task ID once used
+    if (pendingSession && event.type === 'message') {
+      backgroundSessionsRef.current.delete(`${agentId}_pending`);
+    }
+    
+    // If still no task ID and not dry-run, skip
+    if (!taskId) {
+      console.log(`[Background:${agentNickname}] Skipping event - cannot determine task ID`);
+      return true;
+    }
     
     const taskType: string = event.task_type || (taskData.type as string) || 'task';
     
