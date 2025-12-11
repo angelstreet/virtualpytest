@@ -215,8 +215,8 @@ class TreeTools:
                     ErrorCategory.BACKEND
                 )
             
-            # STEP 1.5: VALIDATE VERIFICATIONS if provided
-            verifications_to_validate = updates.get('data', {}).get('verifications')
+            # STEP 1.5: VALIDATE VERIFICATIONS if provided (check both locations)
+            verifications_to_validate = updates.get('verifications') or updates.get('data', {}).get('verifications')
             if verifications_to_validate:
                 # Get userinterface to determine device_model
                 userinterface_result = self.api_client.get(
@@ -262,19 +262,31 @@ class TreeTools:
             
             existing_node = existing_result.get('node', {})
             
-            # STEP 2: Merge updates with existing node data
+            # STEP 2: Extract verifications - can be in updates.verifications OR updates.data.verifications
+            # Backend expects verifications at root level, not in data
+            verifications = updates.get('verifications')
+            if verifications is None:
+                verifications = updates.get('data', {}).get('verifications')
+            if verifications is None:
+                verifications = existing_node.get('verifications', [])
+            
+            # STEP 3: Merge updates with existing node data
             merged_data = {
                 'node_id': node_id,
                 'label': updates.get('label', existing_node.get('label')),
                 'node_type': updates.get('type', existing_node.get('node_type')),
                 'data': existing_node.get('data', {}),  # Start with existing data
                 'style': existing_node.get('style', {}),
-                'verifications': updates.get('verifications', existing_node.get('verifications', []))  # ✅ FIX: Accept verifications from updates
+                'verifications': verifications  # Root level verifications
             }
             
-            # Merge data field if provided
+            # Merge data field if provided (excluding verifications - they go at root level)
             if 'data' in updates:
-                merged_data['data'].update(updates['data'])
+                data_to_merge = {k: v for k, v in updates['data'].items() if k != 'verifications'}
+                merged_data['data'].update(data_to_merge)
+            
+            # Clean up any verifications that may exist in data (backend expects root level only)
+            merged_data['data'].pop('verifications', None)
             
             # Handle position - merge into data.position
             if 'position' in updates:
