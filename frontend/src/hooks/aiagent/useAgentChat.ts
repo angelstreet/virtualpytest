@@ -9,6 +9,7 @@ import { AGENT_CHAT_LAYOUT } from '../../constants/agentChatTheme';
 const STORAGE_KEY_API = 'virtualpytest_anthropic_key';
 const STORAGE_KEY_CONVERSATIONS = 'virtualpytest_agent_conversations';
 const STORAGE_KEY_ACTIVE_CONVERSATION = 'virtualpytest_active_conversation';
+const STORAGE_KEY_SESSION = 'virtualpytest_agent_session';
 
 // --- Types ---
 
@@ -1062,6 +1063,26 @@ export const useAgentChat = () => {
           processingTimeoutRef.current = null;
         }
         
+        // Clear recovery timeout if running
+        if (sessionRecoveryTimeoutRef.current) {
+          clearTimeout(sessionRecoveryTimeoutRef.current);
+          sessionRecoveryTimeoutRef.current = null;
+        }
+        
+        // Clear pending state from localStorage
+        const savedSessionData = localStorage.getItem(STORAGE_KEY_SESSION);
+        if (savedSessionData) {
+          try {
+            const savedSession = JSON.parse(savedSessionData);
+            localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
+              ...savedSession,
+              pendingConversationId: null,
+            }));
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+        
         setCurrentEvents(prevEvents => {
           if (prevEvents.length > 0) {
             // Use event.agent if available, otherwise use session's active agent
@@ -1097,19 +1118,130 @@ export const useAgentChat = () => {
 
   // --- Session Management ---
 
+  // Timeout ref for session recovery
+  const sessionRecoveryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check session status from backend API
+  const checkSessionStatus = useCallback(async (sessionId: string) => {
+    try {
+      const response = await fetch(buildServerUrl(`/server/agent/sessions/${sessionId}`));
+      if (!response.ok) {
+        // Session not found - it completed or was cleaned up
+        return { exists: false, processing: false };
+      }
+      const data = await response.json();
+      if (data.success && data.session) {
+        // Session exists - check if it has an active agent (meaning still processing)
+        return { 
+          exists: true, 
+          processing: !!data.session.active_agent,
+          session: data.session 
+        };
+      }
+      return { exists: false, processing: false };
+    } catch (err) {
+      console.warn('[useAgentChat] Failed to check session status:', err);
+      return { exists: false, processing: false };
+    }
+  }, []);
+
   const initializeSession = useCallback(async () => {
     try {
+      // Check for existing session that might still be processing
+      const savedSessionData = localStorage.getItem(STORAGE_KEY_SESSION);
+      
+      if (savedSessionData) {
+        try {
+          const savedSession = JSON.parse(savedSessionData);
+          const sessionAge = Date.now() - (savedSession.timestamp || 0);
+          
+          // If session is less than 15 minutes old AND we have a pending conversation, rejoin it
+          if (sessionAge < 15 * 60 * 1000 && savedSession.id && savedSession.pendingConversationId) {
+            console.log('[useAgentChat] Checking existing session status:', savedSession.id);
+            
+            // Check if session is still active on backend
+            const status = await checkSessionStatus(savedSession.id);
+            
+            if (status.exists && status.processing) {
+              console.log('[useAgentChat] Session still processing, rejoining:', savedSession.id);
+              setSession({ id: savedSession.id, active_agent: status.session?.active_agent });
+              
+              // Restore pending conversation
+              pendingConversationIdRef.current = savedSession.pendingConversationId;
+              setPendingConversationId(savedSession.pendingConversationId);
+              setIsProcessing(true);
+              
+              connectSocket(savedSession.id);
+              
+              // Set a recovery timeout - if we don't receive session_ended within 10 seconds,
+              // check again with the backend
+              if (sessionRecoveryTimeoutRef.current) {
+                clearTimeout(sessionRecoveryTimeoutRef.current);
+              }
+              sessionRecoveryTimeoutRef.current = setTimeout(async () => {
+                console.log('[useAgentChat] Recovery timeout - checking session status again');
+                const recheckStatus = await checkSessionStatus(savedSession.id);
+                
+                if (!recheckStatus.exists || !recheckStatus.processing) {
+                  // Session completed while we were reconnecting
+                  console.log('[useAgentChat] Session completed during reconnection, finalizing');
+                  setIsProcessing(false);
+                  pendingConversationIdRef.current = null;
+                  setPendingConversationId(null);
+                  
+                  // Update localStorage
+                  localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
+                    ...savedSession,
+                    pendingConversationId: null,
+                  }));
+                  
+                  // Reload conversations from localStorage (AIContext might have updated them)
+                  const savedConvos = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
+                  if (savedConvos) {
+                    try {
+                      setConversations(JSON.parse(savedConvos));
+                    } catch (e) {
+                      // Ignore parse errors
+                    }
+                  }
+                }
+              }, 10000); // 10 second timeout
+              
+              return;
+            } else {
+              // Session no longer exists or not processing - clear pending state
+              console.log('[useAgentChat] Session no longer processing, clearing state');
+              localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
+                ...savedSession,
+                pendingConversationId: null,
+              }));
+            }
+          }
+        } catch (e) {
+          console.warn('[useAgentChat] Failed to parse saved session:', e);
+        }
+      }
+      
+      // Create new session
       const response = await fetch(buildServerUrl('/server/agent/sessions'), { method: 'POST' });
       const data = await response.json();
       if (data.success) {
         setSession(data.session);
+        
+        // Save session to localStorage
+        localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
+          id: data.session.id,
+          timestamp: Date.now(),
+          pendingConversationId: null,
+        }));
+        
         connectSocket(data.session.id);
       }
     } catch (err) {
       console.error('Failed to initialize session:', err);
       setStatus('error');
     }
-  }, [connectSocket]);
+  }, [connectSocket, checkSessionStatus]);
 
   // --- Check Connectivity & Auth ---
 
@@ -1254,6 +1386,15 @@ export const useAgentChat = () => {
     setCurrentEvents([]);
     setError(null);
     sessionEndedRef.current = false; // Reset for new message - session is active
+
+    // Save session state to localStorage (for back/forward navigation recovery)
+    if (session?.id) {
+      localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
+        id: session.id,
+        timestamp: Date.now(),
+        pendingConversationId: targetConvoId,
+      }));
+    }
 
     // Failsafe: Auto-unstick processing after 15 minutes
     if (processingTimeoutRef.current) {
@@ -1497,6 +1638,9 @@ export const useAgentChat = () => {
       }
       if (disconnectTimeoutRef.current) {
         clearTimeout(disconnectTimeoutRef.current);
+      }
+      if (sessionRecoveryTimeoutRef.current) {
+        clearTimeout(sessionRecoveryTimeoutRef.current);
       }
     };
   }, []);
