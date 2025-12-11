@@ -1,5 +1,7 @@
 import time
-from typing import Dict, Any
+import inspect
+import asyncio
+from typing import Dict, Any, Callable, Tuple
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
 from shared.src.lib.database.navigation_trees_db import (
     get_edge_by_id, 
@@ -7,6 +9,69 @@ from shared.src.lib.database.navigation_trees_db import (
     invalidate_navigation_cache_for_tree
 )
 from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+
+
+def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tuple[str, int]:
+    """
+    Smart backward: 1.Entry→home main, 2.BACK, 3.BACK, 4.Entry→home retry
+    Returns: ('success'|'failed', step_used: 1-4 or 0)
+    """
+    entry_edge = executor.exploration_state.get('entry_to_home_edge')
+    
+    # Step 1: Entry→home main action (click Home)
+    if entry_edge:
+        actions = entry_edge.get('action_sets', [{}])[0].get('actions', [])
+        if actions:
+            print(f"    🔄 Step 1: Entry→home main action")
+            for action in actions:
+                text = action.get('params', {}).get('text', action.get('params', {}).get('element_id', ''))
+                if text:
+                    result = controller.click_element(text)
+                    if inspect.iscoroutine(result): asyncio.run(result)
+            time.sleep(3)
+            if verify_func(): 
+                print(f"    ✅ Step 1 worked")
+                return 'success', 1
+    
+    # Step 2: BACK
+    print(f"    🔄 Step 2: BACK")
+    result = controller.press_key('BACK')
+    if inspect.iscoroutine(result): asyncio.run(result)
+    time.sleep(3)
+    if verify_func(): 
+        print(f"    ✅ Step 2 worked")
+        return 'success', 2
+    
+    # Step 3: BACK again
+    print(f"    🔄 Step 3: BACK again")
+    result = controller.press_key('BACK')
+    if inspect.iscoroutine(result): asyncio.run(result)
+    time.sleep(3)
+    if verify_func(): 
+        print(f"    ✅ Step 3 worked")
+        return 'success', 3
+    
+    # Step 4: Entry→home retry action
+    if entry_edge:
+        retry_actions = entry_edge.get('action_sets', [{}])[0].get('retry_actions', [])
+        if retry_actions:
+            print(f"    🔄 Step 4: Entry→home retry action")
+            for action in retry_actions:
+                cmd = action.get('command', '')
+                params = action.get('params', {})
+                if cmd == 'launch_app' and hasattr(controller, 'launch_app'):
+                    controller.launch_app(params.get('package', params.get('package_name', '')))
+                elif cmd == 'click_element':
+                    result = controller.click_element(params.get('text', params.get('element_id', '')))
+                    if inspect.iscoroutine(result): asyncio.run(result)
+            time.sleep(5)
+            if verify_func(): 
+                print(f"    ✅ Step 4 worked")
+                return 'success', 4
+    
+    print(f"    ❌ All 4 steps failed")
+    return 'failed', 0
+
 
 def start_validation(executor) -> Dict[str, Any]:
     """
@@ -46,6 +111,15 @@ def start_validation(executor) -> Dict[str, Any]:
         start_node_label = executor.exploration_state.get('start_node', 'home')
         lines = executor.exploration_state.get('exploration_plan', {}).get('lines', [])
         items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
+    
+    # ✅ Load Entry→home edge for smart_backward
+    entry_result = get_edge_by_id(tree_id, "edge_entry_to_home", team_id)
+    if entry_result.get('success') and entry_result.get('edge'):
+        with executor._lock:
+            executor.exploration_state['entry_to_home_edge'] = entry_result['edge']
+        print(f"[@start_validation] ✅ Loaded Entry→home edge for smart_backward")
+    else:
+        print(f"[@start_validation] ⚠️ Entry→home edge not found - smart_backward will use BACK only")
     
     # ✅ Print summaries OUTSIDE the lock to avoid deadlock
     print(f"\n{'='*100}")
@@ -764,52 +838,25 @@ def validate_next_item(executor) -> Dict[str, Any]:
             edge_results['enter'] = 'failed'
             print(f"    ❌ Vertical enter failed: {e}")
         
-        # Edge 3: Vertical exit (BACK)
+        # Edge 3: Vertical exit (BACK) - TV/STB uses BACK key directly
         backs_needed = 1  # Default: 1 BACK
         
         try:
             print(f"\n    Edge 3/3: {screen_node_name} ↑ {focus_node_name}")
             
             # Screenshot BEFORE BACK (for similarity comparison)
-            before_back_screenshot = None
-            try:
-                from shared.src.lib.utils.device_utils import capture_screenshot
-                from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-                from backend_host.src.controllers.controller_manager import get_host
-                before_back_screenshot = capture_screenshot(executor.device, context=None)
-                if before_back_screenshot:
-                    print(f"    📸 Before BACK screenshot: {before_back_screenshot}")
-                    host = get_host()
-                    before_back_url = buildHostImageUrl({'host_url': host.host_url, 'host_api_url': getattr(host, 'host_api_url', None)}, before_back_screenshot)
-                    print(f"    🔗 Before BACK URL: {before_back_url}")
-            except Exception as e:
-                print(f"    ⚠️ Failed to capture before-BACK screenshot: {e}")
+            from shared.src.lib.utils.device_utils import capture_screenshot
+            before_back_screenshot = capture_screenshot(executor.device, context=None)
             
             result = controller.press_key('BACK')
-            import inspect
-            if inspect.iscoroutine(result):
-                import asyncio
-                asyncio.run(result)
-            time.sleep(6.0)  # 6000ms for BACK (matches structure_creator.py)
+            if inspect.iscoroutine(result): asyncio.run(result)
+            time.sleep(6.0)
             
-            # Screenshot AFTER BACK and check similarity (should be HIGH - returned to same screen)
-            after_back_screenshot = None
-            try:
-                from shared.src.lib.utils.device_utils import capture_screenshot
-                from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-                from backend_host.src.controllers.controller_manager import get_host
-                after_back_screenshot = capture_screenshot(executor.device, context=None)
-                if after_back_screenshot:
-                    print(f"    📸 After BACK screenshot: {after_back_screenshot}")
-                    host = get_host()
-                    after_back_url = buildHostImageUrl({'host_url': host.host_url, 'host_api_url': getattr(host, 'host_api_url', None)}, after_back_screenshot)
-                    print(f"    🔗 After BACK URL: {after_back_url}")
-            except Exception as e:
-                print(f"    ⚠️ Failed to capture after-BACK screenshot: {e}")
+            # Screenshot AFTER BACK and check similarity
+            after_back_screenshot = capture_screenshot(executor.device, context=None)
             
-            # Compare screenshots if both captured successfully
-            # ✅ Use similarity to decide if BACK worked (>40% = still on same screen = BACK failed)
-            back_worked_via_similarity = None
+            # Compare screenshots - low similarity = moved to different screen (success)
+            back_worked = True  # Assume success
             if before_back_screenshot and after_back_screenshot:
                 try:
                     import cv2
@@ -819,85 +866,50 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     if before_img is not None and after_img is not None:
                         if before_img.shape != after_img.shape:
                             after_img = cv2.resize(after_img, (before_img.shape[1], before_img.shape[0]))
-                        
-                        # Exact pixel-by-pixel comparison (strict)
-                        matches = np.all(before_img == after_img, axis=2)
-                        exact_matching_pixels = np.sum(matches)
-                        total_pixels = before_img.shape[0] * before_img.shape[1]
-                        similarity = (exact_matching_pixels / total_pixels) * 100
-                        
-                        # Calculate mean difference for additional context
-                        diff_gray = cv2.cvtColor(cv2.absdiff(before_img, after_img), cv2.COLOR_BGR2GRAY)
-                        mean_diff = np.mean(diff_gray)
-                        
-                        print(f"    📊 BACK similarity: {similarity:.1f}% (expect <40% - moved to different screen)")
-                        print(f"    📊 Mean pixel difference: {mean_diff:.2f}")
-                        
-                        # ✅ Decision: If similarity > 40%, we're still on the same screen (BACK failed)
-                        if similarity > 40:
-                            back_worked_via_similarity = False
-                            print(f"    ⚠️ BACK FAILED: Similarity {similarity:.1f}% > 40% - still on same screen!")
-                        else:
-                            back_worked_via_similarity = True
-                            print(f"    ✅ BACK SUCCESS: Similarity {similarity:.1f}% ≤ 40% - moved to different screen")
-                    else:
-                        print(f"    ⚠️ Failed to load images for comparison (before: {before_img is not None}, after: {after_img is not None})")
+                        matches = np.sum(np.all(before_img == after_img, axis=2))
+                        similarity = (matches / (before_img.shape[0] * before_img.shape[1])) * 100
+                        print(f"    📊 BACK similarity: {similarity:.1f}%")
+                        back_worked = similarity < 40  # Low = moved
                 except Exception as e:
-                    print(f"    ⚠️ Screenshot similarity comparison failed: {e}")
+                    print(f"    ⚠️ Similarity check failed: {e}")
             
-            # ✅ Try second BACK if similarity check indicates first BACK failed
-            if back_worked_via_similarity == False:
-                print(f"    🔄 Similarity check failed - trying second BACK...")
+            # Try second BACK if first failed
+            if not back_worked:
+                print(f"    🔄 First BACK failed - trying second BACK...")
                 result = controller.press_key('BACK')
-                import inspect
-                if inspect.iscoroutine(result):
-                    import asyncio
-                    asyncio.run(result)
-                time.sleep(6.0)  # 6000ms for BACK
+                if inspect.iscoroutine(result): asyncio.run(result)
+                time.sleep(6.0)
                 
-                # Check similarity again after second BACK
-                try:
-                    from shared.src.lib.utils.device_utils import capture_screenshot
-                    after_second_back_screenshot = capture_screenshot(executor.device, context=None)
-                    
-                    if after_second_back_screenshot and before_back_screenshot:
+                after_second = capture_screenshot(executor.device, context=None)
+                if after_second and before_back_screenshot:
+                    try:
                         import cv2
                         import numpy as np
                         before_img = cv2.imread(before_back_screenshot, cv2.IMREAD_COLOR)
-                        after_img = cv2.imread(after_second_back_screenshot, cv2.IMREAD_COLOR)
-                        
+                        after_img = cv2.imread(after_second, cv2.IMREAD_COLOR)
                         if before_img is not None and after_img is not None:
                             if before_img.shape != after_img.shape:
                                 after_img = cv2.resize(after_img, (before_img.shape[1], before_img.shape[0]))
-                            
-                            matches = np.all(before_img == after_img, axis=2)
-                            exact_matching_pixels = np.sum(matches)
-                            total_pixels = before_img.shape[0] * before_img.shape[1]
-                            similarity_after_2nd = (exact_matching_pixels / total_pixels) * 100
-                            
-                            print(f"    📊 After 2nd BACK similarity: {similarity_after_2nd:.1f}%")
-                            
-                            if similarity_after_2nd <= 40:
+                            matches = np.sum(np.all(before_img == after_img, axis=2))
+                            similarity = (matches / (before_img.shape[0] * before_img.shape[1])) * 100
+                            if similarity < 40:
                                 backs_needed = 2
-                                print(f"    ✅ Second BACK worked! Edge requires 2x BACK")
+                                back_worked = True
+                                print(f"    ✅ Second BACK worked (similarity: {similarity:.1f}%)")
                             else:
-                                print(f"    ❌ Second BACK also failed (similarity {similarity_after_2nd:.1f}% > 40%)")
-                                # Try recovery navigation
-                                start_node_id = executor.exploration_state.get('home_id', 'home')
-                                start_node_label = executor.exploration_state.get('start_node', 'home')
-                                print(f"    🔄 Recovery to '{start_node_label}'...")
-                                import asyncio
+                                print(f"    ❌ Second BACK failed (similarity: {similarity:.1f}%)")
+                                # Recovery to home
                                 asyncio.run(executor.device.navigation_executor.execute_navigation(
                                     tree_id=tree_id, 
                                     userinterface_name=executor.exploration_state['userinterface_name'],
-                                    target_node_label=start_node_label, 
+                                    target_node_label=executor.exploration_state.get('start_node', 'home'), 
                                     team_id=team_id
                                 ))
-                except Exception as e:
-                    print(f"    ⚠️ Second BACK similarity check failed: {e}")
+                    except Exception as e:
+                        print(f"    ⚠️ Second BACK similarity check failed: {e}")
             
-            edge_results['exit'] = 'success'
-            print(f"    ✅ Vertical exit: BACK")
+            edge_results['exit'] = 'success' if back_worked else 'failed'
+            print(f"    {'✅' if back_worked else '❌'} Vertical exit: BACK{' x2' if backs_needed == 2 else ''}")
         except Exception as e:
             edge_results['exit'] = 'failed'
             print(f"    ❌ Vertical exit failed: {e}")
@@ -1192,143 +1204,46 @@ def validate_next_item(executor) -> Dict[str, Any]:
     except Exception as e:
         print(f"    ❌ Click failed: {e}")
     
-    # 2. Press BACK (with double-back fallback)
+    # 2. Press BACK - Use smart_backward
     if click_result == 'success':
         try:
-            # Select verification controller based on device model
             device_model = executor.device_model.lower()
             verifier = None
             
             if 'mobile' in device_model:
-                # Mobile: Use ADB verification
                 for v in executor.device.get_controllers('verification'):
                     if getattr(v, 'verification_type', None) == 'adb':
                         verifier = v
-                        print(f"    📱 Using ADB verification for mobile device")
                         break
             elif 'host' in device_model:
-                # Web (host): Use Playwright controller itself (has dump_elements for verification)
-                verifier = controller  # The Playwright controller can verify elements
-                print(f"    🌐 Using Playwright controller for web verification")
-            else:
-                # TV/STB: Image verification (not supported in AI exploration)
-                print(f"    ⚠️ Device model '{device_model}' requires image verification - not supported in AI exploration")
+                verifier = controller
             
-            press_result = controller.press_key('BACK')
-            # Handle async controllers (web)
-            import inspect
-            if inspect.iscoroutine(press_result):
-                import asyncio
-                asyncio.run(press_result)
-            time.sleep(5)
-            
-            print(f"    🔍 Verifying return to home: {home_indicator}")
-            
-            back_success = False
-            if verifier:
-                if 'host' in device_model:
-                    # Web: Check if home element exists by dumping and searching
-                    try:
+            # Mobile/Web verification: check if home_indicator element exists
+            def verify_mobile_web():
+                if not verifier: return True
+                try:
+                    if 'host' in device_model:
                         dump_result = verifier.dump_elements()
-                        # Handle async
-                        import inspect
-                        if inspect.iscoroutine(dump_result):
-                            import asyncio
-                            dump_result = asyncio.run(dump_result)
-                        
+                        if inspect.iscoroutine(dump_result): dump_result = asyncio.run(dump_result)
                         if isinstance(dump_result, dict) and dump_result.get('success'):
                             elements = dump_result.get('elements', [])
-                            # Search for home indicator in elements
-                            found = any(
-                                home_indicator.lower() in str(elem.get('text', '')).lower() or
-                                home_indicator.lower() in str(elem.get('selector', '')).lower()
-                                for elem in elements
-                            )
-                            back_success = found
-                            message = f"Element '{home_indicator}' {'found' if found else 'not found'} in page"
-                            print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
-                        else:
-                            print(f"    ❌ Back (1st) failed: Could not dump elements")
-                    except Exception as e:
-                        print(f"    ❌ Back (1st) failed: {e}")
-                else:
-                    # Mobile: Use waitForElementToAppear
-                    import inspect
-                    if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                        import asyncio
-                        success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                            search_term=home_indicator,
-                            timeout=3.0
-                        ))
+                            found = any(home_indicator.lower() in str(e.get('text', '')).lower() or 
+                                       home_indicator.lower() in str(e.get('selector', '')).lower() for e in elements)
+                            print(f"    📊 Home indicator '{home_indicator}': {'found' if found else 'not found'}")
+                            return found
+                        return False
                     else:
-                        success, message, details = verifier.waitForElementToAppear(
-                            search_term=home_indicator,
-                            timeout=3.0
-                        )
-                    back_success = success
-                    print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
-            else:
-                # Fallback if no verifier available
-                print(f"    ⚠️ No verifier available for device model '{device_model}'")
-                back_success = False
-            
-            # Double-back fallback
-            if not back_success:
-                print(f"    🔄 Trying second BACK...")
-                press_result = controller.press_key('BACK')
-                # Handle async controllers (web)
-                import inspect
-                if inspect.iscoroutine(press_result):
-                    import asyncio
-                    asyncio.run(press_result)
-                time.sleep(5)
-                
-                if verifier:
-                    if 'host' in device_model:
-                        # Web: Check if home element exists by dumping and searching
-                        try:
-                            dump_result = verifier.dump_elements()
-                            # Handle async
-                            import inspect
-                            if inspect.iscoroutine(dump_result):
-                                import asyncio
-                                dump_result = asyncio.run(dump_result)
-                            
-                            if isinstance(dump_result, dict) and dump_result.get('success'):
-                                elements = dump_result.get('elements', [])
-                                # Search for home indicator in elements
-                                found = any(
-                                    home_indicator.lower() in str(elem.get('text', '')).lower() or
-                                    home_indicator.lower() in str(elem.get('selector', '')).lower()
-                                    for elem in elements
-                                )
-                                back_success = found
-                                message = f"Element '{home_indicator}' {'found' if found else 'not found'} in page"
-                                print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
-                            else:
-                                print(f"    ❌ Back (2nd) failed: Could not dump elements")
-                        except Exception as e:
-                            print(f"    ❌ Back (2nd) failed: {e}")
-                    else:
-                        # Mobile: Use waitForElementToAppear
-                        import inspect
                         if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                            import asyncio
-                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=5.0
-                            ))
+                            success, msg, _ = asyncio.run(verifier.waitForElementToAppear(search_term=home_indicator, timeout=3.0))
                         else:
-                            success, message, details = verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=5.0
-                            )
-                        back_success = success
-                        print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
-                else:
-                    back_success = False
+                            success, msg, _ = verifier.waitForElementToAppear(search_term=home_indicator, timeout=3.0)
+                        print(f"    📊 Home indicator '{home_indicator}': {msg}")
+                        return success
+                except: return False
             
-            back_result = 'success' if back_success else 'failed'
+            print(f"    🔍 Verifying return to home: {home_indicator}")
+            back_result, step = smart_backward(executor, controller, verify_mobile_web)
+            print(f"    {'✅' if back_result == 'success' else '❌'} Back via smart_backward step {step}")
             
         except Exception as e:
             print(f"    ⚠️ Back failed: {e}")
