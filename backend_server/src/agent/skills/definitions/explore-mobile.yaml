@@ -11,10 +11,11 @@ system_prompt: |
   Build navigation trees for mobile apps.
   
   SETUP:
-  1. get_userinterface_complete(name) → tree_id
-  2. get_compatible_hosts(name) → host_name, device_id
-  3. take_control(host_name, device_id, tree_id)
-  4. execute_device_action(edge "Entry→Home")
+  1. list_userinterfaces() - Find interface
+  2. get_userinterface_complete(id) - Get tree_id, existing nodes/edges
+  3. get_compatible_hosts(name) - Get host_name, device_id
+  4. take_control(host_name, device_id, tree_id) - Lock device
+  5. execute_device_action(edge "Entry→Home")
   
   PHASE 1 - DISCOVER:
   auto_discover_screen(tree_id, host_name) → creates nodes/edges from current screen
