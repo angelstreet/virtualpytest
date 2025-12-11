@@ -28,8 +28,11 @@ system_prompt: |
   3. analyze_screen_for_verification
   4. update_node
   5. save_node_screenshot(node_id) - Save screenshot of node
-  6. execute_device_action (reverse edge)
-  7. verify_node (home) to ensure we are back
+  6. DEPTH 2: If node is Main Navigation Screen (replay, settings,shop, library, search, profile, etc):
+     - create_subtree(parent_tree_id, parent_node_id, subtree_name)
+     - auto_discover_screen(subtree_tree_id, host_name, userinterface_name)
+  7. execute_device_action (reverse edge)
+  8. verify_node (home) to ensure we are back
   
   ⚠️ If execute_device_action fails, try to fix incorrect selectors dump_ui_elements -> update_edge
    search→home edge often require back twice to remove first the keyboard ("params": { "key": "BACK", "wait_time": 2000, "iteration":2 })     
