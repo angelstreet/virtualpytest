@@ -38,6 +38,11 @@ touch "$PROCESSED"
 cat > "$FILES_TO_COPY" << EOF
 README.md
 get-started/README.md
+quickguide/README.md
+quickguide/01_hardware.md
+quickguide/02_network.md
+quickguide/03_software.md
+quickguide/04_security.md
 features/README.md
 user-guide/README.md
 technical/README.md
@@ -162,17 +167,18 @@ const DOCS_DIR = 'public/docs';
 const SECTION_META = {
   'README': { icon: '📚', title: 'Documentation Home', order: 0 },
   'get-started': { icon: '🚀', title: 'Getting Started', order: 1 },
-  'features': { icon: '✨', title: 'Features', order: 2 },
-  'user-guide': { icon: '📖', title: 'User Guide', order: 3 },
-  'examples': { icon: '💡', title: 'Examples', order: 4 },
-  'integrations': { icon: '🔌', title: 'Integrations', order: 5 },
-  'faq': { icon: '❓', title: 'FAQ', order: 6 },
-  'technical': { icon: '🔧', title: 'Technical Docs', order: 7 },
-  'ai agent': { icon: '🤖', title: 'AI Agent', order: 8 },
-  'security': { icon: '🔐', title: 'Security', order: 9 },
-  'api': { icon: '📡', title: 'API Reference', order: 10 },
-  'screenshots': { icon: '📸', title: 'Screenshots', order: 11 },
-  'videos': { icon: '🎬', title: 'Videos', order: 12 },
+  'quickguide': { icon: '⚡', title: 'QuickGuide', order: 2 },
+  'features': { icon: '✨', title: 'Features', order: 3 },
+  'user-guide': { icon: '📖', title: 'User Guide', order: 4 },
+  'examples': { icon: '💡', title: 'Examples', order: 5 },
+  'integrations': { icon: '🔌', title: 'Integrations', order: 6 },
+  'faq': { icon: '❓', title: 'FAQ', order: 7 },
+  'technical': { icon: '🔧', title: 'Technical Docs', order: 8 },
+  'ai agent': { icon: '🤖', title: 'AI Agent', order: 9 },
+  'security': { icon: '🔐', title: 'Security', order: 10 },
+  'api': { icon: '📡', title: 'API Reference', order: 11 },
+  'screenshots': { icon: '📸', title: 'Screenshots', order: 12 },
+  'videos': { icon: '🎬', title: 'Videos', order: 13 },
 };
 
 // Subsection metadata for technical docs

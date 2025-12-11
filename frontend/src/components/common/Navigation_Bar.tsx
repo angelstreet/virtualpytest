@@ -24,6 +24,7 @@ import {
   VideoLibrary as VideosIcon, // For Videos
   RocketLaunch as AgentIcon, // For AI Agent
   Insights as LangfuseIcon, // For Langfuse LLM Observability
+  FlashOn as QuickGuideIcon, // For QuickGuide
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React, { useState, useEffect } from 'react';
@@ -160,6 +161,11 @@ const NavigationBar: React.FC = () => {
       label: 'Get Started',
       path: '/docs/get-started',
       icon: <RunIcon fontSize="small" />,
+    },
+    {
+      label: 'QuickGuide',
+      path: '/docs/quickguide',
+      icon: <QuickGuideIcon fontSize="small" />,
     },
     {
       label: 'FAQ',
