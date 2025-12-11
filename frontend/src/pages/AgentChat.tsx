@@ -335,6 +335,7 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     createNewConversation,
     switchConversation,
     deleteConversation,
+    clearBackgroundHistory,
     setAgentId,
     setNavigationContext,
   } = useAgentChat();
@@ -722,7 +723,6 @@ useEffect(() => {
       <Box key={agent.id} sx={{ px: 1, mb: 1 }}>
         {/* Agent Section Header */}
         <Box
-          onClick={() => setBackgroundExpanded(prev => ({ ...prev, [agent.id]: !isExpanded }))}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -730,28 +730,29 @@ useEffect(() => {
             px: 1.5,
             py: 0.75,
             borderRadius: 1.5,
-            cursor: 'pointer',
-            '&:hover': {
-              bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.100',
-            },
-            transition: 'background-color 0.15s',
           }}
         >
           <ExpandIcon 
+            onClick={() => setBackgroundExpanded(prev => ({ ...prev, [agent.id]: !isExpanded }))}
             sx={{ 
               fontSize: 16, 
               color: PALETTE.textMuted,
               transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 0.2s',
+              cursor: 'pointer',
+              '&:hover': { color: 'text.primary' },
             }} 
           />
           
           <Typography 
+            onClick={() => setBackgroundExpanded(prev => ({ ...prev, [agent.id]: !isExpanded }))}
             variant="body2" 
             sx={{ 
               flex: 1,
               fontSize: '0.85rem',
               fontWeight: 500,
+              cursor: 'pointer',
+              '&:hover': { color: 'text.primary' },
             }}
           >
             # {agent.nickname}
@@ -774,6 +775,28 @@ useEffect(() => {
             <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.75rem' }}>
               (0)
             </Typography>
+          )}
+          
+          {/* Clear history button */}
+          {totalActive > 0 && (
+            <Tooltip title={`Clear ${agent.nickname} history`}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Clear all ${agent.nickname} alert history?`)) {
+                    clearBackgroundHistory(agent.id);
+                  }
+                }}
+                sx={{
+                  p: 0.25,
+                  opacity: 0.4,
+                  '&:hover': { opacity: 1, color: 'error.main' },
+                }}
+              >
+                <ClearIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
         

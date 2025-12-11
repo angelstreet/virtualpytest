@@ -1225,6 +1225,41 @@ export const useAgentChat = () => {
     setIsProcessing(false);
     setCurrentEvents([]);
   }, [clearBackendSession]);
+  
+  const clearBackgroundHistory = useCallback((agentId: string) => {
+    console.log(`[useAgentChat] Clearing background history for agent: ${agentId}`);
+    
+    // Remove all conversations for this background agent
+    setConversations(prev => {
+      const filtered = prev.filter(c => !c.id.startsWith(`bg_${agentId}_`));
+      
+      // Update localStorage
+      if (filtered.length > 0) {
+        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(filtered));
+      } else {
+        localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
+      }
+      
+      console.log(`[useAgentChat] Cleared ${prev.length - filtered.length} conversations for ${agentId}`);
+      return filtered;
+    });
+    
+    // Clear background tasks for this agent
+    setBackgroundTasks(prev => ({
+      ...prev,
+      [agentId]: { inProgress: [], recent: [] }
+    }));
+    
+    // Clear active conversation if it was from this agent
+    setActiveConversationId(prev => {
+      if (prev && prev.startsWith(`bg_${agentId}_`)) {
+        localStorage.removeItem(STORAGE_KEY_ACTIVE_CONVERSATION);
+        activeConversationIdRef.current = null;
+        return null;
+      }
+      return prev;
+    });
+  }, []);
 
   // Handle visibility change - ensure socket reconnects when tab becomes visible
   useEffect(() => {
@@ -1304,5 +1339,6 @@ export const useAgentChat = () => {
     createNewConversation,
     switchConversation,
     deleteConversation,
+    clearBackgroundHistory,
   };
 };
