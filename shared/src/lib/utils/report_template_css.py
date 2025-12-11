@@ -659,11 +659,11 @@ body {{
 }}
 
 .nav-prev {{
-    left: -60px;
+    left: 10px;
 }}
 
 .nav-next {{
-    right: -60px;
+    right: 10px;
 }}
 
 .modal-footer {{
