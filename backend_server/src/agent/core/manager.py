@@ -172,29 +172,29 @@ class QAManagerAgent:
         if not any([ui_name, tree_id, host, device, hosts_list, devices_list]):
             return ""
         
-        lines = ["## Current Context (use as defaults)"]
+        lines = ["## Context"]
         
         # Show discovered resources
         if hosts_list:
-            lines.append(f"- Available Hosts: {', '.join(hosts_list)}")
+            lines.append(f"Hosts: {', '.join(hosts_list)}")
         if devices_list:
-            device_summary = ', '.join([f"{d.get('device_id')} ({d.get('device_name')})" for d in devices_list[:3]])
+            device_summary = ', '.join([f"{d.get('device_id')}" for d in devices_list[:3]])
             if len(devices_list) > 3:
-                device_summary += f" +{len(devices_list) - 3} more"
-            lines.append(f"- Available Devices: {device_summary}")
+                device_summary += f" +{len(devices_list) - 3}"
+            lines.append(f"Devices: {device_summary}")
         
         # Show active working context
         if ui_name:
-            lines.append(f"- Interface: {ui_name}")
+            lines.append(f"Interface: {ui_name}")
         if tree_id:
-            lines.append(f"- Tree ID: {tree_id}")
+            lines.append(f"Tree: {tree_id}")
         if host:
-            lines.append(f"- Host: {host}")
+            lines.append(f"Host: {host}")
         if device:
-            lines.append(f"- Device: {device}")
-        lines.append("")  # Empty line after
+            lines.append(f"Device: {device}")
         
-        return '\n'.join(lines)
+        # Add TWO newlines after context section (creates blank line separator)
+        return '\n'.join(lines) + "\n\n"
     
     def _build_router_prompt(self, ctx: Dict[str, Any] = None) -> str:
         """Build router mode prompt - decides which skill to load"""
@@ -436,11 +436,7 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
             if summary and len(all_messages) > KEEP_LAST_N:
                 turn_messages.append({
                     "role": "user",
-                    "content": f"[Previous conversation summary]\n{summary}"
-                })
-                turn_messages.append({
-                    "role": "assistant", 
-                    "content": "Understood. I have the context."
+                    "content": f"Summary:\n{summary}"
                 })
             
             # Add last N messages (or all if fewer)
@@ -454,6 +450,12 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         # Build cached system prompt and tools
         cached_system = self._build_cached_system(session.context)
         cached_tools = self._build_cached_tools(self.tool_names)
+        
+        # Debug log: show what context is being injected
+        if session.context:
+            ctx_keys = [k for k in ['hosts', 'devices', 'userinterface_name', 'tree_id', 'host_name', 'device_id'] if session.context.get(k)]
+            if ctx_keys:
+                print(f"[CONTEXT] Injecting: {', '.join(ctx_keys)}")
         
         # Log raw prompt only for root calls (avoid duplicate logs on delegated runs)
         if not _is_delegated:
