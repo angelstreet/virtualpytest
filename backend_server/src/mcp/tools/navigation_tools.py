@@ -162,8 +162,20 @@ class NavigationTools:
     
     def navigate_to_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Navigate to a target node in UI tree using pathfinding.
-        Auto-resolves tree_id from userinterface_name.
+        Navigate to target node using pathfinding. Requires take_control() first. tree_id auto-resolved from userinterface_name.
+        
+        Example: navigate_to_node(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv', target_node_label='shop')
+        
+        Args:
+            params: {
+                'host_name': str (REQUIRED - host where device is connected),
+                'device_id': str (REQUIRED - device identifier),
+                'userinterface_name': str (REQUIRED - UI name for auto-resolving tree_id),
+                'target_node_label': str (REQUIRED - target screen like shop or home)
+            }
+            
+        Returns:
+            MCP-formatted response with navigation result
         """
         tree_id = params.get('tree_id')
         userinterface_name = params.get('userinterface_name')

@@ -7,7 +7,7 @@ Connects Claude Agent SDK to existing MCP tools and UI interaction tools.
 import logging
 from typing import Dict, Any, List
 
-from mcp.mcp_server import VirtualPyTestMCPServer
+from backend_server.src.mcp.mcp_server import VirtualPyTestMCPServer
 from ..tools.page_interaction import (
     get_available_pages,
     get_page_schema,

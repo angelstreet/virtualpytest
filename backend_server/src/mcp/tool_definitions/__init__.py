@@ -1,28 +1,70 @@
 """
-Tool definitions for VirtualPyTest MCP Server
+Tool definitions for VirtualPyTest MCP Server - AUTO-GENERATED
 
-This package contains MCP tool schemas organized by domain.
-Each module exports a get_tools() function returning tool definitions.
+All tool definitions are now auto-generated from implementation docstrings.
+Zero manual configuration - just add a *_tools.py file and it's automatically included!
 """
 
-from .control_definitions import get_tools as get_control_tools
-from .action_definitions import get_tools as get_action_tools
-from .navigation_definitions import get_tools as get_navigation_tools
-from .verification_definitions import get_tools as get_verification_tools
-from .testcase_definitions import get_tools as get_testcase_tools
-from .script_definitions import get_tools as get_script_tools
-from .ai_definitions import get_tools as get_ai_tools
-from .screenshot_definitions import get_tools as get_screenshot_tools
-from .transcript_definitions import get_tools as get_transcript_tools
-from .device_definitions import get_tools as get_device_tools
-from .logs_definitions import get_tools as get_logs_tools
-from .tree_definitions import get_tools as get_tree_tools
-from .userinterface_definitions import get_tools as get_userinterface_tools
-from .requirements_definitions import get_tools as get_requirements_tools
-from .screen_analysis_definitions import get_tools as get_screen_analysis_tools
-from .exploration_definitions import get_tools as get_exploration_tools  # NEW - AI-powered tree building
-from .deployment_definitions import get_tools as get_deployment_tools  # NEW - Deployment management
-from .analysis_definitions import get_tools as get_analysis_tools  # Analysis tools for analyzer agent
+from .build_definitions import get_builder
+
+# Get the global builder instance
+_builder = get_builder()
+
+# Create getter functions for each category (for backward compatibility)
+def get_control_tools():
+    return _builder.get_tools('control')
+
+def get_action_tools():
+    return _builder.get_tools('action')
+
+def get_navigation_tools():
+    return _builder.get_tools('navigation')
+
+def get_verification_tools():
+    return _builder.get_tools('verification')
+
+def get_testcase_tools():
+    return _builder.get_tools('testcase')
+
+def get_script_tools():
+    return _builder.get_tools('script')
+
+def get_ai_tools():
+    return _builder.get_tools('ai')
+
+def get_screenshot_tools():
+    return _builder.get_tools('screenshot')
+
+def get_transcript_tools():
+    return _builder.get_tools('transcript')
+
+def get_device_tools():
+    return _builder.get_tools('device')
+
+def get_logs_tools():
+    return _builder.get_tools('logs')
+
+def get_tree_tools():
+    return _builder.get_tools('tree')
+
+def get_userinterface_tools():
+    return _builder.get_tools('userinterface')
+
+def get_requirements_tools():
+    return _builder.get_tools('requirements')
+
+def get_screen_analysis_tools():
+    return _builder.get_tools('screen_analysis')
+
+def get_exploration_tools():
+    return _builder.get_tools('exploration')
+
+def get_deployment_tools():
+    return _builder.get_tools('deployment')
+
+def get_analysis_tools():
+    return _builder.get_tools('analysis')
+
 
 __all__ = [
     'get_control_tools',
@@ -40,8 +82,8 @@ __all__ = [
     'get_userinterface_tools',
     'get_requirements_tools',
     'get_screen_analysis_tools',
-    'get_exploration_tools',  # NEW - AI-powered tree building
-    'get_deployment_tools',  # NEW - Deployment management
-    'get_analysis_tools',  # Analysis tools for analyzer agent
+    'get_exploration_tools',
+    'get_deployment_tools',
+    'get_analysis_tools',
 ]
 

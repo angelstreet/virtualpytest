@@ -24,7 +24,6 @@ export interface PageSchema {
 
 export const PAGE_SCHEMAS: Record<string, PageSchema> = {
   // MONITORING
-  // =====================
   '/monitoring/incidents': {
     path: '/monitoring/incidents',
     name: 'Incidents',
@@ -38,91 +37,76 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_active_alerts', 'validate_alert', 'discard_alert'],
   },
-=======
-  // =====================
-  // MONITORING
-  // =====================
-  '/monitoring/incidents': {
-    path: '/monitoring/incidents',
-    name: 'Incidents',
-    description: 'View and manage monitoring alerts and incidents',
+  '/monitoring/heatmap': {
+    path: '/monitoring/heatmap',
+    name: 'Heatmap',
+    description: 'Real-time device health monitoring with visual heatmap',
     elements: [
-      { id: 'active-alerts-table', type: 'table', label: 'Active Alerts', actions: ['expand', 'validate', 'discard', 'view_freeze'] },
-      { id: 'closed-alerts-table', type: 'table', label: 'Closed Alerts', actions: ['expand', 'view_details'] },
-      { id: 'detail-toggle', type: 'button', label: 'Toggle Detailed View', actions: ['click'] },
-      { id: 'clear-all-btn', type: 'button', label: 'Clear All Alerts', actions: ['click'] },
-      { id: 'freeze-modal', type: 'modal', label: 'Freeze Details Modal', actions: ['open', 'close'] },
+      { id: 'mosaic-player', type: 'stream', label: 'Mosaic Video Player', actions: ['play', 'pause', 'seek'] },
+      { id: 'timeline-slider', type: 'input', label: 'Timeline Slider', actions: ['seek'], params: { index: 'number' } },
+      { id: 'status-filter', type: 'filter', label: 'Status Filter', actions: ['select'], params: { status: 'ALL|OK|KO' } },
+      { id: 'analysis-table', type: 'table', label: 'Device Analysis', actions: ['expand', 'view_freeze', 'open_stream'] },
+      { id: 'history-panel', type: 'table', label: 'Heatmap History', actions: ['select_timestamp'] },
+      { id: 'generate-report-btn', type: 'button', label: 'Generate Report', actions: ['click'] },
     ],
-    quickActions: ['show_active_alerts', 'validate_alert', 'discard_alert'],
+    quickActions: ['show_heatmap', 'show_incidents', 'generate_heatmap_report'],
+  },
+  '/monitoring/system': {
+    path: '/monitoring/system',
+    name: 'System Monitoring',
+    description: 'Grafana dashboards for system metrics',
+    elements: [{ id: 'grafana-iframe', type: 'stream', label: 'Grafana Dashboard', actions: ['refresh', 'change_timerange'] }],
+    quickActions: ['show_system_metrics'],
+  },
+  '/monitoring/ai-queue': {
+    path: '/monitoring/ai-queue',
+    name: 'AI Queue Monitor',
+    description: 'Monitor AI analysis queue and processing',
+    elements: [
+      { id: 'queue-table', type: 'table', label: 'Queue Items', actions: ['view_details', 'retry', 'delete'] },
+      { id: 'stats-cards', type: 'grid', label: 'Queue Statistics', actions: ['refresh'] },
+    ],
+    quickActions: ['show_queue_status', 'retry_failed'],
   },
 
-  // =====================
   // INTEGRATIONS
-  // =====================
   '/grafana-dashboard': {
     path: '/grafana-dashboard',
     name: 'Grafana',
     description: 'Grafana dashboards for monitoring and analytics',
-    elements: [
-      { id: 'grafana-iframe', type: 'stream', label: 'Grafana Dashboard', actions: ['refresh', 'change_timerange'] },
-    ],
+    elements: [{ id: 'grafana-iframe', type: 'stream', label: 'Grafana Dashboard', actions: ['refresh', 'change_timerange'] }],
     quickActions: ['show_grafana_dashboard'],
   },
-
   '/langfuse-dashboard': {
     path: '/langfuse-dashboard',
     name: 'Langfuse',
     description: 'LLM observability and analytics dashboard',
-    elements: [
-      { id: 'langfuse-iframe', type: 'stream', label: 'Langfuse Dashboard', actions: ['refresh', 'filter'] },
-    ],
+    elements: [{ id: 'langfuse-iframe', type: 'stream', label: 'Langfuse Dashboard', actions: ['refresh', 'filter'] }],
     quickActions: ['show_langfuse_dashboard'],
   },
-
   '/api/workspaces': {
     path: '/api/workspaces',
     name: 'Postman',
     description: 'Postman API workspaces and collections',
-    elements: [
-      { id: 'postman-iframe', type: 'stream', label: 'Postman Workspace', actions: ['refresh', 'search'] },
-    ],
+    elements: [{ id: 'postman-iframe', type: 'stream', label: 'Postman Workspace', actions: ['refresh', 'search'] }],
     quickActions: ['show_postman_workspace'],
   },
-
   '/integrations/jira': {
     path: '/integrations/jira',
     name: 'Jira',
     description: 'Jira integration for issue tracking',
-    elements: [
-      { id: 'jira-iframe', type: 'stream', label: 'Jira Dashboard', actions: ['refresh', 'search'] },
-    ],
+    elements: [{ id: 'jira-iframe', type: 'stream', label: 'Jira Dashboard', actions: ['refresh', 'search'] }],
     quickActions: ['show_jira_dashboard'],
   },
-
   '/integrations/slack': {
     path: '/integrations/slack',
     name: 'Slack',
     description: 'Slack integration for notifications',
-    elements: [
-      { id: 'slack-iframe', type: 'stream', label: 'Slack Integration', actions: ['refresh'] },
-    ],
+    elements: [{ id: 'slack-iframe', type: 'stream', label: 'Slack Integration', actions: ['refresh'] }],
     quickActions: ['show_slack_integration'],
-  },ADMIN
-  // =====================
-  '/teams': {
-    path: '/teams',
-    name: 'Teams',
-    description: 'Manage teams and permissions',
-    elements: [
-      { id: 'teams-table', type: 'table', label: 'Teams List', actions: ['select', 'edit', 'delete'] },
-      { id: 'create-btn', type: 'button', label: 'Create Team', actions: ['click'] },
-    ],
-    quickActions: ['list_teams', 'create_team'],
   },
-=======
-  // =====================
+
   // DOCUMENTATION
-  // =====================
   '/docs/get-started': {
     path: '/docs/get-started',
     name: 'Get Started',
@@ -133,17 +117,13 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_getting_started', 'search_docs'],
   },
-
   '/docs/quickguide': {
     path: '/docs/quickguide',
     name: 'QuickGuide',
     description: 'Quick reference guide for common tasks',
-    elements: [
-      { id: 'quickguide-content', type: 'stream', label: 'QuickGuide Content', actions: ['scroll', 'search'] },
-    ],
+    elements: [{ id: 'quickguide-content', type: 'stream', label: 'QuickGuide Content', actions: ['scroll', 'search'] }],
     quickActions: ['show_quickguide'],
   },
-
   '/docs/faq': {
     path: '/docs/faq',
     name: 'FAQ',
@@ -154,17 +134,13 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_faq', 'search_faq'],
   },
-
   '/docs/features': {
     path: '/docs/features',
     name: 'Features',
     description: 'Overview of VirtualPyTest features',
-    elements: [
-      { id: 'features-content', type: 'stream', label: 'Features Content', actions: ['scroll', 'search'] },
-    ],
+    elements: [{ id: 'features-content', type: 'stream', label: 'Features Content', actions: ['scroll', 'search'] }],
     quickActions: ['show_features'],
   },
-
   '/docs/user-guide': {
     path: '/docs/user-guide',
     name: 'User Guide',
@@ -175,27 +151,20 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_user_guide'],
   },
-
   '/docs/technical': {
     path: '/docs/technical',
     name: 'Technical Docs',
     description: 'Technical documentation and architecture',
-    elements: [
-      { id: 'technical-content', type: 'stream', label: 'Technical Content', actions: ['scroll', 'search'] },
-    ],
+    elements: [{ id: 'technical-content', type: 'stream', label: 'Technical Content', actions: ['scroll', 'search'] }],
     quickActions: ['show_technical_docs'],
   },
-
   '/docs/security': {
     path: '/docs/security',
     name: 'Security Reports',
     description: 'Security documentation and reports',
-    elements: [
-      { id: 'security-content', type: 'stream', label: 'Security Content', actions: ['scroll', 'search'] },
-    ],
+    elements: [{ id: 'security-content', type: 'stream', label: 'Security Content', actions: ['scroll', 'search'] }],
     quickActions: ['show_security_docs'],
   },
-
   '/docs/api': {
     path: '/docs/api',
     name: 'API Reference',
@@ -206,40 +175,29 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_api_docs', 'search_api'],
   },
-
   '/docs/examples': {
     path: '/docs/examples',
     name: 'Examples',
     description: 'Usage examples and tutorials',
-    elements: [
-      { id: 'examples-content', type: 'stream', label: 'Examples Content', actions: ['scroll', 'search'] },
-    ],
+    elements: [{ id: 'examples-content', type: 'stream', label: 'Examples Content', actions: ['scroll', 'search'] }],
     quickActions: ['show_examples'],
   },
-
   '/docs/screenshots': {
     path: '/docs/screenshots',
     name: 'Screenshots',
     description: 'Application screenshots and visual guides',
-    elements: [
-      { id: 'screenshots-gallery', type: 'grid', label: 'Screenshots Gallery', actions: ['view', 'zoom'] },
-    ],
+    elements: [{ id: 'screenshots-gallery', type: 'grid', label: 'Screenshots Gallery', actions: ['view', 'zoom'] }],
     quickActions: ['show_screenshots'],
   },
-
   '/docs/videos': {
     path: '/docs/videos',
     name: 'Videos',
     description: 'Video tutorials and demonstrations',
-    elements: [
-      { id: 'videos-gallery', type: 'grid', label: 'Videos Gallery', actions: ['play', 'view'] },
-    ],
+    elements: [{ id: 'videos-gallery', type: 'grid', label: 'Videos Gallery', actions: ['play', 'view'] }],
     quickActions: ['show_videos'],
   },
 
-  // =====================
   // ADMIN
-  // =====================
   '/teams': {
     path: '/teams',
     name: 'Teams',
@@ -249,35 +207,30 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
       { id: 'create-btn', type: 'button', label: 'Create Team', actions: ['click'] },
     ],
     quickActions: ['list_teams', 'create_team'],
-  },AI AGENT
-  // =====================
-  '/ai-agent': {
-    path: '/ai-agent',
-    name: 'AI Agent Chat',
-    description: 'Interactive AI assistant for QA automation',
-    elements: [
-      { id: 'chat-input', type: 'input', label: 'Message Input', actions: ['type', 'send'] },
-      { id: 'chat-history', type: 'table', label: 'Chat History', actions: ['scroll', 'copy'] },
-      { id: 'mode-selector', type: 'dropdown', label: 'Agent Mode', actions: ['select'], params: { mode: 'qa_manager|device_controller|test_analyst' } },
-    ],
-    quickActions: ['send_message', 'clear_chat', 'change_mode'],
   },
-=======
-  // =====================
-  // AI AGENT
-  // =====================
-  '/ai-agent': {
-    path: '/ai-agent',
-    name: 'AI Agent Chat',
-    description: 'Interactive AI assistant for QA automation',
+  '/users': {
+    path: '/users',
+    name: 'Users',
+    description: 'Manage users and access',
     elements: [
-      { id: 'chat-input', type: 'input', label: 'Message Input', actions: ['type', 'send'] },
-      { id: 'chat-history', type: 'table', label: 'Chat History', actions: ['scroll', 'copy'] },
-      { id: 'mode-selector', type: 'dropdown', label: 'Agent Mode', actions: ['select'], params: { mode: 'qa_manager|device_controller|test_analyst' } },
+      { id: 'users-table', type: 'table', label: 'Users List', actions: ['select', 'edit', 'delete', 'invite'] },
+      { id: 'invite-btn', type: 'button', label: 'Invite User', actions: ['click'] },
     ],
-    quickActions: ['send_message', 'clear_chat', 'change_mode'],
+    quickActions: ['list_users', 'invite_user'],
   },
 
+  // AI AGENT
+  '/ai-agent': {
+    path: '/ai-agent',
+    name: 'AI Agent Chat',
+    description: 'Interactive AI assistant for QA automation',
+    elements: [
+      { id: 'chat-input', type: 'input', label: 'Message Input', actions: ['type', 'send'] },
+      { id: 'chat-history', type: 'table', label: 'Chat History', actions: ['scroll', 'copy'] },
+      { id: 'mode-selector', type: 'dropdown', label: 'Agent Mode', actions: ['select'], params: { mode: 'qa_manager|device_controller|test_analyst' } },
+    ],
+    quickActions: ['send_message', 'clear_chat', 'change_mode'],
+  },
   '/agent-dashboard': {
     path: '/agent-dashboard',
     name: 'Agent Dashboard',
@@ -288,9 +241,9 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
       { id: 'refresh-btn', type: 'button', label: 'Refresh Data', actions: ['click'] },
     ],
     quickActions: ['show_agent_status', 'view_activity_history'],
-  },=====================
+  },
+
   // DASHBOARD
-  // =====================
   '/': {
     path: '/',
     name: 'Dashboard',
@@ -305,9 +258,7 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     quickActions: ['show_host_status', 'restart_all_streams', 'check_device_health'],
   },
 
-  // =====================
-  // DEVICE CONTROL (REC)
-  // =====================
+  // DEVICE CONTROL
   '/device-control': {
     path: '/device-control',
     name: 'Device Control',
@@ -323,9 +274,7 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     quickActions: ['show_device', 'open_device_stream', 'filter_by_host'],
   },
 
-  // =====================
   // TEST EXECUTION
-  // =====================
   '/test-execution/run-tests': {
     path: '/test-execution/run-tests',
     name: 'Run Tests',
@@ -341,7 +290,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['run_test', 'show_execution_status', 'view_report'],
   },
-
   '/test-execution/run-campaigns': {
     path: '/test-execution/run-campaigns',
     name: 'Run Campaigns',
@@ -353,12 +301,8 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
       { id: 'launch-btn', type: 'button', label: 'Launch Campaign', actions: ['click'] },
       { id: 'history-table', type: 'table', label: 'Campaign History', actions: ['view_details', 'open_report'] },
     ],
-  // TEST PLAN
-  // =====================
-=======
     quickActions: ['create_campaign', 'launch_campaign', 'view_campaign_history'],
   },
-
   '/test-execution/deployments': {
     path: '/test-execution/deployments',
     name: 'Deployments',
@@ -371,11 +315,7 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     quickActions: ['list_deployments', 'create_deployment', 'view_deployment_status'],
   },
 
-  // =====================
   // TEST PLAN
-  // ==========================================
-  // TEST PLAN
-  // =====================
   '/test-plan/test-cases': {
     path: '/test-plan/test-cases',
     name: 'Test Cases',
@@ -389,7 +329,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['list_testcases', 'create_testcase', 'search_testcase'],
   },
-
   '/test-plan/campaigns': {
     path: '/test-plan/campaigns',
     name: 'Campaigns',
@@ -400,7 +339,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['list_campaigns', 'create_campaign'],
   },
-
   '/test-plan/requirements': {
     path: '/test-plan/requirements',
     name: 'Requirements',
@@ -411,7 +349,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['list_requirements', 'check_coverage'],
   },
-
   '/test-plan/coverage': {
     path: '/test-plan/coverage',
     name: 'Coverage',
@@ -424,62 +361,7 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     quickActions: ['show_coverage_report', 'export_coverage'],
   },
 
-  // =====================
-  // MONITORING
-  // =====================
-  '/monitoring/incidents': {
-    path: '/monitoring/incidents',
-    name: 'Incidents',
-    description: 'View and manage monitoring alerts and incidents',
-    elements: [
-      { id: 'active-alerts-table', type: 'table', label: 'Active Alerts', actions: ['expand', 'validate', 'discard', 'view_freeze'] },
-      { id: 'closed-alerts-table', type: 'table', label: 'Closed Alerts', actions: ['expand', 'view_details'] },
-      { id: 'detail-toggle', type: 'button', label: 'Toggle Detailed View', actions: ['click'] },
-      { id: 'clear-all-btn', type: 'button', label: 'Clear All Alerts', actions: ['click'] },
-      { id: 'freeze-modal', type: 'modal', label: 'Freeze Details Modal', actions: ['open', 'close'] },
-    ],
-    quickActions: ['show_active_alerts', 'validate_alert', 'discard_alert'],
-  },
-
-  '/monitoring/heatmap': {
-    path: '/monitoring/heatmap',
-    name: 'Heatmap',
-    description: 'Real-time device health monitoring with visual heatmap',
-    elements: [
-      { id: 'mosaic-player', type: 'stream', label: 'Mosaic Video Player', actions: ['play', 'pause', 'seek'] },
-      { id: 'timeline-slider', type: 'input', label: 'Timeline Slider', actions: ['seek'], params: { index: 'number' } },
-      { id: 'status-filter', type: 'filter', label: 'Status Filter', actions: ['select'], params: { status: 'ALL|OK|KO' } },
-      { id: 'analysis-table', type: 'table', label: 'Device Analysis', actions: ['expand', 'view_freeze', 'open_stream'] },
-      { id: 'history-panel', type: 'table', label: 'Heatmap History', actions: ['select_timestamp'] },
-      { id: 'generate-report-btn', type: 'button', label: 'Generate Report', actions: ['click'] },
-    ],
-    quickActions: ['show_heatmap', 'show_incidents', 'generate_heatmap_report'],
-  },
-
-  '/monitoring/system': {
-    path: '/monitoring/system',
-    name: 'System Monitoring',
-    description: 'Grafana dashboards for system metrics',
-    elements: [
-      { id: 'grafana-iframe', type: 'stream', label: 'Grafana Dashboard', actions: ['refresh', 'change_timerange'] },
-    ],
-    quickActions: ['show_system_metrics'],
-  },
-
-  '/monitoring/ai-queue': {
-    path: '/monitoring/ai-queue',
-    name: 'AI Queue Monitor',
-    description: 'Monitor AI analysis queue and processing',
-    elements: [
-      { id: 'queue-table', type: 'table', label: 'Queue Items', actions: ['view_details', 'retry', 'delete'] },
-      { id: 'stats-cards', type: 'grid', label: 'Queue Statistics', actions: ['refresh'] },
-    ],
-    quickActions: ['show_queue_status', 'retry_failed'],
-  },
-
-  // =====================
   // TEST RESULTS
-  // =====================
   '/test-results/reports': {
     path: '/test-results/reports',
     name: 'Test Reports',
@@ -492,7 +374,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_failed_tests', 'show_recent_reports', 'analyze_report'],
   },
-
   '/test-results/campaign-reports': {
     path: '/test-results/campaign-reports',
     name: 'Campaign Reports',
@@ -503,17 +384,13 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_campaign_results', 'compare_campaigns'],
   },
-
   '/test-results/model-reports': {
     path: '/test-results/model-reports',
     name: 'Model Reports',
     description: 'Test results aggregated by device model',
-    elements: [
-      { id: 'model-reports-table', type: 'table', label: 'Model Statistics', actions: ['select', 'drill_down'] },
-    ],
+    elements: [{ id: 'model-reports-table', type: 'table', label: 'Model Statistics', actions: ['select', 'drill_down'] }],
     quickActions: ['show_model_stats', 'compare_models'],
   },
-
   '/test-results/dependency-report': {
     path: '/test-results/dependency-report',
     name: 'Dependency Report',
@@ -526,9 +403,7 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     quickActions: ['show_dependency_graph', 'analyze_dependencies'],
   },
 
-  // =====================
   // BUILDER
-  // =====================
   '/builder/test-builder': {
     path: '/builder/test-builder',
     name: 'Test Builder',
@@ -542,7 +417,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['add_step', 'save_testcase', 'run_testcase'],
   },
-
   '/builder/campaign-builder': {
     path: '/builder/campaign-builder',
     name: 'Campaign Builder',
@@ -554,7 +428,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['add_testcase_to_campaign', 'save_campaign'],
   },
-
   '/builder/mcp-playground': {
     path: '/builder/mcp-playground',
     name: 'MCP Playground',
@@ -568,9 +441,7 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     quickActions: ['execute_mcp_command', 'view_command_history'],
   },
 
-  // =====================
   // CONFIGURATION
-  // =====================
   '/configuration/settings': {
     path: '/configuration/settings',
     name: 'Settings',
@@ -581,7 +452,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['show_settings', 'update_setting'],
   },
-
   '/configuration/interface': {
     path: '/configuration/interface',
     name: 'User Interfaces',
@@ -592,7 +462,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     ],
     quickActions: ['list_interfaces', 'create_interface'],
   },
-
   '/configuration/models': {
     path: '/configuration/models',
     name: 'AI Models',
@@ -602,46 +471,6 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
       { id: 'add-model-btn', type: 'button', label: 'Add Model', actions: ['click'] },
     ],
     quickActions: ['list_models', 'test_model'],
-  },
-
-  // =====================
-  // AI AGENT
-  // =====================
-  '/ai-agent': {
-    path: '/ai-agent',
-    name: 'AI Agent Chat',
-    description: 'Interactive AI assistant for QA automation',
-    elements: [
-      { id: 'chat-input', type: 'input', label: 'Message Input', actions: ['type', 'send'] },
-      { id: 'chat-history', type: 'table', label: 'Chat History', actions: ['scroll', 'copy'] },
-      { id: 'mode-selector', type: 'dropdown', label: 'Agent Mode', actions: ['select'], params: { mode: 'qa_manager|device_controller|test_analyst' } },
-    ],
-    quickActions: ['send_message', 'clear_chat', 'change_mode'],
-  },
-
-  // =====================
-  // ADMIN
-  // =====================
-  '/teams': {
-    path: '/teams',
-    name: 'Teams',
-    description: 'Manage teams and permissions',
-    elements: [
-      { id: 'teams-table', type: 'table', label: 'Teams List', actions: ['select', 'edit', 'delete'] },
-      { id: 'create-btn', type: 'button', label: 'Create Team', actions: ['click'] },
-    ],
-    quickActions: ['list_teams', 'create_team'],
-  },
-
-  '/users': {
-    path: '/users',
-    name: 'Users',
-    description: 'Manage users and access',
-    elements: [
-      { id: 'users-table', type: 'table', label: 'Users List', actions: ['select', 'edit', 'delete', 'invite'] },
-      { id: 'invite-btn', type: 'button', label: 'Invite User', actions: ['click'] },
-    ],
-    quickActions: ['list_users', 'invite_user'],
   },
 };
 

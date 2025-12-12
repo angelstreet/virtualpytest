@@ -9,7 +9,7 @@ from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
 
 # Import MCP tool definitions to get available tool names
-from mcp.tool_definitions import (
+from backend_server.src.mcp.tool_definitions import (
     get_control_tools,
     get_action_tools,
     get_navigation_tools,
@@ -31,7 +31,7 @@ from mcp.tool_definitions import (
 
 # Import UI interaction tools (browser control)
 try:
-    from agent.tools.page_interaction import PAGE_INTERACTION_TOOLS
+    from backend_server.src.agent.tools.page_interaction import PAGE_INTERACTION_TOOLS
     UI_TOOLS_AVAILABLE = True
 except ImportError:
     PAGE_INTERACTION_TOOLS = []

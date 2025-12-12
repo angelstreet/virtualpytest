@@ -19,21 +19,14 @@ class ControlTools:
     
     def take_control(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Take exclusive control of a device
+        Take exclusive control of a device. Locks device for exclusive use. Required before any device operations.
         
-        Locks the device for exclusive use and returns a session_id.
-        Required before any device operations.
-        
-        Automatically handles lock conflicts:
-        - Tries to take control normally
-        - If device is locked by another session, forces unlock and retries
-        - Ensures agent can always take control when needed
+        Example: take_control(host_name='sunri-pi1', device_id='device1')
         
         Args:
             params: {
                 'host_name': str (REQUIRED - host where device is connected),
-                'device_id': str (OPTIONAL - defaults to 'device1'),
-                'team_id': str (OPTIONAL - uses default if not provided)
+                'device_id': str (REQUIRED - device identifier)
             }
             
         Returns:
@@ -72,16 +65,14 @@ class ControlTools:
     
     def release_control(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Release control of a device
+        Release device control when done. Unlocks the device so others can use it.
         
-        Unlocks the device and releases the session.
-        Should be called when done with device operations.
+        Example: release_control(host_name='sunri-pi1', device_id='device1')
         
         Args:
             params: {
-                'host_name': str (OPTIONAL - uses default 'sunri-pi1' if not provided),
-                'device_id': str (OPTIONAL - uses default 'device_1' if not provided),
-                'team_id': str (OPTIONAL - uses default if not provided)
+                'host_name': str (REQUIRED - host where device is connected),
+                'device_id': str (REQUIRED - device identifier)
             }
             
         Returns:
