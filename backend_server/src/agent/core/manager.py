@@ -268,17 +268,13 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             print("[TURN] Rolling summary:")
             print(summary if summary else "(none)")
         
-        # Show the messages that will be sent to the model
-        print(f"[TURN] Assembled turn messages (keep_last_n={keep_last_n}):")
-        for idx, msg in enumerate(turn_messages):
-            content = msg.get("content", "")
-            if isinstance(content, list):
-                try:
-                    content = json.dumps(content)
-                except Exception:
-                    content = str(content)
-            content_preview = content[:200] + ("..." if len(str(content)) > 200 else "")
-            print(f"  [{idx}] {msg.get('role')}: {content_preview}")
+        # Show raw prompt exactly as sent to the model
+        print("---------------- RAW prompt ----------------")
+        try:
+            print(json.dumps(turn_messages, ensure_ascii=False, indent=2))
+        except Exception:
+            print(str(turn_messages))
+        print("--------------------------------------------")
     
     def _update_conversation_summary(self, session: Session, user_msg: str, ai_response: str, tool_calls: List[Dict]):
         """

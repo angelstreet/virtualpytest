@@ -1030,7 +1030,7 @@ export const useAgentChat = () => {
       // Helper to save current events as a message
       const saveCurrentEventsAsMessage = (agentName: string, eventsToSave: AgentEvent[]) => {
         const messageResultEvents = eventsToSave.filter(e => 
-          e.type === 'message' || e.type === 'result' || e.type === 'agent_delegated'
+          e.type === 'message' || e.type === 'result'
         );
         const errorEvents = eventsToSave.filter(e => e.type === 'error');
         const toolCallEvents = eventsToSave.filter(e => e.type === 'tool_call');
@@ -1095,41 +1095,6 @@ export const useAgentChat = () => {
       // Track mode
       if (event.type === 'mode_detected') {
         setSession(prev => prev ? { ...prev, mode: event.content.split(': ')[1] } : null);
-      }
-
-      // When manager delegates: save manager's message, update active agent
-      if (event.type === 'agent_delegated') {
-        console.log('[useAgentChat] AGENT_DELEGATED - saving Atlas message, switching to delegated agent');
-        const agentName = event.content.replace('Delegating to ', '').replace('...', '').trim();
-        
-        // Include this event in the delegating agent's message (use event.agent, not hardcoded)
-        setCurrentEvents(prev => {
-          const eventsWithDelegation = [...prev, event];
-          saveCurrentEventsAsMessage(event.agent, eventsWithDelegation);
-          return []; // Clear for next agent
-        });
-        
-        setSession(prev => prev ? { ...prev, active_agent: agentName } : null);
-        return;
-      }
-
-      // When sub-agent starts: update badge
-      if (event.type === 'agent_started') {
-        console.log(`[useAgentChat] AGENT_STARTED - ${event.agent} taking over`);
-        setSession(prev => prev ? { ...prev, active_agent: event.agent } : null);
-        setCurrentEvents([]); // Fresh start for this agent
-        return;
-      }
-      
-      // When sub-agent completes: save its message
-      if (event.type === 'agent_completed') {
-        console.log(`[useAgentChat] AGENT_COMPLETED - saving ${event.agent} message`);
-        setCurrentEvents(prev => {
-          console.log(`[useAgentChat] Saving ${prev.length} events for ${event.agent}`);
-          saveCurrentEventsAsMessage(event.agent, prev);
-          return []; // Clear for next agent (or QA Manager summary)
-        });
-        return;
       }
 
       // Accumulate events for current agent
@@ -1402,7 +1367,7 @@ export const useAgentChat = () => {
       if (targetConvoId && prevEvents.length > 0) {
         // Build partial message from accumulated events
         const messageResultEvents = prevEvents.filter(e => 
-          e.type === 'message' || e.type === 'result' || e.type === 'agent_delegated'
+          e.type === 'message' || e.type === 'result'
         );
         const toolCallEvents = prevEvents.filter(e => e.type === 'tool_call');
         
