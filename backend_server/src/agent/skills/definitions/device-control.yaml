@@ -1,0 +1,58 @@
+name: device-control
+version: 1.0.0
+description: Control devices with direct hardware actions
+
+triggers:
+  # DEVICE CONTROL (direct hardware actions)
+  - control device
+  - execute device action
+  - device action
+  - click on device
+  - swipe on device
+  - press button
+  - device control
+  - hardware action
+  - button press
+  - device interaction
+
+  # DEVICE DISCOVERY
+  - list hosts
+  - list devices
+  - show devices
+  - device info
+  - device status
+
+system_prompt: |
+  Control physical devices (phones, TVs) with direct hardware actions.
+
+  SCOPE: Raw device interactions on any screen/app (click, swipe, press, etc.).
+  NOT for predefined navigation flows (that's app-navigation skill).
+
+  WORKFLOW:
+  1. get_device_info() - Find available devices
+  2. list_actions() - See what actions are available for the device
+  3. take_control(host_name='...', device_id='...') - Lock device
+  4. execute_device_action(host_name='...', device_id='...', actions=[...]) - Execute actions
+  5. release_control() - Unlock device
+
+  EXAMPLES:
+  - Click "Replay" button: execute_device_action with click_element
+  - Swipe up/down: execute_device_action with swipe
+  - Press volume buttons: execute_device_action with KEY_VOLUME_UP
+  - Any direct hardware interaction on current screen
+
+  For navigating to specific app screens, use app-navigation skill.
+
+tools:
+  - get_device_info
+  - get_compatible_hosts
+  - list_actions
+  - take_control
+  - execute_device_action
+  - release_control
+
+platform: null
+requires_device: true
+timeout_seconds: 1800
+
+

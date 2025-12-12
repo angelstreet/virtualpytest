@@ -90,9 +90,23 @@ class ActionTools:
                 description = action.get('description', '')
                 
                 response_text += f"  {label} (command: {command})\n"
-                
-                if params_dict:
+
+                # Enhanced parameter information based on device model and command
+                if command == 'click_element':
+                    if device_model in ['android_mobile', 'android_tv']:
+                        response_text += f"    params: {{'text': 'element_text', 'wait_time': 1000, 'iteration': 1}}  # text REQUIRED, wait_time optional\n"
+                        response_text += f"    note: For mobile devices, use text-based clicking\n"
+                    else:  # web devices
+                        response_text += f"    params: {{'text': 'element_text', 'xpath': 'xpath_selector', 'wait_time': 1000}}\n"
+                        response_text += f"    note: For web devices, text or xpath can be used\n"
+                elif command == 'click_element_by_id':
+                    if device_model in ['android_mobile', 'android_tv']:
+                        response_text += f"    BLOCKED: Not reliable on mobile ADB\n"
+                    else:
+                        response_text += f"    params: {{'element_id': 'html_id', 'wait_time': 1000}}  # element_id REQUIRED\n"
+                elif params_dict:
                     response_text += f"    params: {params_dict}\n"
+
                 if description:
                     response_text += f"    {description}\n"
             
@@ -120,17 +134,50 @@ class ActionTools:
     
     def execute_device_action(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute batch of actions on a device. Supports remote commands, ADB, web actions, desktop automation. Call list_actions() first to get valid commands.
-        
-        Example: execute_device_action(host_name='sunri-pi1', device_id='device1', actions=[{'command': 'KEY_HOME'}])
-        
+        Execute batch of actions on a device. Supports remote commands, ADB, web actions, desktop automation.
+
+        COMMON ACTION FORMATS BY DEVICE TYPE:
+
+        📱 MOBILE DEVICES (android_mobile, android_tv):
+        - click_element: {"command": "click_element", "params": {"text": "Button Text", "wait_time": 1000, "iteration": 1}}
+          * text: Element text to click (REQUIRED)
+          * wait_time: Milliseconds to wait after click (default: 1000)
+        - click_element_by_id: BLOCKED for mobile devices (unreliable on ADB)
+
+        🌐 WEB DEVICES (host_vnc, web):
+        - click_element: {"command": "click_element", "params": {"text": "Button Text", "wait_time": 1000}}
+          * text: Visible text of element to click (REQUIRED)
+          * xpath: XPath selector (alternative to text)
+          * wait_time: Milliseconds to wait after click (default: 1000)
+        - click_element_by_id: {"command": "click_element_by_id", "params": {"element_id": "btn-submit", "wait_time": 1000}}
+          * element_id: HTML element ID attribute (REQUIRED)
+          * wait_time: Milliseconds to wait after click (default: 1000)
+        - navigate: {"command": "navigate", "params": {"url": "https://example.com"}}
+          * url: URL to navigate to (REQUIRED)
+
+        🎮 REMOTE CONTROLS:
+        - KEY_HOME: {"command": "KEY_HOME"} (no params needed)
+        - KEY_BACK: {"command": "KEY_BACK"} (no params needed)
+        - Custom keys: {"command": "KEY_CUSTOM", "params": {"key": "KEY_ENTER"}}
+          * key: Key code/name (REQUIRED)
+
+        ⚠️ COMMON MISTAKES TO AVOID:
+        - Don't use "click" command - use "click_element" instead
+        - Always wrap parameters in "params": {...} object
+        - For mobile: use "text" parameter, not "element_id"
+        - Check device type - some commands are blocked per device model
+
+        💡 PRO TIP: Call list_actions() first to see exact available commands and parameters for your specific device.
+
+        Example: execute_device_action(host_name='sunri-pi1', device_id='device1', actions=[{'command': 'click_element', 'params': {'text': 'Replay'}}])
+
         Args:
             params: {
                 'host_name': str (REQUIRED - host name where device is connected),
                 'device_id': str (REQUIRED - device identifier),
                 'actions': list (REQUIRED - list of action dicts with command and params)
             }
-            
+
         Returns:
             MCP-formatted response with execution results
         """
