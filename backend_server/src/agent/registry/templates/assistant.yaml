@@ -35,6 +35,7 @@ available_skills:
   - run-testcase
   - list-resources
   - device-status
+  - control-device
   # Exploration (3 skills)
   - explore-mobile
   - explore-web
