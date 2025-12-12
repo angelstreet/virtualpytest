@@ -24,27 +24,22 @@ Provide EITHER userinterface_name (recommended) OR tree_id.""",
         },
         {
             "name": "navigate_to_node",
-            "description": """Navigate to target node using pathfinding. Auto-verifies target.
+            "description": """Navigate to target node using pathfinding.
 
-PREREQUISITE: Call take_control() ONCE before any navigation.
-navigate_to_node tool executes all actions and verification to reach end node autonomously using pathfinding.
-On "cache not ready" error: call take_control() then retry.
+Requires take_control() first. tree_id auto-resolved from userinterface_name.
 
-⚠️ IMPORTANT: Use ONLY target_node_label (e.g., 'player', 'home'). Do NOT use target_node_id.
-
-Parameters must match take_control call. Polls until complete (max 3min).""",
+Example: navigate_to_node(userinterface_name='google_tv', target_node_label='shop')""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "tree_id": {"type": "string", "description": "Tree ID (must match take_control)"},
-                    "userinterface_name": {"type": "string", "description": "UI name"},
+                    "userinterface_name": {"type": "string", "description": "UI name (auto-resolves tree_id)"},
+                    "target_node_label": {"type": "string", "description": "Target screen (e.g., 'shop', 'home')"},
+                    "host_name": {"type": "string", "description": "Host name"},
                     "device_id": {"type": "string", "description": "Device ID (default: device1)"},
-                    "team_id": {"type": "string", "description": "Team ID (optional)"},
-                    "target_node_label": {"type": "string", "description": "Target screen label (e.g., 'player', 'home') - USE THIS"},
-                    "current_node_id": {"type": "string", "description": "Current node (optional)"},
-                    "host_name": {"type": "string", "description": "Host name"}
+                    "tree_id": {"type": "string", "description": "Tree ID (optional - auto-resolved)"},
+                    "team_id": {"type": "string", "description": "Team ID (optional)"}
                 },
-                "required": ["tree_id", "userinterface_name", "target_node_label"]
+                "required": ["userinterface_name", "target_node_label"]
             }
         },
         {

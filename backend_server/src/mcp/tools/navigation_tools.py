@@ -162,56 +162,8 @@ class NavigationTools:
     
     def navigate_to_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Navigate to a target node in UI tree
-        
-        ⚠️ CRITICAL: Host/Device Selection
-        - If user explicitly specifies host_name/device_id: Use those values directly
-        - Otherwise: Call get_compatible_hosts(userinterface_name='...') FIRST to find compatible hosts
-        - DO NOT use default values blindly without checking compatibility
-        
-        ⚠️ AUTONOMOUS NAVIGATION:
-        This tool uses the pre-built navigation tree to automatically find and execute
-        the path to the target node. You only need to specify WHERE to go (target_node_label),
-        the system handles HOW to get there using the navigation tree edges.
-        
-        Example:
-          - Navigation tree has: home → content_detail → player (with all actions defined)
-          - You call: navigate_to_node(target_node_label="player")
-          - System automatically: Finds path, executes home→content_detail→player actions
-        
-        This is why test cases can be reusable across apps!
-        Test cases say "go to player", navigation tree defines how to get there for each app.
-        
-        Uses pathfinding to find optimal path and executes navigation.
-        Requires take_control to be called first (cache must be ready).
-        
-        REUSES existing /server/navigation/execute/{tree_id} endpoint (same as frontend)
-        
-        Workflow (when host NOT specified by user):
-            1. Call get_compatible_hosts(userinterface_name='your_ui')
-            2. Use recommended host_name and device_id from response
-            3. Call take_control(tree_id='...') once
-            4. Call navigate_to_node with those values
-        
-        Workflow (when user specifies host):
-            1. User says "use host X with device Y"
-            2. Call take_control(tree_id='...') once
-            3. Call navigate_to_node directly with host_name='X', device_id='Y'
-        
-        Args:
-            params: {
-                'tree_id': str (REQUIRED),
-                'userinterface_name': str (REQUIRED - for reference resolution),
-                'target_node_id': str (REQUIRED if no target_node_label),
-                'target_node_label': str (REQUIRED if no target_node_id),
-                'device_id': str (REQUIRED),
-                'team_id': str (REQUIRED),
-                'current_node_id': str (OPTIONAL - starting position),
-                'host_name': str (OPTIONAL)
-            }
-            
-        Returns:
-            MCP-formatted response with navigation path and results
+        Navigate to a target node in UI tree using pathfinding.
+        Auto-resolves tree_id from userinterface_name.
         """
         tree_id = params.get('tree_id')
         userinterface_name = params.get('userinterface_name')
@@ -223,12 +175,25 @@ class NavigationTools:
         host_name = params.get('host_name')
         
         # Validate required parameters
-        if not tree_id:
-            return {"content": [{"type": "text", "text": "Error: tree_id is required"}], "isError": True}
         if not userinterface_name:
-            return {"content": [{"type": "text", "text": "Error: userinterface_name is required for reference resolution"}], "isError": True}
+            return {"content": [{"type": "text", "text": "Error: userinterface_name is required"}], "isError": True}
         if not target_node_id and not target_node_label:
-            return {"content": [{"type": "text", "text": "Error: Either target_node_id or target_node_label is required"}], "isError": True}
+            return {"content": [{"type": "text", "text": "Error: target_node_label is required"}], "isError": True}
+        
+        # Auto-resolve tree_id from userinterface_name if not provided
+        if not tree_id:
+            ui_result = self.api.get(f'/server/userinterface/getUserInterfaceByName/{userinterface_name}', params={'team_id': team_id})
+            if not ui_result or not ui_result.get('id'):
+                return {"content": [{"type": "text", "text": f"Error: User interface '{userinterface_name}' not found"}], "isError": True}
+            
+            userinterface_id = ui_result['id']
+            tree_result = self.api.get(f'/server/navigationTrees/getTreeByUserInterfaceId/{userinterface_id}', params={'team_id': team_id})
+            
+            if not tree_result.get('success') or not tree_result.get('tree'):
+                return {"content": [{"type": "text", "text": f"Error: No navigation tree found for '{userinterface_name}'"}], "isError": True}
+            
+            tree_id = tree_result['tree']['id']
+            print(f"[@MCP:navigate_to_node] Auto-resolved tree_id: {tree_id} from userinterface_name: {userinterface_name}")
         
         # Build request - SAME format as frontend (navigationExecutionUtils.ts line 58-65)
         data = {
