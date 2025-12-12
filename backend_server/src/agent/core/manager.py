@@ -216,11 +216,17 @@ class QAManagerAgent:
         config = self.agent_config
         skill = self._active_skill
         ctx = ctx or {}
-        
+
         # Build context section
         context_section = self._build_context_section(ctx)
-        
+
         return f"""You are {config['nickname']} executing **{skill.name}** skill.
+
+## Context Usage
+⚠️ CRITICAL: Always check conversation history for existing information before calling tools.
+- Reuse host_name, device_id, device_name, userinterface_name,  and other details already discovered
+- Avoid redundant tool calls when data is available in the conversation
+- Use known values from previous messages instead of re-fetching
 
 {context_section}{skill.system_prompt}
 
@@ -511,11 +517,13 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                 if skill_to_load:
                     print(f"[AGENT] Loading skill: {skill_to_load}")
                     yield AgentEvent(type=EventType.SKILL_LOADED, agent=self.nickname, content=skill_to_load)
-                    
+
                     if self.load_skill(skill_to_load):
-                        # Re-process with loaded skill
-                        async for event in self.process_message(message, session, _is_delegated=True):
-                            yield event
+                        # Rebuild system prompt and tools for the loaded skill
+                        cached_system = self._build_cached_system(session.context)
+                        cached_tools = self._build_cached_tools(self.tool_names)
+                        print(f"[AGENT] Tools: {len(cached_tools)} | System: {len(cached_system[0]['text'])} chars")
+                        continue  # Continue processing with loaded skill in same loop
                     else:
                         yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load skill: {skill_to_load}")
                     break
