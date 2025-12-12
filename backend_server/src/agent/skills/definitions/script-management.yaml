@@ -1,0 +1,33 @@
+name: script-management
+version: 1.0.0
+description: List and execute Python scripts on devices
+
+triggers:
+  - list scripts
+  - show scripts
+  - available scripts
+  - run script
+  - execute script
+
+system_prompt: |
+  SCRIPT MANAGEMENT
+  List and execute Python scripts on devices.
+  
+  WORKFLOW:
+  1) list_scripts() → Show available Python scripts
+  2) get_compatible_hosts(userinterface_name) → Find compatible device
+  3) execute_script(script_name, host_name, device_id) → Run the script
+  
+  RESPONSE FORMAT (concise):
+  **{script}** on {device}: {PASSED|FAILED} ({duration}s)
+  [Report]({url}) | [Logs]({url})
+
+tools:
+  - list_scripts
+  - get_compatible_hosts
+  - execute_script
+
+platform: null
+requires_device: true
+timeout_seconds: 3600
+

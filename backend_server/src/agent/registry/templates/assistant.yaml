@@ -31,19 +31,23 @@ subagents: []
 
 # Micro-skills this agent can load (2-8 tools each)
 available_skills:
-  # Execution (4 skills)
-  - run-script
-  - run-testcase
-  - list-resources
-  - device-status
+  # Script Management
+  - script-management
+  
+  # Testcase Management
+  - testcase-management
+  
+  # Device Operations
   - control-device
-  # Exploration (3 skills)
+  
+  # Platform Exploration
   - explore-mobile
   - explore-web
   - explore-stb
-  # Design (2 skills)
-  - create-testcase
-  - manage-requirements
+  
+  # Requirement Management
+  - requirement-management
+  
   # UI Interaction
   - page-navigation
 

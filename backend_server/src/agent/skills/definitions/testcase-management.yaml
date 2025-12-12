@@ -1,0 +1,53 @@
+name: testcase-management
+version: 1.0.0
+description: List, create, and execute testcases
+
+triggers:
+  - list testcases
+  - show testcases
+  - available testcases
+  - run testcase
+  - run test
+  - execute testcase
+  - create testcase
+  - generate testcase
+  - new test
+  - save testcase
+
+system_prompt: |
+  TESTCASE MANAGEMENT
+  List, create, and execute testcases.
+  
+  WORKFLOW:
+  
+  1) DISCOVERY
+     - list_testcases() → Show available testcases
+     - list_userinterfaces() → Show available apps/interfaces
+  
+  2) CREATION
+     - generate_and_save_testcase(prompt, testcase_name) → AI-generated test
+     - save_testcase(testcase_name, graph_json) → Save manual test
+     
+     NAMING: TC_<CAT>_<NUM>_<CamelCase>
+     Example: TC_AUTH_01_LoginFlow
+  
+  3) EXECUTION
+     - get_compatible_hosts(userinterface_name) → Find compatible device
+     - execute_testcase(testcase_name) → Run the testcase
+  
+  RESPONSE FORMAT (concise):
+  **{testcase}** on {device}: {PASSED|FAILED} ({duration}s)
+  [Report]({url})
+
+tools:
+  - list_testcases
+  - list_userinterfaces
+  - get_compatible_hosts
+  - execute_testcase
+  - generate_and_save_testcase
+  - save_testcase
+
+platform: null
+requires_device: false
+timeout_seconds: 3600
+
