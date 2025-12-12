@@ -47,13 +47,22 @@ def extract_context_from_result(tool_name: str, result: Dict[str, Any]) -> Dict[
                     deduped.append(h)
             updates["hosts"] = deduped
 
-    # get_device_info → devices list
+    # get_device_info → devices list + individual device context
     if tool_name == "get_device_info":
         devices = []
         if parsed_json and isinstance(parsed_json, dict) and isinstance(parsed_json.get("devices"), list):
             devices = parsed_json.get("devices", [])
         if devices:
             updates["devices"] = devices
+            # If only 1 device, extract its details for easy reuse
+            if len(devices) == 1:
+                device = devices[0]
+                if device.get("host_name"):
+                    updates["host_name"] = device["host_name"]
+                if device.get("device_id"):
+                    updates["device_id"] = device["device_id"]
+                if device.get("device_model"):
+                    updates["device_model"] = device["device_model"]
 
     # get_compatible_hosts → host/device/tree/userinterface hints
     if tool_name == "get_compatible_hosts":
