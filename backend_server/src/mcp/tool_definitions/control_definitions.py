@@ -8,36 +8,40 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
         {
             "name": "take_control",
-            "description": """CALL THIS FIRST before ANY navigation or device actions!
+            "description": """Take exclusive control of a device.
 
-Takes exclusive control of a device and builds navigation cache.
+Locks the device for exclusive use to prevent conflicts.
+Required before executing any device operations.
 
-MANDATORY FIRST STEP for:
-- navigate_to_node (will fail with "cache not ready" without this)
-- execute_device_action (when working with navigation tree/userinterface)
-- Any exploration or navigation workflow
+USE CASES:
+- Execute device actions (click, swipe, type)
+- Capture screenshots
+- Dump UI elements
+- Run verifications
+- Navigate through UI (used with navigate_to_node)
 
-WORKFLOW (ALWAYS FOLLOW THIS ORDER):
-1. take_control(tree_id='...', host_name='...', device_id='...')  ← CALL FIRST!
-2. Do your work (navigate_to_node, execute_device_action, etc.)
-3. [Optional] release_control(host_name='...', device_id='...')
+WORKFLOW:
+1. take_control(host_name='...', device_id='...')  ← Lock device
+2. Do your work (actions, screenshots, navigation)
+3. [Optional] release_control(host_name='...', device_id='...')  ← Unlock device
 
 Example:
-  # STEP 1: Take control FIRST
-  take_control(tree_id='abc-123', host_name='sunri-pi1', device_id='device1')
+  # Take control of device
+  take_control(host_name='sunri-pi1', device_id='device1')
   
-  # STEP 2: Now you can navigate
-  navigate_to_node(target_node_label='shop', ...)
+  # Execute operations
+  execute_device_action(...)
+  capture_screenshot(...)
+  navigate_to_node(...)
   
-  # STEP 3: (Optional) Release when completely done
+  # Release when done
   release_control(host_name='sunri-pi1', device_id='device1')""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "host_name": {"type": "string", "description": "Host name where device is connected (use get_compatible_hosts to discover)"},
+                    "host_name": {"type": "string", "description": "Host name where device is connected"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                    "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
-                    "tree_id": {"type": "string", "description": "Navigation tree ID - REQUIRED for navigation"}
+                    "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                 },
                 "required": []
             }

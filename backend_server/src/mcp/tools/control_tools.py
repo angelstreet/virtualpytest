@@ -19,36 +19,32 @@ class ControlTools:
     
     def take_control(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Take control of a device (REQUIRED before any operations)
+        Take exclusive control of a device
         
-        This locks the device, generates navigation cache, and returns a session_id.
-        Must be called before: actions, navigation, verification, testcases, AI graph.
+        Locks the device for exclusive use and returns a session_id.
+        Required before any device operations.
         
         Automatically handles lock conflicts:
         - Tries to take control normally
         - If device is locked by another session, forces unlock and retries
-        - Ensures Scout can always take control when needed
+        - Ensures agent can always take control when needed
         
         Args:
             params: {
-                'host_name': str (OPTIONAL - uses default 'sunri-pi1' if not provided),
-                'device_id': str (OPTIONAL - uses default 'device_1' if not provided),
-                'tree_id': str (OPTIONAL - triggers cache generation),
+                'host_name': str (REQUIRED - host where device is connected),
+                'device_id': str (OPTIONAL - defaults to 'device1'),
                 'team_id': str (OPTIONAL - uses default if not provided)
             }
             
         Returns:
-            MCP-formatted response with session_id and cache status
+            MCP-formatted response with session_id
         """
         host_name = params.get('host_name')
         device_id = params.get('device_id')
-        tree_id = params.get('tree_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         # Build request
         data = {'host_name': host_name, 'device_id': device_id}
-        if tree_id:
-            data['tree_id'] = tree_id
         
         # STEP 1: Try normal take_control
         result = self.api.post('/server/control/takeControl', data=data, params={'team_id': team_id})
