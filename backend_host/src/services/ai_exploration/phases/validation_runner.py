@@ -79,6 +79,27 @@ def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tup
     return 'failed', 0, []
 
 
+def _format_reverse_action(step: int, actions: list) -> str:
+    """Format reverse action for display based on smart_backward step."""
+    if step == 1 and actions:
+        # Step 1: Entry→home main action - show the actual action
+        first_action = actions[0]
+        cmd = first_action.get('command', '')
+        params = first_action.get('params', {})
+        if cmd == 'click_element':
+            text = params.get('text', params.get('element_id', ''))
+            return f'click_element("{text}")'
+        return f'{cmd}({params})'
+    elif step == 2:
+        return 'BACK'
+    elif step == 3:
+        return 'BACK x2'
+    elif step == 4:
+        return 'BACK failed (recovery)'
+    else:
+        return 'press_key(BACK)'
+
+
 def start_validation(executor) -> Dict[str, Any]:
     """
     Phase 2b: Start validation process
@@ -1257,7 +1278,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
             
             print(f"    🔍 Verifying return to home: {home_indicator}")
             back_result, step, reverse_actions = smart_backward(executor, controller, verify_mobile_web)
-            print(f"    {'✅' if back_result == 'success' else '❌'} Back via smart_backward step {step}")
+            action_display = _format_reverse_action(step, reverse_actions)
+            print(f"    {'✅' if back_result == 'success' else '❌'} Back: {action_display}")
             
             # Store reverse_actions for edge update
             executor.exploration_state['_discovered_reverse_actions'] = reverse_actions
@@ -1413,7 +1435,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 'reverse': {
                     'source': node_name_display,
                     'target': home_id,
-                    'action': f'smart_backward step {discovered_reverse_step}' if discovered_reverse_step else 'press_key(BACK)',
+                    'action': _format_reverse_action(discovered_reverse_step, discovered_reverse_actions),
                     'discovered_actions': discovered_reverse_actions,
                     'result': back_result
                 }
