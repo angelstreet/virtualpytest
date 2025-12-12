@@ -17,10 +17,22 @@ def get_supabase():
 def get_all_userinterfaces(team_id: str) -> List[Dict]:
     """Retrieve all user interfaces for a team from Supabase."""
     supabase = get_supabase()
+    
+    if supabase is None:
+        print(f"[@db:userinterface_db:get_all_userinterfaces] ERROR: Supabase client is None - check environment variables")
+        return []
+    
+    if not team_id:
+        print(f"[@db:userinterface_db:get_all_userinterfaces] ERROR: team_id is required but got: {team_id}")
+        return []
+    
     try:
+        print(f"[@db:userinterface_db:get_all_userinterfaces] Querying for team_id: {team_id}")
         result = supabase.table('userinterfaces').select(
             'id', 'name', 'models', 'min_version', 'max_version', 'team_id', 'created_at', 'updated_at'
         ).eq('team_id', team_id).order('created_at', desc=False).execute()
+        
+        print(f"[@db:userinterface_db:get_all_userinterfaces] Query successful, got {len(result.data) if result.data else 0} results")
         
         userinterfaces = []
         for ui in result.data:
@@ -37,7 +49,9 @@ def get_all_userinterfaces(team_id: str) -> List[Dict]:
         
         return userinterfaces
     except Exception as e:
-        print(f"[@db:userinterface_db:get_all_userinterfaces] Error: {e}")
+        print(f"[@db:userinterface_db:get_all_userinterfaces] EXCEPTION: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def get_userinterface(interface_id: str, team_id: str) -> Optional[Dict]:

@@ -17,10 +17,22 @@ def get_supabase():
 def get_all_device_models(team_id: str) -> List[Dict]:
     """Retrieve all device models for a team from Supabase."""
     supabase = get_supabase()
+    
+    if supabase is None:
+        print(f"[@db:device_models_db:get_all_device_models] ERROR: Supabase client is None - check environment variables")
+        return []
+    
+    if not team_id:
+        print(f"[@db:device_models_db:get_all_device_models] ERROR: team_id is required but got: {team_id}")
+        return []
+    
     try:
+        print(f"[@db:device_models_db:get_all_device_models] Querying for team_id: {team_id}")
         result = supabase.table('device_models').select(
             'id', 'name', 'types', 'version', 'description', 'controllers', 'team_id', 'is_default', 'created_at', 'updated_at'
         ).eq('team_id', team_id).order('created_at', desc=False).execute()
+        
+        print(f"[@db:device_models_db:get_all_device_models] Query successful, got {len(result.data) if result.data else 0} results")
         
         models = []
         for model in result.data:
@@ -39,7 +51,9 @@ def get_all_device_models(team_id: str) -> List[Dict]:
         
         return models
     except Exception as e:
-        print(f"[@db:device_models_db:get_all_device_models] Error: {e}")
+        print(f"[@db:device_models_db:get_all_device_models] EXCEPTION: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def get_device_model(model_id: str, team_id: str) -> Optional[Dict]:
