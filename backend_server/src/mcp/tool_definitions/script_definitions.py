@@ -21,7 +21,7 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
     {
         "name": "execute_script",
-        "description": "Execute a Python script on a device REUSES existing /server/script/execute endpoint (same as frontend) Pattern from useScript.ts lines 247-301 MCP-formatted response with script execution results",
+        "description": "Execute a Python script on a device",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -40,10 +40,6 @@ def get_tools() -> List[Dict[str, Any]]:
                 "parameters": {
                     "type": "string",
                     "description": "CLI parameters as string (e.g., '--param1 value1 --param2 value2'"
-                },
-                "team_id": {
-                    "type": "string",
-                    "description": "Team ID for security"
                 }
             },
             "required": [

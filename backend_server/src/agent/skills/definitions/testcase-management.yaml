@@ -11,29 +11,21 @@ triggers:
   - execute testcase
   - create testcase
   - generate testcase
-  - new test
+  - new testcase
   - save testcase
 
 system_prompt: |
-  Manage testcases: list, create, and execute.
+  Manage testcases: list, create, and execute
 
   Naming convention: TC_<CAT>_<NUM>_<CamelCase> (e.g., TC_AUTH_01_LoginFlow)
 
-  WORKFLOW:
-  1. Parse user request for testcase name and target device/interface
-  2. Use existing device info from conversation when available
-  3. Call get_compatible_hosts only if compatibility needs verification
-  4. Execute or create testcase with known or verified device details
+  CRITICAL:
+   - Call get_compatible_hosts only if host_name, device_id not available in conversation
+   - Call list_scripts only if script_name not available in conversation
 
-  Response format: **{testcase}** on {device}: {PASSED|FAILED} ({duration}s) [Report]({url})
-
-  RESPONSE FORMAT (concise):
-  **{testcase}** on {device}: {PASSED|FAILED} ({duration}s)
-  [Report]({url})
 
 tools:
   - list_testcases
-  - list_userinterfaces
   - get_compatible_hosts
   - execute_testcase
   - generate_and_save_testcase

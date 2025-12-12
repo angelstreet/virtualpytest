@@ -10,19 +10,13 @@ triggers:
   - execute script
 
 system_prompt: |
-  Execute Python scripts on devices.
+  Manage scripts: list, create and execute
 
-  WORKFLOW:
-  1. Parse user request for script name and target device/interface
-  2. Use existing device info from conversation when available
-  3. Call get_compatible_hosts only if compatibility needs verification
-  4. Execute the script with known or verified device details
+  Naming convention: SC_<CAT>_<NUM>_<CamelCase> (e.g., SC_AUTH_01_LoginFlow)
 
-  Response format: **{script}** on {device}: {PASSED|FAILED} ({duration}s) [Report]({url})
-
-  RESPONSE FORMAT (concise):
-  **{script}** on {device}: {PASSED|FAILED} ({duration}s)
-  [Report]({url})
+  CRITICAL:
+   - Call get_compatible_hosts only if host_name, device_id not available in conversation
+   - Call list_scripts only if script_name not available in conversation
 
 tools:
   - list_scripts

@@ -59,12 +59,12 @@ class ScriptTools:
         # Check for errors
         if not result.get('success'):
             error_msg = result.get('error', 'Failed to list scripts')
-            return {"content": [{"type": "text", "text": f"❌ List failed: {error_msg}"}], "isError": True}
+            return {"isError": True, "error": error_msg}
         
         # Format response
         scripts = result.get('scripts', [])
         if not scripts:
-            return {"content": [{"type": "text", "text": "No scripts found"}], "isError": False}
+            return {"isError": False, "scripts": []}
         
         scripts_dir = result.get('scripts_directory', 'unknown')
         response_text = f"📋 Found {len(scripts)} script(s) in {scripts_dir}:\n\n"
@@ -75,22 +75,19 @@ class ScriptTools:
         if len(scripts) > 30:
             response_text += f"\n... and {len(scripts) - 30} more"
         
-        return {"content": [{"type": "text", "text": response_text}], "isError": False, "scripts": scripts}
+        return {"isError": False, "scripts": scripts}
     
     def execute_script(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a Python script on a device
-        
-        REUSES existing /server/script/execute endpoint (same as frontend)
-        Pattern from useScript.ts lines 247-301
+
         
         Args:
             params: {
                 'script_name': str (REQUIRED) - Script filename (e.g., 'my_script.py'),
                 'host_name': str (REQUIRED) - Host where device is located,
                 'device_id': str (REQUIRED) - Device identifier,
-                'parameters': str (OPTIONAL) - CLI parameters as string (e.g., '--param1 value1 --param2 value2'),
-                'team_id': str (OPTIONAL) - Team ID for security
+                'parameters': str (OPTIONAL) - CLI parameters as string (e.g., '--param1 value1 --param2 value2')
             }
             
         Returns:
@@ -105,9 +102,9 @@ class ScriptTools:
         
         # Validate required parameters
         if not script_name:
-            return {"content": [{"type": "text", "text": "Error: script_name is required"}], "isError": True}
+            return {"isError": True, "error": "script_name is required"}
         if not host_name:
-            return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
+            return {"isError": True, "error": "host_name is required"}
         
         # Build parameters string (SAME as RunTests.tsx lines 427-470)
         # The frontend always appends --host and --device at the end
@@ -169,7 +166,6 @@ class ScriptTools:
                 response_text += f"\n📋 Logs: {logs_url}"
             
             return {
-                "content": [{"type": "text", "text": response_text}],
                 "isError": True,
                 "result": self._filter_result_for_mcp(result)
             }
@@ -195,7 +191,6 @@ class ScriptTools:
         
         # Return filtered result (no stdout/stderr) to reduce token usage
         return {
-            "content": [{"type": "text", "text": response_text}],
             "isError": False,  # exit_code 0 = tool execution successful
             "result": self._filter_result_for_mcp(result)
         }
@@ -254,7 +249,6 @@ class ScriptTools:
                     
                     # Return filtered result (no stdout/stderr) to reduce token usage
                     return {
-                        "content": [{"type": "text", "text": response_text}],
                         "isError": is_tool_error,
                         "result": self._filter_result_for_mcp(task_result)
                     }
@@ -279,7 +273,6 @@ class ScriptTools:
                         response_text += f"\n📋 Logs: {logs_url}"
                     
                     return {
-                        "content": [{"type": "text", "text": response_text}],
                         "isError": True,
                         "result": self._filter_result_for_mcp(task_result)
                     }
@@ -288,5 +281,5 @@ class ScriptTools:
                     print(f"[@MCP:poll_script] Status: {current_status} - {elapsed}s elapsed")
         
         print(f"[@MCP:poll_script] Script execution timed out after {max_wait}s")
-        return {"content": [{"type": "text", "text": f"⏱️ Script execution timed out after {max_wait}s"}], "isError": True}
+        return {"isError": True, "error": f"Script execution timed out after {max_wait}s"}
 
