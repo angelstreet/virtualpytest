@@ -1332,7 +1332,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
     # 3. Update edge with validation results (using action_sets like frontend)
     with executor._lock:
         home_id = executor.exploration_state['home_id']
-        edge_id = f"edge_{home_id}_to_{node_name}_temp"
+        edge_id = f"edge_{home_id}_to_{node_name}"
         
         # Get discovered reverse actions from smart_backward
         discovered_reverse_actions = executor.exploration_state.pop('_discovered_reverse_actions', None)
