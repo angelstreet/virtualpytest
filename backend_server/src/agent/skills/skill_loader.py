@@ -113,7 +113,7 @@ class SkillLoader:
         Get formatted descriptions of skills for system prompt
         
         Returns:
-            Formatted string with skill names, triggers, and descriptions
+            Formatted string with skill names and descriptions (no triggers for token efficiency)
         """
         if not cls._loaded:
             cls.load_all_skills()
@@ -122,11 +122,8 @@ class SkillLoader:
         for name in skill_names:
             skill = cls._skills.get(name)
             if skill:
-                triggers_str = ', '.join(f'"{t}"' for t in skill.triggers[:3])
                 platform_str = f" [{skill.platform}]" if skill.platform else ""
                 lines.append(f"- **{skill.name}**{platform_str}: {skill.description.split('.')[0]}.")
-                if skill.triggers:
-                    lines.append(f"  Triggers: {triggers_str}")
         
         return '\n'.join(lines) if lines else "No skills available."
     
