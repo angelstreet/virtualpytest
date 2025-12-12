@@ -15,18 +15,28 @@ logger = logging.getLogger(__name__)
 # Backend API base URL (same server)
 BACKEND_API_BASE = "http://localhost:5109"
 
-# Mirror of frontend PAGE_SCHEMAS - key pages and their elements
-# This should stay in sync with frontend/src/lib/ai/pageSchema.ts
+# Mirror of frontend PAGE_SCHEMAS - all navigable pages
+# This should stay in sync with frontend/src/App.tsx routes
 PAGE_SCHEMAS = {
+    '/': {
+        'name': 'Dashboard',
+        'description': 'Main dashboard with system overview',
+        'elements': ['system-status', 'quick-actions', 'recent-activity'],
+    },
     '/device-control': {
         'name': 'Device Control',
         'description': 'View and control connected devices with live streams',
         'elements': ['device-grid', 'host-filter', 'model-filter', 'stream-modal'],
     },
-    '/monitoring/heatmap': {
-        'name': 'Heatmap',
-        'description': 'Real-time device health monitoring',
-        'elements': ['mosaic-player', 'timeline-slider', 'status-filter', 'analysis-table'],
+    '/ai-agent': {
+        'name': 'AI Agent',
+        'description': 'Chat with AI agent for QA automation',
+        'elements': ['chat-input', 'message-list', 'agent-selector'],
+    },
+    '/agent-dashboard': {
+        'name': 'Agent Dashboard',
+        'description': 'Multi-agent control panel',
+        'elements': ['agent-grid', 'activity-monitor'],
     },
     '/builder/test-builder': {
         'name': 'Test Builder',
@@ -38,15 +48,103 @@ PAGE_SCHEMAS = {
         'description': 'Create and manage test campaigns',
         'elements': ['campaign-canvas', 'script-sequence', 'device-selector', 'save-campaign-btn'],
     },
+    '/builder/mcp-playground': {
+        'name': 'MCP Playground',
+        'description': 'Test and experiment with MCP tools',
+        'elements': ['tool-selector', 'input-form', 'result-display'],
+    },
     '/builder/navigation-editor': {
         'name': 'Navigation Editor',
         'description': 'Edit and manage navigation trees',
         'elements': ['tree-canvas', 'node-editor', 'edge-editor', 'save-navigation-btn'],
     },
+    '/test-plan/test-cases': {
+        'name': 'Test Cases',
+        'description': 'Manage test cases',
+        'elements': ['test-cases-table', 'filter-bar', 'create-btn'],
+    },
+    '/test-plan/campaigns': {
+        'name': 'Campaigns',
+        'description': 'Manage test campaigns',
+        'elements': ['campaigns-table', 'filter-bar', 'create-btn'],
+    },
+    '/test-plan/requirements': {
+        'name': 'Requirements',
+        'description': 'Manage requirements and coverage',
+        'elements': ['requirements-table', 'coverage-chart', 'link-btn'],
+    },
+    '/test-plan/coverage': {
+        'name': 'Coverage',
+        'description': 'View test coverage metrics',
+        'elements': ['coverage-summary', 'coverage-chart', 'filter-bar'],
+    },
+    '/test-execution/run-tests': {
+        'name': 'Run Tests',
+        'description': 'Execute individual test cases',
+        'elements': ['test-selector', 'device-selector', 'run-btn'],
+    },
+    '/test-execution/run-campaigns': {
+        'name': 'Run Campaigns',
+        'description': 'Execute test campaigns',
+        'elements': ['campaign-selector', 'device-selector', 'run-btn'],
+    },
+    '/test-execution/deployments': {
+        'name': 'Deployments',
+        'description': 'Manage test deployments',
+        'elements': ['deployments-table', 'deploy-btn'],
+    },
+    '/monitoring/incidents': {
+        'name': 'Incidents',
+        'description': 'Monitor and manage incidents',
+        'elements': ['incidents-table', 'status-filter', 'severity-filter'],
+    },
+    '/monitoring/heatmap': {
+        'name': 'Heatmap',
+        'description': 'Real-time device health monitoring',
+        'elements': ['mosaic-player', 'timeline-slider', 'status-filter', 'analysis-table'],
+    },
+    '/monitoring/ai-queue': {
+        'name': 'AI Queue',
+        'description': 'Monitor AI analysis queue status',
+        'elements': ['queue-status', 'processing-table', 'stats-chart'],
+    },
+    '/monitoring/system': {
+        'name': 'System Monitoring',
+        'description': 'Grafana system monitoring dashboard',
+        'elements': ['grafana-iframe'],
+    },
+    '/test-results/reports': {
+        'name': 'Test Reports',
+        'description': 'View test execution reports',
+        'elements': ['reports-table', 'filter-bar', 'export-btn'],
+    },
+    '/test-results/campaign-reports': {
+        'name': 'Campaign Reports',
+        'description': 'View campaign execution reports',
+        'elements': ['reports-table', 'filter-bar', 'export-btn'],
+    },
+    '/test-results/model-reports': {
+        'name': 'Model Reports',
+        'description': 'View reports grouped by device model',
+        'elements': ['model-table', 'filter-bar', 'chart-view'],
+    },
+    '/test-results/dependency-report': {
+        'name': 'Dependency Report',
+        'description': 'View test dependencies and relationships',
+        'elements': ['dependency-graph', 'table-view'],
+    },
 }
 
-# Navigation aliases for natural language
+# Navigation aliases for natural language - maps common terms to routes
+# Handles variations like "goto X", "navigate to X", "go to X", "show me X"
 NAVIGATION_ALIASES = {
+    # Dashboard
+    'dashboard': '/',
+    'home': '/',
+    'main': '/',
+    'overview': '/',
+    
+    # Device Control
     'device control': '/device-control',
     'device-control': '/device-control',
     'devices': '/device-control',
@@ -54,15 +152,108 @@ NAVIGATION_ALIASES = {
     'rec': '/device-control',
     'streams': '/device-control',
     'live': '/device-control',
-    'heatmap': '/monitoring/heatmap',
-    'monitoring': '/monitoring/heatmap',
+    
+    # AI Agent
+    'ai agent': '/ai-agent',
+    'agent': '/ai-agent',
+    'chat': '/ai-agent',
+    'atlas': '/ai-agent',
+    
+    # Agent Dashboard
+    'agent dashboard': '/agent-dashboard',
+    'agents': '/agent-dashboard',
+    'multi agent': '/agent-dashboard',
+    
+    # Test Builder
     'test builder': '/builder/test-builder',
     'builder': '/builder/test-builder',
+    'build test': '/builder/test-builder',
+    
+    # Campaign Builder
     'campaign builder': '/builder/campaign-builder',
     'campaign-builder': '/builder/campaign-builder',
+    'build campaign': '/builder/campaign-builder',
+    
+    # MCP Playground
+    'mcp playground': '/builder/mcp-playground',
+    'playground': '/builder/mcp-playground',
+    'mcp': '/builder/mcp-playground',
+    
+    # Navigation Editor
     'navigation editor': '/builder/navigation-editor',
     'navigation-editor': '/builder/navigation-editor',
-    'navigation': '/builder/navigation-editor',
+    'nav editor': '/builder/navigation-editor',
+    'tree editor': '/builder/navigation-editor',
+    
+    # Test Cases
+    'test cases': '/test-plan/test-cases',
+    'testcases': '/test-plan/test-cases',
+    'tests': '/test-plan/test-cases',
+    
+    # Campaigns
+    'campaigns': '/test-plan/campaigns',
+    'campaign': '/test-plan/campaigns',
+    
+    # Requirements
+    'requirements': '/test-plan/requirements',
+    'reqs': '/test-plan/requirements',
+    
+    # Coverage
+    'coverage': '/test-plan/coverage',
+    
+    # Run Tests
+    'run tests': '/test-execution/run-tests',
+    'run test': '/test-execution/run-tests',
+    'execute tests': '/test-execution/run-tests',
+    
+    # Run Campaigns
+    'run campaigns': '/test-execution/run-campaigns',
+    'run campaign': '/test-execution/run-campaigns',
+    'execute campaigns': '/test-execution/run-campaigns',
+    
+    # Deployments
+    'deployments': '/test-execution/deployments',
+    'deploy': '/test-execution/deployments',
+    
+    # Incidents
+    'incidents': '/monitoring/incidents',
+    'alerts': '/monitoring/incidents',
+    'issues': '/monitoring/incidents',
+    
+    # Heatmap
+    'heatmap': '/monitoring/heatmap',
+    'heat map': '/monitoring/heatmap',
+    'monitoring': '/monitoring/heatmap',
+    
+    # AI Queue
+    'ai queue': '/monitoring/ai-queue',
+    'queue': '/monitoring/ai-queue',
+    'ai status': '/monitoring/ai-queue',
+    
+    # System Monitoring
+    'system monitoring': '/monitoring/system',
+    'system': '/monitoring/system',
+    'grafana': '/monitoring/system',
+    
+    # Test Reports
+    'test reports': '/test-results/reports',
+    'reports': '/test-results/reports',
+    'test results': '/test-results/reports',
+    'results': '/test-results/reports',
+    
+    # Campaign Reports
+    'campaign reports': '/test-results/campaign-reports',
+    'campaign results': '/test-results/campaign-reports',
+    
+    # Model Reports
+    'model reports': '/test-results/model-reports',
+    'models': '/test-results/model-reports',
+    'model results': '/test-results/model-reports',
+    
+    # Dependency Report
+    'dependency report': '/test-results/dependency-report',
+    'dependencies': '/test-results/dependency-report',
+    'dependency': '/test-results/dependency-report',
 }
 
 
@@ -122,35 +313,107 @@ def navigate_to_page(page_name: str, context: Optional[Dict[str, Any]] = None) -
     Navigates the user's browser to a specific page.
     
     Args:
-        page_name: Page name or path. Examples: 'device control', 'heatmap', 
-                   'test builder', 'campaign builder', 'navigation editor'
+        page_name: Page name or path. Natural language supported.
+                   Examples: 'dashboard', 'go to heatmap', 'navigate to test builder', 
+                             'show me device control', 'redirect to reports'
         context: Optional parameters (e.g., {'device_id': 's21'})
     
-    Available pages: device control, heatmap, test builder, campaign builder, navigation editor
+    Available pages: dashboard, device control, ai agent, heatmap, test builder, 
+                     campaign builder, test cases, reports, and more
     """
     logger.info(f"🤖 navigate_to_page called: page_name={page_name}, context={context}")
     
-    # Normalize input
+    # Normalize input - remove common navigation action words
     normalized = page_name.lower().strip()
     
-    # Check aliases first
+    # Strip common action phrases that might precede the actual page name
+    action_phrases = [
+        'navigate to', 'navigate to the', 'navigate',
+        'go to', 'go to the', 'goto',
+        'redirect to', 'redirect to the', 'redirect',
+        'show me', 'show me the', 'show',
+        'open', 'open the',
+        'take me to', 'take me to the',
+        'bring me to', 'bring me to the',
+        'display', 'display the',
+        'load', 'load the',
+    ]
+    
+    for phrase in action_phrases:
+        if normalized.startswith(phrase + ' '):
+            normalized = normalized[len(phrase):].strip()
+            break
+    
+    # Remove " page" suffix (but keep " screen" as it might indicate device navigation)
+    if normalized.endswith(' page'):
+        normalized = normalized[:-5].strip()
+    
+    logger.info(f"🔍 Normalized page name: '{normalized}'")
+    
+    # DISAMBIGUATION: Detect if user is asking about device/node navigation instead
+    device_keywords = [
+        'device', 'node', 'screen', 'app screen', 'userinterface', 'tree',
+        'on device', 'on the device', 'device to', 'app to', 'tv to', 'phone to'
+    ]
+    original_lower = page_name.lower()
+    if any(keyword in original_lower for keyword in device_keywords):
+        return (
+            "❌ It looks like you're asking to navigate a DEVICE or APP SCREEN, not a frontend page.\n\n"
+            "For DEVICE navigation, please specify:\n"
+            "  • 'navigate device to [node]' (e.g., 'navigate device to home screen')\n"
+            "  • 'control device and go to [screen]'\n\n"
+            "For FRONTEND PAGE navigation, say:\n"
+            "  • 'show me the dashboard page'\n"
+            "  • 'go to reports page'\n"
+            "  • Just use page names: 'dashboard', 'reports', 'heatmap'"
+        )
+    
+    # 1. Check exact alias match
     path = NAVIGATION_ALIASES.get(normalized)
     
-    # If not in aliases, check if it's a direct path
+    # 2. If not found, check if it's a direct path
+    if not path and normalized.startswith('/'):
+        if normalized in PAGE_SCHEMAS:
+            path = normalized
+    
+    # 3. Try partial matching in aliases (fuzzy matching)
     if not path:
-        if normalized.startswith('/'):
-            if normalized in PAGE_SCHEMAS:
-                path = normalized
-        else:
-            # Try to match partial name
+        # Split normalized into words for better matching
+        words = normalized.split()
+        for alias, alias_path in NAVIGATION_ALIASES.items():
+            # Check if all words appear in the alias
+            if all(word in alias for word in words):
+                path = alias_path
+                logger.info(f"✅ Fuzzy matched '{normalized}' to alias '{alias}' -> {path}")
+                break
+        
+        # If still no match, try partial word matching
+        if not path:
             for alias, alias_path in NAVIGATION_ALIASES.items():
                 if normalized in alias or alias in normalized:
                     path = alias_path
+                    logger.info(f"✅ Partial matched '{normalized}' to alias '{alias}' -> {path}")
                     break
     
+    # 4. Try matching against page display names directly
     if not path:
-        available = list(NAVIGATION_ALIASES.keys())
-        return f"❌ Cannot navigate to '{page_name}'. Available pages: {', '.join(sorted(set(available)))}"
+        for schema_path, schema_info in PAGE_SCHEMAS.items():
+            page_display_name = schema_info['name'].lower()
+            if normalized == page_display_name or normalized in page_display_name:
+                path = schema_path
+                logger.info(f"✅ Matched to page name '{schema_info['name']}' -> {path}")
+                break
+    
+    # If no match found, provide helpful error
+    if not path:
+        # Get unique page names for suggestion
+        unique_pages = sorted(set(PAGE_SCHEMAS[p]['name'] for p in PAGE_SCHEMAS))
+        return (
+            f"❌ Cannot find page '{page_name}'.\n\n"
+            f"Available pages:\n" + 
+            "\n".join(f"  • {name}" for name in unique_pages[:15]) +
+            ("\n  ... and more" if len(unique_pages) > 15 else "")
+        )
     
     # Emit navigation event
     if not socket_manager.socketio:

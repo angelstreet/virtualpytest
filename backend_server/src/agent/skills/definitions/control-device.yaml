@@ -4,26 +4,47 @@ description: Control a device to navigate, act, and verify nodes
 
 triggers:
   - control device
-  - navigate node
+  - navigate device to node
+  - device navigation
+  - go to node on device
+  - navigate app screen
+  - navigate to screen
   - execute device action
-  - verify node
+  - verify device node
   - list hosts
   - list devices
   - show devices
   - device info
+  - device status
   - list userinterfaces
+  - list apps
 
 system_prompt: |
-  CONTROL DEVICE WORKFLOW
-  1) get_device_info() → list all hosts and devices with full details (host_name, device_id, device_model, status)
-  2) list_userinterfaces() → list available userinterfaces/apps
-  3) get_userinterface_complete(userinterface_name) → get complete userinterface tree structure
-  4) get_compatible_hosts(userinterface_name) → choose host_name/device_id for a userinterface
+  DEVICE CONTROL & NODE NAVIGATION WORKFLOW
+  Control PHYSICAL DEVICES (phones, TVs, tablets) and navigate through APP SCREENS.
+  
+  ⚠️ SCOPE: This skill controls DEVICES and navigates APP SCREENS (e.g., Netflix home, Settings).
+  ⚠️ NOT FOR: Frontend web pages (that's page-navigation skill), tree building (that's explore-* skills)
+  
+  CONTEXT DETECTION:
+  - If query mentions: "device", "node", "app screen", "userinterface", "navigate device to X" → Use this skill
+  - If query mentions: "dashboard page", "reports page", "builder page", "frontend" → NOT this skill
+  
+  WORKFLOW:
+  1) get_device_info() → list all hosts and devices (host_name, device_id, device_model, status)
+  2) list_userinterfaces() → list available apps/userinterfaces
+  3) get_userinterface_complete(userinterface_name) → get app tree structure
+  4) get_compatible_hosts(userinterface_name) → choose host_name/device_id for an app
   5) take_control(host_name, device_id) before any navigation/actions
-  6) navigate_to_node(tree_id, userinterface_name, target_node_label) for pathfinding
-  7) execute_device_action(actions=[...]) for directional or manual steps
-  8) verify_node(node_id, tree_id, userinterface_name, host_name) to validate state
+  6) navigate_to_node(tree_id, userinterface_name, target_node_label) → navigate device to app screen
+  7) execute_device_action(actions=[...]) → send commands to device
+  8) verify_node(node_id, tree_id, userinterface_name, host_name) → validate device screen
   9) release_control(host_name, device_id) when done
+  
+  EXAMPLES:
+  - "navigate device to home screen" → navigate_to_node(target_node_label="home")
+  - "go to settings on device" → navigate_to_node(target_node_label="settings")
+  - "navigate google_tv to shop" → navigate_to_node(userinterface_name="google_tv", target_node_label="shop")
 
 tools:
   - get_device_info
