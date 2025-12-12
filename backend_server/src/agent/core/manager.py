@@ -154,6 +154,34 @@ class QAManagerAgent:
             return self._build_skill_prompt(context)
         return self._build_router_prompt(context)
     
+    def _build_context_section(self, ctx: Dict[str, Any]) -> str:
+        """Build context section for system prompt - inject working context"""
+        if not ctx:
+            return ""
+        
+        # Extract key context values
+        ui_name = ctx.get('userinterface_name')
+        tree_id = ctx.get('tree_id')
+        host = ctx.get('host_name')
+        device = ctx.get('device_id')
+        
+        # Only show context if we have at least one value
+        if not any([ui_name, tree_id, host, device]):
+            return ""
+        
+        lines = ["## Current Context (use as defaults)"]
+        if ui_name:
+            lines.append(f"- Interface: {ui_name}")
+        if tree_id:
+            lines.append(f"- Tree ID: {tree_id}")
+        if host:
+            lines.append(f"- Host: {host}")
+        if device:
+            lines.append(f"- Device: {device}")
+        lines.append("")  # Empty line after
+        
+        return '\n'.join(lines)
+    
     def _build_router_prompt(self, ctx: Dict[str, Any] = None) -> str:
         """Build router mode prompt - decides which skill to load"""
         from ..skills import SkillLoader
@@ -168,13 +196,16 @@ class QAManagerAgent:
         # Tools available in router mode
         tools_list = '\n'.join(f"- `{skill}`" for skill in config['skills'])
         
+        # Build context section
+        context_section = self._build_context_section(ctx)
+        
         return f"""You are {config['nickname']}, {config['specialty']}.
 
 ## Mode: Router
 
 Quick queries → use router tools. Complex tasks → load a skill.
 
-## Skills
+{context_section}## Skills
 {skill_descriptions}
 
 ## Router Tools
@@ -190,10 +221,14 @@ Be concise."""
         """Build skill mode prompt"""
         config = self.agent_config
         skill = self._active_skill
+        ctx = ctx or {}
+        
+        # Build context section
+        context_section = self._build_context_section(ctx)
         
         return f"""You are {config['nickname']} executing **{skill.name}** skill.
 
-{skill.system_prompt}
+{context_section}{skill.system_prompt}
 
 Tools: {', '.join(skill.tools)}
 
@@ -217,6 +252,57 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             tools[-1]["cache_control"] = {"type": "ephemeral"}
         
         return tools
+    
+    def _update_conversation_summary(self, session: Session, user_msg: str, ai_response: str, tool_calls: List[Dict]):
+        """
+        Update rolling 3-line conversation summary after each turn.
+        Summary captures key actions/context from the conversation.
+        """
+        # Get existing summary
+        existing_summary = session.get_context('conversation_summary', '')
+        
+        # Build this turn's summary line
+        # Extract key action from tools or response
+        action_summary = ""
+        if tool_calls:
+            # Summarize main tool action
+            main_tool = tool_calls[0]['tool_name']
+            params = tool_calls[0].get('params', {})
+            
+            # Extract key info based on tool type
+            if 'navigate' in main_tool.lower():
+                target = params.get('target_node_label', params.get('node_id', ''))
+                ui = params.get('userinterface_name', '')
+                action_summary = f"Navigated to '{target}'" + (f" on {ui}" if ui else "")
+            elif 'take_control' in main_tool.lower():
+                host = params.get('host_name', '')
+                device = params.get('device_id', '')
+                action_summary = f"Took control of {device} on {host}"
+            elif 'click' in main_tool.lower() or 'execute' in main_tool.lower():
+                action = params.get('action_type', params.get('command', 'action'))
+                action_summary = f"Executed {action}"
+            else:
+                action_summary = f"Used {main_tool}"
+        else:
+            # No tools - use truncated response
+            action_summary = ai_response[:50] + "..." if len(ai_response) > 50 else ai_response
+        
+        # Build new summary line: "User asked X → AI did Y"
+        user_brief = user_msg[:30] + "..." if len(user_msg) > 30 else user_msg
+        new_line = f"• {user_brief} → {action_summary}"
+        
+        # Combine with existing, keep only last 3 lines
+        if existing_summary:
+            lines = existing_summary.strip().split('\n')
+            lines.append(new_line)
+            # Keep only last 3
+            lines = lines[-3:]
+            new_summary = '\n'.join(lines)
+        else:
+            new_summary = new_line
+        
+        session.set_context('conversation_summary', new_summary)
+        print(f"[SUMMARY] Updated: {new_summary}")
     
     @property
     def tool_names(self) -> list[str]:
@@ -296,12 +382,30 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
         mode_str = f"[{self._active_skill.name}]" if self._active_skill else "[router]"
         yield AgentEvent(type=EventType.THINKING, agent=self.nickname, content=f"Analyzing... {mode_str}")
         
-        # Build message history
+        # Build message history: summary + last 2 messages only (efficient)
         turn_messages = []
+        KEEP_LAST_N = 2  # Keep last 1 turn (2 messages: 1 user + 1 assistant)
+        
         if _is_delegated:
             turn_messages = [{"role": "user", "content": message}]
         else:
-            for msg in session.messages:
+            all_messages = session.messages
+            
+            # Always prepend summary if available (gives context from older turns)
+            summary = session.get_context('conversation_summary', '')
+            if summary and len(all_messages) > KEEP_LAST_N:
+                turn_messages.append({
+                    "role": "user",
+                    "content": f"[Previous conversation summary]\n{summary}"
+                })
+                turn_messages.append({
+                    "role": "assistant", 
+                    "content": "Understood. I have the context."
+                })
+            
+            # Add last N messages (or all if fewer)
+            messages_to_add = all_messages[-KEEP_LAST_N:] if len(all_messages) > KEEP_LAST_N else all_messages
+            for msg in messages_to_add:
                 turn_messages.append({
                     "role": msg["role"],
                     "content": msg["content"]
@@ -317,6 +421,15 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             session.set_context("session_id", session.id)
         
         response_text = ""
+        
+        # Track tool calls for context extraction and summary
+        tool_calls_this_turn = []
+        
+        # Tools that set working context (interface, tree, host, device)
+        CONTEXT_TOOLS = {
+            'navigate_to_node', 'take_control', 'click_element', 'execute_device_action',
+            'auto_discover_screen', 'get_node_tree', 'explore_navigation'
+        }
         
         # Tool loop
         while True:
@@ -371,6 +484,21 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
                     yield AgentEvent(type=EventType.TOOL_RESULT, agent=self.nickname, content="Success", tool_name=tool_use.name, tool_result=result, success=True)
                     
+                    # Track tool call for summary
+                    tool_calls_this_turn.append({
+                        'tool_name': tool_use.name,
+                        'params': tool_use.input,
+                        'success': True
+                    })
+                    
+                    # Extract context from relevant tool calls
+                    if tool_use.name in CONTEXT_TOOLS:
+                        for key in ['userinterface_name', 'tree_id', 'host_name', 'device_id']:
+                            value = tool_use.input.get(key)
+                            if value:
+                                session.set_context(key, value)
+                                print(f"[CONTEXT] Set {key}={value}")
+                    
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": json.dumps(result)}]})
                 except Exception as e:
                     if LANGFUSE_ENABLED:
@@ -420,9 +548,13 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                 yield AgentEvent(type=EventType.MESSAGE, agent=self.nickname, content=response_text, metrics=metrics)
                 break
         
-        # Save assistant response to session history
+        # Save assistant response to session history (clean, no tool details)
         if response_text:
             session.add_message("assistant", response_text, agent=self.nickname)
+            
+            # Update rolling conversation summary (3-line max)
+            if not _is_delegated:
+                self._update_conversation_summary(session, message, response_text, tool_calls_this_turn)
         
         if LANGFUSE_ENABLED:
             flush()

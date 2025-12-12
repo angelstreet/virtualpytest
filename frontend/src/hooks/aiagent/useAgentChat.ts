@@ -946,26 +946,65 @@ export const useAgentChat = () => {
     });
 
     socket.on('agent_event', (event: AgentEvent) => {
-      // 🆕 NEW: Detect AI agent device control tool calls
-      // When AI calls take_control or release_control, notify parent to sync device state
-      if (event.type === 'tool_call' && event.tool_name) {
-        // Check for take_control success
-        if (event.tool_name === 'mcp_virtualpytest_take_control' && event.success === true) {
-          console.log('[useAgentChat] AI agent took control, notifying parent:', event.tool_params);
-          const hostName = (event.tool_params?.host_name as string) || '';
-          const deviceId = (event.tool_params?.device_id as string) || 'device1';
+      // 🆕 NEW: Detect AI agent device control tool RESULTS (not calls - we need to wait for success)
+      // When AI successfully takes/releases control, notify parent to sync device state
+      if (event.type === 'tool_result' && event.tool_name && event.success === true) {
+        const toolName = event.tool_name.toLowerCase();
+        
+        // Check for take_control success (matches "take_control" or "mcp_virtualpytest_take_control")
+        if (toolName === 'take_control' || toolName === 'mcp_virtualpytest_take_control') {
+          console.log('[useAgentChat] 🎥 AI agent took control successfully!');
+          console.log('[useAgentChat] Tool result:', event.tool_result);
+          
+          // Extract params from tool_result JSON string
+          let hostName = '';
+          let deviceId = 'device1';
+          
+          try {
+            // Parse tool_result to get host_name and device_id
+            const resultContent = event.tool_result?.content?.[0]?.text;
+            if (resultContent) {
+              const resultData = JSON.parse(resultContent);
+              hostName = resultData.host_name || '';
+              deviceId = resultData.device_id || 'device1';
+              console.log('[useAgentChat] Extracted from result:', { hostName, deviceId });
+            }
+          } catch (err) {
+            console.warn('[useAgentChat] Failed to parse tool_result, trying tool_params:', err);
+            // Fallback to tool_params if available
+            hostName = (event.tool_params?.host_name as string) || '';
+            deviceId = (event.tool_params?.device_id as string) || 'device1';
+          }
           
           if (hostName && onDeviceControlChangeRef.current) {
+            console.log('[useAgentChat] ✅ Notifying parent to show device panel:', { hostName, deviceId });
             onDeviceControlChangeRef.current(hostName, deviceId, true);
+          } else {
+            console.warn('[useAgentChat] ⚠️ Missing hostName, cannot show panel');
           }
         }
         // Check for release_control success
-        else if (event.tool_name === 'mcp_virtualpytest_release_control' && event.success === true) {
-          console.log('[useAgentChat] AI agent released control, notifying parent');
-          const hostName = (event.tool_params?.host_name as string) || '';
-          const deviceId = (event.tool_params?.device_id as string) || 'device1';
+        else if (toolName === 'release_control' || toolName === 'mcp_virtualpytest_release_control') {
+          console.log('[useAgentChat] 🔌 AI agent released control successfully!');
+          
+          // Extract params from tool_result
+          let hostName = '';
+          let deviceId = 'device1';
+          
+          try {
+            const resultContent = event.tool_result?.content?.[0]?.text;
+            if (resultContent) {
+              const resultData = JSON.parse(resultContent);
+              hostName = resultData.host_name || '';
+              deviceId = resultData.device_id || 'device1';
+            }
+          } catch (err) {
+            hostName = (event.tool_params?.host_name as string) || '';
+            deviceId = (event.tool_params?.device_id as string) || 'device1';
+          }
           
           if (hostName && onDeviceControlChangeRef.current) {
+            console.log('[useAgentChat] ✅ Notifying parent to hide device panel:', { hostName, deviceId });
             onDeviceControlChangeRef.current(hostName, deviceId, false);
           }
         }

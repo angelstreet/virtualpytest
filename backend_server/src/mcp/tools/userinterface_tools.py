@@ -178,8 +178,11 @@ class UserInterfaceTools:
         """
         Get complete userinterface with ALL nodes, edges, subtrees, and metrics
         
+        Can accept EITHER userinterface_id (UUID) OR userinterface_name (string)
+        
         Args:
-            userinterface_id: User interface UUID
+            userinterface_id: User interface UUID (OPTIONAL if userinterface_name provided)
+            userinterface_name: User interface name (OPTIONAL if userinterface_id provided)
             team_id: Team ID (optional - uses default)
             include_metrics: Include metrics data (optional - default true)
         
@@ -187,9 +190,36 @@ class UserInterfaceTools:
             Complete tree structure with nodes, edges, subtrees, metrics
         """
         try:
-            userinterface_id = params['userinterface_id']
+            userinterface_id = params.get('userinterface_id')
+            userinterface_name = params.get('userinterface_name')
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             include_metrics = params.get('include_metrics', True)
+            
+            # Validate: at least one required
+            if not userinterface_id and not userinterface_name:
+                return self.formatter.format_error(
+                    "Error: Either userinterface_id or userinterface_name is required",
+                    ErrorCategory.VALIDATION
+                )
+            
+            # If name provided, convert to ID (same pattern as list_navigation_nodes)
+            if userinterface_name and not userinterface_id:
+                self.logger.info(f"Converting userinterface_name '{userinterface_name}' to UUID")
+                
+                # Get userinterface by name to get UUID
+                ui_result = self.api_client.get(
+                    f'/server/userinterface/getUserInterfaceByName/{userinterface_name}',
+                    params={'team_id': team_id}
+                )
+                
+                if not ui_result or not ui_result.get('id'):
+                    return self.formatter.format_error(
+                        f"User interface '{userinterface_name}' not found",
+                        ErrorCategory.VALIDATION
+                    )
+                
+                userinterface_id = ui_result['id']
+                self.logger.info(f"Got userinterface_id: {userinterface_id}")
             
             self.logger.info(f"Getting complete tree for userinterface {userinterface_id}")
             

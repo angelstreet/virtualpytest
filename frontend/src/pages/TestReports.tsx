@@ -347,13 +347,16 @@ const TestReports: React.FC = () => {
                 <ReportsIcon color="primary" />
                 <Typography variant="h6" sx={{ my: 0 }}>Quick Stats</Typography>
                 <Tooltip title="Open Script Results Dashboard">
-                  <IconButton
-                    onClick={() => window.open(`${grafanaUrl}/d/2a3b060a-7820-4a6e-aa2a-adcbf5408bd3/script-results?orgId=1&from=now-30d&to=now&timezone=browser&var-user_interface=$__all&var-host=$__all&var-device_name=$__all&var-script_name=$__all`, '_blank')}
-                    color="primary"
-                    size="small"
-                  >
-                    <OpenInNew fontSize="small" />
-                  </IconButton>
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    <Typography variant="body2" color="primary">Grafana Dashboards</Typography>
+                    <IconButton
+                      onClick={() => window.open(`${grafanaUrl}/d/2a3b060a-7820-4a6e-aa2a-adcbf5408bd3/script-results?orgId=1&from=now-30d&to=now&timezone=browser&var-user_interface=$__all&var-host=$__all&var-device_name=$__all&var-script_name=$__all`, '_blank')}
+                      color="primary"
+                      size="small"
+                    >
+                      <OpenInNew fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Tooltip>
               </Box>
 

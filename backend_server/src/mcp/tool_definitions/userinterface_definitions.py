@@ -52,11 +52,19 @@ Returns: userinterface_id and root tree_id""",
 This is the RECOMMENDED way to get full tree data in ONE call.
 Returns everything from root tree + all nested subtrees.
 
-Example:
+Can accept EITHER userinterface_id (UUID) OR userinterface_name (string).
+
+Example with UUID:
   complete_tree = get_userinterface_complete(
-    userinterface_id="abc-123-def"
+    userinterface_id="abc-123-def-456"
   )
-  # Returns: {nodes: [...], edges: [...], metrics: {...}}
+
+Example with name:
+  complete_tree = get_userinterface_complete(
+    userinterface_name="google_tv"
+  )
+
+Returns: {nodes: [...], edges: [...], metrics: {...}}
 
 Replaces multiple calls:
   OLD: get_userinterface() → list_nodes() → list_edges() = 3 calls
@@ -64,11 +72,12 @@ Replaces multiple calls:
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "userinterface_id": {"type": "string", "description": "User interface UUID (from list_userinterfaces or create_userinterface)"},
+                    "userinterface_id": {"type": "string", "description": "User interface UUID (from list_userinterfaces or create_userinterface) - OPTIONAL if userinterface_name provided"},
+                    "userinterface_name": {"type": "string", "description": "User interface name (e.g., 'google_tv', 'netflix_mobile') - OPTIONAL if userinterface_id provided"},
                     "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
                     "include_metrics": {"type": "boolean", "description": "Include metrics data (optional - default true)"}
                 },
-                "required": ["userinterface_id"]
+                "required": []
             }
         },
         {

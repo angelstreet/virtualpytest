@@ -30,6 +30,8 @@ PREREQUISITE: Call take_control() ONCE before any navigation.
 navigate_to_node tool executes all actions and verification to reach end node autonomously using pathfinding.
 On "cache not ready" error: call take_control() then retry.
 
+⚠️ IMPORTANT: Use ONLY target_node_label (e.g., 'player', 'home'). Do NOT use target_node_id.
+
 Parameters must match take_control call. Polls until complete (max 3min).""",
             "inputSchema": {
                 "type": "object",
@@ -38,12 +40,11 @@ Parameters must match take_control call. Polls until complete (max 3min).""",
                     "userinterface_name": {"type": "string", "description": "UI name"},
                     "device_id": {"type": "string", "description": "Device ID (default: device1)"},
                     "team_id": {"type": "string", "description": "Team ID (optional)"},
-                    "target_node_id": {"type": "string", "description": "Target node ID"},
-                    "target_node_label": {"type": "string", "description": "Target node label"},
+                    "target_node_label": {"type": "string", "description": "Target screen label (e.g., 'player', 'home') - USE THIS"},
                     "current_node_id": {"type": "string", "description": "Current node (optional)"},
                     "host_name": {"type": "string", "description": "Host name"}
                 },
-                "required": ["tree_id", "userinterface_name"]
+                "required": ["tree_id", "userinterface_name", "target_node_label"]
             }
         },
         {
