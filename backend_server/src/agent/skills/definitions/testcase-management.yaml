@@ -21,7 +21,7 @@ system_prompt: |
 
   CRITICAL:
    - Call get_compatible_hosts only if host_name, device_id not available in current message or conversation history
-   - Call list_scripts only if script_name not available in current message or conversation history or conversation history
+   - Do NOT call list_testcases if testcase_name is clearly specified in the current user message
 
 
 tools:

@@ -194,10 +194,10 @@ class QAManagerAgent:
             mode_description = "For ANY query → analyze and load the appropriate skill."
             router_tools_section = ""
             rules = """## Rules
-- Analyze user request
+
 - Match to appropriate skill from list above
 - Respond ONLY: `LOAD SKILL [skill-name]`
-- Never simulate or hallucinate tool calls
+- Parse the current user message and message history first before deciding whether to call tools
 """
         
         return f"""You are {config['nickname']}, {config['specialty']}.
