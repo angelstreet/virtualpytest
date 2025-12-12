@@ -253,8 +253,8 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
         
         return tools
 
-    def _log_turn_state(self, session: Session, turn_messages: List[Dict], summary: str, keep_last_n: int, incoming_message: str, is_delegated: bool) -> None:
-        """Log injected context, summary, and the messages being sent to the model"""
+    def _log_turn_state(self, session: Session, system_prompt: List[Dict], turn_messages: List[Dict], summary: str, keep_last_n: int, incoming_message: str, is_delegated: bool) -> None:
+        """Log injected context, summary, and the raw prompt (system + messages) being sent to the model"""
         ctx_keys = ['userinterface_name', 'tree_id', 'host_name', 'device_id', 'session_id']
         ctx_parts = [f"{k}={session.context[k]}" for k in ctx_keys if session.context.get(k)]
         context_line = ", ".join(ctx_parts) if ctx_parts else "None"
@@ -262,18 +262,21 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
         print(f"[TURN] Incoming message: {incoming_message[:120]}{'...' if len(incoming_message) > 120 else ''}")
         print(f"[TURN] Injected context: {context_line}")
         
-        if is_delegated:
-            print("[TURN] Delegated call - summary not included")
-        else:
-            print("[TURN] Rolling summary:")
-            print(summary if summary else "(none)")
+        print("[TURN] Rolling summary:")
+        print(summary if summary else "(none)")
         
-        # Show raw prompt exactly as sent to the model
+        # Show raw prompt exactly as sent to the model (system + messages)
         print("---------------- RAW prompt ----------------")
         try:
-            print(json.dumps(turn_messages, ensure_ascii=False, indent=2))
+            print(json.dumps({
+                "system": system_prompt,
+                "messages": turn_messages,
+            }, ensure_ascii=False, indent=2))
         except Exception:
-            print(str(turn_messages))
+            try:
+                print(str({"system": system_prompt, "messages": turn_messages}))
+            except Exception:
+                print("<<unable to render prompt>>")
         print("--------------------------------------------")
     
     def _update_conversation_summary(self, session: Session, user_msg: str, ai_response: str, tool_calls: List[Dict]):
@@ -435,12 +438,13 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                     "content": msg["content"]
                 })
         
-        # Log exactly what will be sent to the model for visibility
-        self._log_turn_state(session, turn_messages, summary, KEEP_LAST_N, message, _is_delegated)
-        
         # Build cached system prompt and tools
         cached_system = self._build_cached_system(session.context)
         cached_tools = self._build_cached_tools(self.tool_names)
+        
+        # Log raw prompt only for root calls (avoid duplicate logs on delegated runs)
+        if not _is_delegated:
+            self._log_turn_state(session, cached_system, turn_messages, summary, KEEP_LAST_N, message, _is_delegated)
         
         print(f"[AGENT] Tools: {len(cached_tools)} | System: {len(cached_system[0]['text'])} chars")
         

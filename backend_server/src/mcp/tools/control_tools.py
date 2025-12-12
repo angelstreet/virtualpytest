@@ -42,9 +42,14 @@ class ControlTools:
         host_name = params.get('host_name')
         device_id = params.get('device_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        userinterface_name = params.get('userinterface_name')
         
-        # Build request
-        data = {'host_name': host_name, 'device_id': device_id}
+        # Build request - include userinterface_name for cache population
+        data = {
+            'host_name': host_name,
+            'device_id': device_id,
+            'userinterface_name': userinterface_name
+        }
         
         # STEP 1: Try normal take_control
         result = self.api.post('/server/control/takeControl', data=data, params={'team_id': team_id})

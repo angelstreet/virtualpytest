@@ -21,18 +21,18 @@ USE CASES:
 - Navigate through UI (used with navigate_to_node)
 
 WORKFLOW:
-1. take_control(host_name='...', device_id='...')  ← Lock device
+1. take_control(host_name='...', userinterface_name='...')  ← Lock device + build navigation cache
 2. Do your work (actions, screenshots, navigation)
 3. [Optional] release_control(host_name='...', device_id='...')  ← Unlock device
 
 Example:
-  # Take control of device
-  take_control(host_name='sunri-pi1', device_id='device1')
+  # Take control of device with UI interface for navigation
+  take_control(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv')
   
-  # Execute operations
+  # Execute operations - navigation cache is ready!
   execute_device_action(...)
   capture_screenshot(...)
-  navigate_to_node(...)
+  navigate_to_node(userinterface_name='google_tv', target_node_label='home')
   
   # Release when done
   release_control(host_name='sunri-pi1', device_id='device1')""",
@@ -41,9 +41,10 @@ Example:
                 "properties": {
                     "host_name": {"type": "string", "description": "Host name where device is connected"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                    "userinterface_name": {"type": "string", "description": "User interface name (e.g. 'google_tv') - required for navigation cache"},
                     "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                 },
-                "required": []
+                "required": ["host_name", "userinterface_name"]
             }
         },
         {

@@ -32,7 +32,7 @@ const Coverage = React.lazy(() => import('./pages/Coverage'));
 const Models = React.lazy(() => import('./pages/Models'));
 const GrafanaDashboard = React.lazy(() => import('./pages/GrafanaDashboard'));
 const LangfuseDashboard = React.lazy(() => import('./pages/LangfuseDashboard'));
-const RunTests = React.lazy(() => import('./pages/RunTests'));
+import RunTests from './pages/RunTests';
 const RunCampaigns = React.lazy(() => import('./pages/RunCampaigns'));
 const CampaignBuilder = React.lazy(() => import('./pages/CampaignBuilder'));
 const Deployments = React.lazy(() => import('./pages/Deployments'));
@@ -60,7 +60,7 @@ const UserApiWorkspaceDetail = React.lazy(() => import('./pages/UserApiWorkspace
 const JiraIntegration = React.lazy(() => import('./pages/JiraIntegration'));
 const Teams = React.lazy(() => import('./pages/Teams'));
 const Users = React.lazy(() => import('./pages/Users'));
-const AgentChat = React.lazy(() => import('./pages/AgentChat'));
+import AgentChat from './pages/AgentChat';
 const AgentDashboard = React.lazy(() => import('./pages/AgentDashboard'));
 
 // 404 Not Found component
