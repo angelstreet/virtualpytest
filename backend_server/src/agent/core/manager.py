@@ -10,7 +10,6 @@ The orchestrator dynamically loads skills based on user requests:
 Skills are defined in YAML files and provide focused capabilities.
 """
 
-import re
 import logging
 import time
 import threading
@@ -28,6 +27,7 @@ from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent
 from .sherlock_handler import SherlockHandler
 from .nightwatch_handler import NightwatchHandler
+from .context_extractor import extract_context_from_result
 
 
 class QAManagerAgent:
@@ -521,13 +521,19 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                         'success': True
                     })
                     
-                    # Extract context from relevant tool calls
+                    # Extract context from tool inputs (for action tools)
                     if tool_use.name in CONTEXT_TOOLS:
                         for key in ['userinterface_name', 'tree_id', 'host_name', 'device_id']:
                             value = tool_use.input.get(key)
                             if value:
                                 session.set_context(key, value)
                                 print(f"[CONTEXT] Set {key}={value}")
+
+                    # Extract context from tool outputs (discovery tools)
+                    output_updates = extract_context_from_result(tool_use.name, result)
+                    for key, value in output_updates.items():
+                        session.set_context(key, value)
+                        print(f"[CONTEXT] Set {key}={value} (from output)")
                     
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": json.dumps(result)}]})
                 except Exception as e:

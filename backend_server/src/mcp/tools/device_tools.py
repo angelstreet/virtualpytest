@@ -5,6 +5,7 @@ Get device information, capabilities, and execution status.
 """
 
 from typing import Dict, Any
+import json
 from ..utils.api_client import MCPAPIClient
 from ..utils.mcp_formatter import MCPFormatter
 from shared.src.lib.config.constants import APP_CONFIG
@@ -235,8 +236,40 @@ class DeviceTools:
                 response_text += f"   • {host['host_name']} ({len(host['devices'])} device(s))\n"
         
         response_text += f"\n💡 Interface requires models: {', '.join(models)}"
+
+        # Structured payload for downstream context extraction
+        payload = {
+            "userinterface_name": userinterface_name,
+            "tree_id": tree_id,
+            "recommended": {
+                "host_name": first_host.get("host_name"),
+                "device_id": first_device.get("device_id"),
+                "device_name": first_device.get("device_name"),
+                "device_model": first_device.get("device_model"),
+            },
+            "compatible_hosts": [
+                {
+                    "host_name": h.get("host_name"),
+                    "devices": [
+                        {
+                            "device_id": d.get("device_id"),
+                            "device_name": d.get("device_name"),
+                            "device_model": d.get("device_model"),
+                        }
+                        for d in h.get("devices", [])
+                    ],
+                }
+                for h in compatible_hosts
+            ],
+        }
         
-        return {"content": [{"type": "text", "text": response_text}], "isError": False}
+        return {
+            "content": [
+                {"type": "text", "text": response_text},
+                {"type": "text", "text": json.dumps(payload)},
+            ],
+            "isError": False,
+        }
     
     def get_execution_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

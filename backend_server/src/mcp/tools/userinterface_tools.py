@@ -6,6 +6,7 @@ These tools manage the top-level app models like Netflix, YouTube, etc.
 """
 
 import logging
+import json
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
 from ..utils.mcp_formatter import MCPFormatter, ErrorCategory
@@ -283,8 +284,19 @@ class UserInterfaceTools:
             
             response_text = f"tree_id:{tree.get('id')} nodes:{len(nodes)} edges:{len(edges)}"
             
+            payload = {
+                "userinterface_name": userinterface_name,
+                "userinterface_id": userinterface_id,
+                "tree_id": tree.get('id'),
+                "nodes": minimal_nodes,
+                "edges": minimal_edges,
+            }
+            
             return {
-                "content": [{"type": "text", "text": response_text}],
+                "content": [
+                    {"type": "text", "text": response_text},
+                    {"type": "text", "text": json.dumps(payload)}
+                ],
                 "isError": False,
                 "tree_id": tree.get('id'),
                 "nodes": minimal_nodes,

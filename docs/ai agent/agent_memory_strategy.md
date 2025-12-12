@@ -72,6 +72,14 @@ CONTEXT_TOOLS = {
 }
 ```
 
+Additionally, context is populated from discovery tool **outputs** (output values override any inputs):
+
+```
+list_hosts            → context.hosts (deduped)
+get_device_info       → context.devices
+get_compatible_hosts  → context.host_name, context.device_id, context.tree_id, context.userinterface_name
+```
+
 ### Example
 
 ```
