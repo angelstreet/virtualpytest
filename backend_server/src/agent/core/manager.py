@@ -208,27 +208,46 @@ class QAManagerAgent:
         skill_descriptions = SkillLoader.get_skill_descriptions(available)
         
         # Tools available in router mode
-        tools_list = '\n'.join(f"- `{skill}`" for skill in config['skills'])
+        router_tools = config.get('skills', [])
+        has_router_tools = len(router_tools) > 0
+        tools_list = '\n'.join(f"- `{skill}`" for skill in router_tools)
         
         # Build context section
         context_section = self._build_context_section(ctx)
+        
+        # Dynamic prompt based on whether router tools exist
+        if has_router_tools:
+            # With router tools: can handle quick queries directly
+            mode_description = "Quick queries → use router tools. Complex tasks → load a skill."
+            router_tools_section = f"""## Router Tools
+{tools_list}
+
+"""
+            rules = """## Rules
+- Quick query → use tool directly
+- Complex task → respond ONLY: `LOAD SKILL [name]`
+"""
+        else:
+            # No router tools: must always load a skill
+            mode_description = "For ANY query → analyze and load the appropriate skill."
+            router_tools_section = ""
+            rules = """## Rules
+- Analyze user request
+- Match to appropriate skill from list above
+- Respond ONLY: `LOAD SKILL [skill-name]`
+- Never simulate or hallucinate tool calls
+"""
         
         return f"""You are {config['nickname']}, {config['specialty']}.
 
 ## Mode: Router
 
-Quick queries → use router tools. Complex tasks → load a skill.
+{mode_description}
 
 {context_section}## Skills
 {skill_descriptions}
 
-## Router Tools
-{tools_list}
-
-## Rules
-- Quick query → use tool directly
-- Complex task → respond ONLY: `LOAD SKILL [name]`
-"""
+{router_tools_section}{rules}"""
     
     def _build_skill_prompt(self, ctx: Dict[str, Any] = None) -> str:
         """Build skill mode prompt"""
