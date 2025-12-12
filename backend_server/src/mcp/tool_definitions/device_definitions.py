@@ -11,7 +11,7 @@ def get_tools() -> List[Dict[str, Any]]:
             "description": """List all registered hosts with their device counts.
 
 Use this tool FIRST to discover available hosts before calling get_device_info.
-Returns host names, URLs, status, and device counts.
+Returns host names and device counts.
 
 Example:
   list_hosts()

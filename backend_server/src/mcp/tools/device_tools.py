@@ -42,8 +42,6 @@ class DeviceTools:
         for host in hosts:
             host_summary = {
                 'host_name': host.get('host_name'),
-                'host_url': host.get('host_url'),
-                'status': host.get('status', 'online'),
                 'device_count': len(host.get('devices', []))
             }
             host_list.append(host_summary)
@@ -56,7 +54,6 @@ class DeviceTools:
         for host in host_list:
             status_icon = "✅" if host['status'] == 'online' else "⚠️"
             response_text += f"{status_icon} {host['host_name']}\n"
-            response_text += f"   URL: {host['host_url']}\n"
             response_text += f"   Devices: {host['device_count']}\n\n"
         
         response_text += "💡 Use get_device_info(host_name='...') for device details"
