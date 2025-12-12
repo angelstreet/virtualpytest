@@ -114,10 +114,20 @@ export const useAgentChat = () => {
   // 🆕 NEW: Device control state for AI agent tool calls
   // Callback ref to notify parent when AI takes/releases control
   const onDeviceControlChangeRef = useRef<((host: string, deviceId: string, isActive: boolean) => void) | null>(null);
+  // Track the current device under agent control so we can clear the panel when needed
+  const activeDeviceControlRef = useRef<{ host: string; deviceId: string } | null>(null);
   
   // Set callback for device control changes (called by parent - AgentChat.tsx)
   const setOnDeviceControlChange = useCallback((callback: (host: string, deviceId: string, isActive: boolean) => void) => {
     onDeviceControlChangeRef.current = callback;
+  }, []);
+
+  const clearDeviceControlPanel = useCallback(() => {
+    const active = activeDeviceControlRef.current;
+    if (active && onDeviceControlChangeRef.current) {
+      onDeviceControlChangeRef.current(active.host, active.deviceId, false);
+    }
+    activeDeviceControlRef.current = null;
   }, []);
   
   // Debug: Log active conversation details
@@ -962,7 +972,8 @@ export const useAgentChat = () => {
           
           try {
             // Parse tool_result to get host_name and device_id
-            const resultContent = event.tool_result?.content?.[0]?.text;
+            const toolResult = event.tool_result as any;
+            const resultContent = toolResult?.content?.[0]?.text;
             if (resultContent) {
               const resultData = JSON.parse(resultContent);
               hostName = resultData.host_name || '';
@@ -979,6 +990,7 @@ export const useAgentChat = () => {
           if (hostName && onDeviceControlChangeRef.current) {
             console.log('[useAgentChat] ✅ Notifying parent to show device panel:', { hostName, deviceId });
             onDeviceControlChangeRef.current(hostName, deviceId, true);
+            activeDeviceControlRef.current = { host: hostName, deviceId };
           } else {
             console.warn('[useAgentChat] ⚠️ Missing hostName, cannot show panel');
           }
@@ -992,7 +1004,8 @@ export const useAgentChat = () => {
           let deviceId = 'device1';
           
           try {
-            const resultContent = event.tool_result?.content?.[0]?.text;
+            const toolResult = event.tool_result as any;
+            const resultContent = toolResult?.content?.[0]?.text;
             if (resultContent) {
               const resultData = JSON.parse(resultContent);
               hostName = resultData.host_name || '';
@@ -1003,10 +1016,14 @@ export const useAgentChat = () => {
             deviceId = (event.tool_params?.device_id as string) || 'device1';
           }
           
+          if (!hostName && activeDeviceControlRef.current) {
+            hostName = activeDeviceControlRef.current.host;
+          }
           if (hostName && onDeviceControlChangeRef.current) {
             console.log('[useAgentChat] ✅ Notifying parent to hide device panel:', { hostName, deviceId });
             onDeviceControlChangeRef.current(hostName, deviceId, false);
           }
+          activeDeviceControlRef.current = null;
         }
       }
       
@@ -1469,6 +1486,7 @@ export const useAgentChat = () => {
 
   const clearHistory = useCallback(() => {
     clearBackendSession(); // Fresh backend session
+    clearDeviceControlPanel(); // Ensure device panel is removed when clearing chats
     
     // Preserve background agent conversations (prefix: bg_)
     setConversations(prev => {
@@ -1498,7 +1516,7 @@ export const useAgentChat = () => {
     setPendingConversationId(null);
     setIsProcessing(false);
     setCurrentEvents([]);
-  }, [clearBackendSession]);
+  }, [clearBackendSession, clearDeviceControlPanel]);
   
   const clearBackgroundHistory = useCallback((agentId: string) => {
     console.log(`[useAgentChat] Clearing background history for agent: ${agentId}`);

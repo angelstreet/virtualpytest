@@ -137,7 +137,7 @@ def get_graph_by_fingerprint(fingerprint: str, team_id: str) -> Optional[Dict]:
             
     except Exception as e:
         error_str = str(e)
-       return None
+        return None
 
 
 def _increment_use_count(fingerprint: str, team_id: str) -> None:
