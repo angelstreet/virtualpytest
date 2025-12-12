@@ -42,6 +42,7 @@ export { useStreamCoordinates } from './useStreamCoordinates';
 
 // Component hooks
 export { useHostManager } from './useHostManager';
+export { useDevicePanels } from './useDevicePanels';
 
 // Page hooks
 export { useRec } from './pages/useRec';

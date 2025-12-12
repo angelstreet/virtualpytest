@@ -31,7 +31,7 @@ const styles = `
 import { TestCaseBuilderHeader } from '../components/testcase/builder/TestCaseBuilderHeader';
 import { TestCaseBuilderSidebar } from '../components/testcase/builder/TestCaseBuilderSidebar';
 import { TestCaseBuilderCanvas } from '../components/testcase/builder/TestCaseBuilderCanvas';
-import { TestCaseBuilderPanels } from '../components/testcase/builder/TestCaseBuilderPanels';
+import { DeviceControlPanels } from '../components/common/DeviceControlPanels';
 import { StartBlock } from '../components/testcase/blocks/StartBlock';
 import { SuccessBlock } from '../components/testcase/blocks/SuccessBlock';
 import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
@@ -865,7 +865,7 @@ const TestCaseBuilderContent: React.FC = () => {
       </Snackbar>
       
       {/* Remote/Desktop/AV Panels */}
-      <TestCaseBuilderPanels
+      <DeviceControlPanels
         showRemotePanel={hookData.showRemotePanel}
         showAVPanel={hookData.showAVPanel}
         selectedHost={hookData.selectedHost}

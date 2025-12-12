@@ -23,7 +23,272 @@ export interface PageSchema {
 }
 
 export const PAGE_SCHEMAS: Record<string, PageSchema> = {
+  // MONITORING
   // =====================
+  '/monitoring/incidents': {
+    path: '/monitoring/incidents',
+    name: 'Incidents',
+    description: 'View and manage monitoring alerts and incidents',
+    elements: [
+      { id: 'active-alerts-table', type: 'table', label: 'Active Alerts', actions: ['expand', 'validate', 'discard', 'view_freeze'] },
+      { id: 'closed-alerts-table', type: 'table', label: 'Closed Alerts', actions: ['expand', 'view_details'] },
+      { id: 'detail-toggle', type: 'button', label: 'Toggle Detailed View', actions: ['click'] },
+      { id: 'clear-all-btn', type: 'button', label: 'Clear All Alerts', actions: ['click'] },
+      { id: 'freeze-modal', type: 'modal', label: 'Freeze Details Modal', actions: ['open', 'close'] },
+    ],
+    quickActions: ['show_active_alerts', 'validate_alert', 'discard_alert'],
+  },
+=======
+  // =====================
+  // MONITORING
+  // =====================
+  '/monitoring/incidents': {
+    path: '/monitoring/incidents',
+    name: 'Incidents',
+    description: 'View and manage monitoring alerts and incidents',
+    elements: [
+      { id: 'active-alerts-table', type: 'table', label: 'Active Alerts', actions: ['expand', 'validate', 'discard', 'view_freeze'] },
+      { id: 'closed-alerts-table', type: 'table', label: 'Closed Alerts', actions: ['expand', 'view_details'] },
+      { id: 'detail-toggle', type: 'button', label: 'Toggle Detailed View', actions: ['click'] },
+      { id: 'clear-all-btn', type: 'button', label: 'Clear All Alerts', actions: ['click'] },
+      { id: 'freeze-modal', type: 'modal', label: 'Freeze Details Modal', actions: ['open', 'close'] },
+    ],
+    quickActions: ['show_active_alerts', 'validate_alert', 'discard_alert'],
+  },
+
+  // =====================
+  // INTEGRATIONS
+  // =====================
+  '/grafana-dashboard': {
+    path: '/grafana-dashboard',
+    name: 'Grafana',
+    description: 'Grafana dashboards for monitoring and analytics',
+    elements: [
+      { id: 'grafana-iframe', type: 'stream', label: 'Grafana Dashboard', actions: ['refresh', 'change_timerange'] },
+    ],
+    quickActions: ['show_grafana_dashboard'],
+  },
+
+  '/langfuse-dashboard': {
+    path: '/langfuse-dashboard',
+    name: 'Langfuse',
+    description: 'LLM observability and analytics dashboard',
+    elements: [
+      { id: 'langfuse-iframe', type: 'stream', label: 'Langfuse Dashboard', actions: ['refresh', 'filter'] },
+    ],
+    quickActions: ['show_langfuse_dashboard'],
+  },
+
+  '/api/workspaces': {
+    path: '/api/workspaces',
+    name: 'Postman',
+    description: 'Postman API workspaces and collections',
+    elements: [
+      { id: 'postman-iframe', type: 'stream', label: 'Postman Workspace', actions: ['refresh', 'search'] },
+    ],
+    quickActions: ['show_postman_workspace'],
+  },
+
+  '/integrations/jira': {
+    path: '/integrations/jira',
+    name: 'Jira',
+    description: 'Jira integration for issue tracking',
+    elements: [
+      { id: 'jira-iframe', type: 'stream', label: 'Jira Dashboard', actions: ['refresh', 'search'] },
+    ],
+    quickActions: ['show_jira_dashboard'],
+  },
+
+  '/integrations/slack': {
+    path: '/integrations/slack',
+    name: 'Slack',
+    description: 'Slack integration for notifications',
+    elements: [
+      { id: 'slack-iframe', type: 'stream', label: 'Slack Integration', actions: ['refresh'] },
+    ],
+    quickActions: ['show_slack_integration'],
+  },ADMIN
+  // =====================
+  '/teams': {
+    path: '/teams',
+    name: 'Teams',
+    description: 'Manage teams and permissions',
+    elements: [
+      { id: 'teams-table', type: 'table', label: 'Teams List', actions: ['select', 'edit', 'delete'] },
+      { id: 'create-btn', type: 'button', label: 'Create Team', actions: ['click'] },
+    ],
+    quickActions: ['list_teams', 'create_team'],
+  },
+=======
+  // =====================
+  // DOCUMENTATION
+  // =====================
+  '/docs/get-started': {
+    path: '/docs/get-started',
+    name: 'Get Started',
+    description: 'Getting started guide and tutorials',
+    elements: [
+      { id: 'docs-content', type: 'stream', label: 'Documentation Content', actions: ['scroll', 'search'] },
+      { id: 'nav-menu', type: 'grid', label: 'Navigation Menu', actions: ['select_topic'] },
+    ],
+    quickActions: ['show_getting_started', 'search_docs'],
+  },
+
+  '/docs/quickguide': {
+    path: '/docs/quickguide',
+    name: 'QuickGuide',
+    description: 'Quick reference guide for common tasks',
+    elements: [
+      { id: 'quickguide-content', type: 'stream', label: 'QuickGuide Content', actions: ['scroll', 'search'] },
+    ],
+    quickActions: ['show_quickguide'],
+  },
+
+  '/docs/faq': {
+    path: '/docs/faq',
+    name: 'FAQ',
+    description: 'Frequently asked questions',
+    elements: [
+      { id: 'faq-content', type: 'stream', label: 'FAQ Content', actions: ['scroll', 'search'] },
+      { id: 'faq-categories', type: 'grid', label: 'FAQ Categories', actions: ['select_category'] },
+    ],
+    quickActions: ['show_faq', 'search_faq'],
+  },
+
+  '/docs/features': {
+    path: '/docs/features',
+    name: 'Features',
+    description: 'Overview of VirtualPyTest features',
+    elements: [
+      { id: 'features-content', type: 'stream', label: 'Features Content', actions: ['scroll', 'search'] },
+    ],
+    quickActions: ['show_features'],
+  },
+
+  '/docs/user-guide': {
+    path: '/docs/user-guide',
+    name: 'User Guide',
+    description: 'Comprehensive user guide',
+    elements: [
+      { id: 'userguide-content', type: 'stream', label: 'User Guide Content', actions: ['scroll', 'search'] },
+      { id: 'userguide-nav', type: 'grid', label: 'User Guide Navigation', actions: ['select_section'] },
+    ],
+    quickActions: ['show_user_guide'],
+  },
+
+  '/docs/technical': {
+    path: '/docs/technical',
+    name: 'Technical Docs',
+    description: 'Technical documentation and architecture',
+    elements: [
+      { id: 'technical-content', type: 'stream', label: 'Technical Content', actions: ['scroll', 'search'] },
+    ],
+    quickActions: ['show_technical_docs'],
+  },
+
+  '/docs/security': {
+    path: '/docs/security',
+    name: 'Security Reports',
+    description: 'Security documentation and reports',
+    elements: [
+      { id: 'security-content', type: 'stream', label: 'Security Content', actions: ['scroll', 'search'] },
+    ],
+    quickActions: ['show_security_docs'],
+  },
+
+  '/docs/api': {
+    path: '/docs/api',
+    name: 'API Reference',
+    description: 'API documentation and reference',
+    elements: [
+      { id: 'api-content', type: 'stream', label: 'API Content', actions: ['scroll', 'search'] },
+      { id: 'api-endpoints', type: 'table', label: 'API Endpoints', actions: ['select', 'view_details'] },
+    ],
+    quickActions: ['show_api_docs', 'search_api'],
+  },
+
+  '/docs/examples': {
+    path: '/docs/examples',
+    name: 'Examples',
+    description: 'Usage examples and tutorials',
+    elements: [
+      { id: 'examples-content', type: 'stream', label: 'Examples Content', actions: ['scroll', 'search'] },
+    ],
+    quickActions: ['show_examples'],
+  },
+
+  '/docs/screenshots': {
+    path: '/docs/screenshots',
+    name: 'Screenshots',
+    description: 'Application screenshots and visual guides',
+    elements: [
+      { id: 'screenshots-gallery', type: 'grid', label: 'Screenshots Gallery', actions: ['view', 'zoom'] },
+    ],
+    quickActions: ['show_screenshots'],
+  },
+
+  '/docs/videos': {
+    path: '/docs/videos',
+    name: 'Videos',
+    description: 'Video tutorials and demonstrations',
+    elements: [
+      { id: 'videos-gallery', type: 'grid', label: 'Videos Gallery', actions: ['play', 'view'] },
+    ],
+    quickActions: ['show_videos'],
+  },
+
+  // =====================
+  // ADMIN
+  // =====================
+  '/teams': {
+    path: '/teams',
+    name: 'Teams',
+    description: 'Manage teams and permissions',
+    elements: [
+      { id: 'teams-table', type: 'table', label: 'Teams List', actions: ['select', 'edit', 'delete'] },
+      { id: 'create-btn', type: 'button', label: 'Create Team', actions: ['click'] },
+    ],
+    quickActions: ['list_teams', 'create_team'],
+  },AI AGENT
+  // =====================
+  '/ai-agent': {
+    path: '/ai-agent',
+    name: 'AI Agent Chat',
+    description: 'Interactive AI assistant for QA automation',
+    elements: [
+      { id: 'chat-input', type: 'input', label: 'Message Input', actions: ['type', 'send'] },
+      { id: 'chat-history', type: 'table', label: 'Chat History', actions: ['scroll', 'copy'] },
+      { id: 'mode-selector', type: 'dropdown', label: 'Agent Mode', actions: ['select'], params: { mode: 'qa_manager|device_controller|test_analyst' } },
+    ],
+    quickActions: ['send_message', 'clear_chat', 'change_mode'],
+  },
+=======
+  // =====================
+  // AI AGENT
+  // =====================
+  '/ai-agent': {
+    path: '/ai-agent',
+    name: 'AI Agent Chat',
+    description: 'Interactive AI assistant for QA automation',
+    elements: [
+      { id: 'chat-input', type: 'input', label: 'Message Input', actions: ['type', 'send'] },
+      { id: 'chat-history', type: 'table', label: 'Chat History', actions: ['scroll', 'copy'] },
+      { id: 'mode-selector', type: 'dropdown', label: 'Agent Mode', actions: ['select'], params: { mode: 'qa_manager|device_controller|test_analyst' } },
+    ],
+    quickActions: ['send_message', 'clear_chat', 'change_mode'],
+  },
+
+  '/agent-dashboard': {
+    path: '/agent-dashboard',
+    name: 'Agent Dashboard',
+    description: 'Dashboard for AI agent activities and status',
+    elements: [
+      { id: 'agent-status-cards', type: 'grid', label: 'Agent Status Cards', actions: ['view_details'] },
+      { id: 'activity-history', type: 'table', label: 'Activity History', actions: ['filter', 'view_details'] },
+      { id: 'refresh-btn', type: 'button', label: 'Refresh Data', actions: ['click'] },
+    ],
+    quickActions: ['show_agent_status', 'view_activity_history'],
+  },=====================
   // DASHBOARD
   // =====================
   '/': {
@@ -88,10 +353,27 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
       { id: 'launch-btn', type: 'button', label: 'Launch Campaign', actions: ['click'] },
       { id: 'history-table', type: 'table', label: 'Campaign History', actions: ['view_details', 'open_report'] },
     ],
+  // TEST PLAN
+  // =====================
+=======
     quickActions: ['create_campaign', 'launch_campaign', 'view_campaign_history'],
   },
 
+  '/test-execution/deployments': {
+    path: '/test-execution/deployments',
+    name: 'Deployments',
+    description: 'Manage and monitor test deployments',
+    elements: [
+      { id: 'deployments-table', type: 'table', label: 'Deployments List', actions: ['select', 'view_details', 'filter'] },
+      { id: 'deployment-stats', type: 'grid', label: 'Deployment Statistics', actions: ['refresh'] },
+      { id: 'create-deployment-btn', type: 'button', label: 'Create Deployment', actions: ['click'] },
+    ],
+    quickActions: ['list_deployments', 'create_deployment', 'view_deployment_status'],
+  },
+
   // =====================
+  // TEST PLAN
+  // ==========================================
   // TEST PLAN
   // =====================
   '/test-plan/test-cases': {
@@ -128,6 +410,18 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
       { id: 'import-btn', type: 'button', label: 'Import Requirements', actions: ['click'] },
     ],
     quickActions: ['list_requirements', 'check_coverage'],
+  },
+
+  '/test-plan/coverage': {
+    path: '/test-plan/coverage',
+    name: 'Coverage',
+    description: 'View test coverage metrics and reports',
+    elements: [
+      { id: 'coverage-chart', type: 'chart', label: 'Coverage Chart', actions: ['change_view'] },
+      { id: 'coverage-table', type: 'table', label: 'Coverage Details', actions: ['filter', 'drill_down'] },
+      { id: 'export-btn', type: 'button', label: 'Export Report', actions: ['click'] },
+    ],
+    quickActions: ['show_coverage_report', 'export_coverage'],
   },
 
   // =====================
@@ -220,6 +514,18 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
     quickActions: ['show_model_stats', 'compare_models'],
   },
 
+  '/test-results/dependency-report': {
+    path: '/test-results/dependency-report',
+    name: 'Dependency Report',
+    description: 'Analyze test dependencies and execution flow',
+    elements: [
+      { id: 'dependency-graph', type: 'chart', label: 'Dependency Graph', actions: ['zoom', 'pan'] },
+      { id: 'dependency-table', type: 'table', label: 'Dependency Details', actions: ['filter', 'view_details'] },
+      { id: 'export-btn', type: 'button', label: 'Export Report', actions: ['click'] },
+    ],
+    quickActions: ['show_dependency_graph', 'analyze_dependencies'],
+  },
+
   // =====================
   // BUILDER
   // =====================
@@ -247,6 +553,19 @@ export const PAGE_SCHEMAS: Record<string, PageSchema> = {
       { id: 'save-btn', type: 'button', label: 'Save Campaign', actions: ['click'] },
     ],
     quickActions: ['add_testcase_to_campaign', 'save_campaign'],
+  },
+
+  '/builder/mcp-playground': {
+    path: '/builder/mcp-playground',
+    name: 'MCP Playground',
+    description: 'Interactive MCP command playground for testing and debugging',
+    elements: [
+      { id: 'command-input', type: 'input', label: 'MCP Command Input', actions: ['type', 'send'] },
+      { id: 'execution-results', type: 'table', label: 'Execution Results', actions: ['view_details', 'clear'] },
+      { id: 'device-selector', type: 'dropdown', label: 'Device Selector', actions: ['select'], params: { device_id: 'string' } },
+      { id: 'history-panel', type: 'table', label: 'Command History', actions: ['view', 'replay'] },
+    ],
+    quickActions: ['execute_mcp_command', 'view_command_history'],
   },
 
   // =====================

@@ -1,23 +1,25 @@
 /**
- * @deprecated This component is deprecated. Use DeviceControlPanels from 'components/common/DeviceControlPanels' instead.
+ * Device Control Panels (Shared Component)
  * 
- * This file is kept for backward compatibility but should not be used in new code.
- * All functionality has been moved to the shared DeviceControlPanels component.
+ * Displays device control panels (Remote/Desktop/VNC/HDMI) based on device type.
+ * Used by both TestCaseBuilder and AgentChat for consistent device control UI.
+ * 
+ * Automatically shows/hides based on:
+ * - showRemotePanel: Remote control panels visibility
+ * - showAVPanel: AV stream panels visibility
+ * - isControlActive: Device control state
  */
 
 import React from 'react';
 import { Box } from '@mui/material';
-import { RemotePanel } from '../../controller/remote/RemotePanel';
-import { DesktopPanel } from '../../controller/desktop/DesktopPanel';
-import { WebPanel } from '../../controller/web/WebPanel';
-import { VNCStream } from '../../controller/av/VNCStream';
-import { HDMIStream } from '../../controller/av/HDMIStream';
-import { DEFAULT_DEVICE_RESOLUTION } from '../../../config/deviceResolutions';
+import { RemotePanel } from '../controller/remote/RemotePanel';
+import { DesktopPanel } from '../controller/desktop/DesktopPanel';
+import { WebPanel } from '../controller/web/WebPanel';
+import { VNCStream } from '../controller/av/VNCStream';
+import { HDMIStream } from '../controller/av/HDMIStream';
+import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 
-/**
- * @deprecated Use DeviceControlPanels instead
- */
-interface TestCaseBuilderPanelsProps {
+interface DeviceControlPanelsProps {
   // Show Panel Conditions
   showRemotePanel: boolean;
   showAVPanel: boolean;
@@ -26,46 +28,55 @@ interface TestCaseBuilderPanelsProps {
   selectedHost: any;
   selectedDeviceId: string | null;
   isControlActive: boolean;
-  userinterfaceName: string;
+  userinterfaceName?: string; // Optional - only needed for AV panels
   
-  // AV Panel State
-  isAVPanelCollapsed: boolean;
-  isAVPanelMinimized: boolean;
-  captureMode: 'stream' | 'screenshot' | 'video';
-  isVerificationVisible: boolean;
+  // AV Panel State (optional - defaults provided)
+  isAVPanelCollapsed?: boolean;
+  isAVPanelMinimized?: boolean;
+  captureMode?: 'stream' | 'screenshot' | 'video';
+  isVerificationVisible?: boolean;
   
-  // Layout Control
-  isSidebarOpen: boolean;
+  // Layout Control (optional - defaults provided)
+  isSidebarOpen?: boolean;
   footerHeight?: number;
+  
+  // 🆕 NEW: Custom Positioning (optional - overrides default positioning)
+  customPosition?: {
+    left?: string;
+    right?: string;
+    top?: string;
+    bottom?: string;
+  };
   
   // Handlers
   handleDisconnectComplete: () => void;
-  handleAVPanelCollapsedChange: (collapsed: boolean) => void;
-  handleAVPanelMinimizedChange: (minimized: boolean) => void;
-  handleCaptureModeChange: (mode: 'stream' | 'screenshot' | 'video') => void;
-  isMobileOrientationLandscape: boolean;
-  handleMobileOrientationChange: (isLandscape: boolean) => void;
+  handleAVPanelCollapsedChange?: (collapsed: boolean) => void;
+  handleAVPanelMinimizedChange?: (minimized: boolean) => void;
+  handleCaptureModeChange?: (mode: 'stream' | 'screenshot' | 'video') => void;
+  isMobileOrientationLandscape?: boolean;
+  handleMobileOrientationChange?: (isLandscape: boolean) => void;
 }
 
-export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
+export const DeviceControlPanels: React.FC<DeviceControlPanelsProps> = ({
   showRemotePanel,
   showAVPanel,
   selectedHost,
   selectedDeviceId,
   isControlActive,
-  userinterfaceName,
-  isAVPanelCollapsed,
-  isAVPanelMinimized,
-  captureMode,
-  isVerificationVisible,
-  isSidebarOpen,
+  userinterfaceName = '',
+  isAVPanelCollapsed = true,
+  isAVPanelMinimized = false,
+  captureMode = 'stream',
+  isVerificationVisible = false,
+  isSidebarOpen = true,
   footerHeight = 40,
+  customPosition, // 🆕 NEW: Custom positioning
   handleDisconnectComplete,
-  handleAVPanelCollapsedChange,
-  handleAVPanelMinimizedChange,
-  handleCaptureModeChange,
-  isMobileOrientationLandscape,
-  handleMobileOrientationChange,
+  handleAVPanelCollapsedChange = () => {},
+  handleAVPanelMinimizedChange = () => {},
+  handleCaptureModeChange = () => {},
+  isMobileOrientationLandscape = false,
+  handleMobileOrientationChange = () => {},
 }) => {
   const selectedDevice = selectedHost?.devices?.find((d: any) => d.device_id === selectedDeviceId);
   const deviceModel = selectedDevice?.device_model;
@@ -73,9 +84,11 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
   const hasMultipleRemotes = Array.isArray(remoteCapability) || deviceModel === 'fire_tv';
   const isDesktopDevice = deviceModel === 'host_vnc';
 
-  // Calculate stream position based on sidebar state
-  const sidebarWidth = 280; // Width of the sidebar when open (from TestCaseBuilderSidebar.tsx)
-  const streamLeftPosition = isSidebarOpen ? `${sidebarWidth + 10}px` : '10px'; // sidebar width + margin
+  // Calculate stream position based on sidebar state OR use custom position
+  const sidebarWidth = 280; // Width of the sidebar when open
+  const defaultStreamLeft = isSidebarOpen ? `${sidebarWidth + 10}px` : '10px';
+  const streamLeftPosition = customPosition?.left || defaultStreamLeft;
+  const streamBottomPosition = customPosition?.bottom || `${footerHeight + 10}px`;
 
   return (
     <>
@@ -227,7 +240,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               onCaptureModeChange={handleCaptureModeChange}
               useAbsolutePositioning={true}
               positionLeft={streamLeftPosition}
-              positionBottom={`${footerHeight + 10}px`}
+              positionBottom={streamBottomPosition}
             />
           ) : (
             <HDMIStream
@@ -242,7 +255,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               deviceResolution={DEFAULT_DEVICE_RESOLUTION}
               useAbsolutePositioning={true}
               positionLeft={streamLeftPosition}
-              positionBottom={`${footerHeight + 10}px`}
+              positionBottom={streamBottomPosition}
               isLandscape={isMobileOrientationLandscape}
             />
           )}

@@ -111,6 +111,15 @@ export const useAgentChat = () => {
   const activeConversation = conversations.find(c => c.id === activeConversationId);
   const messages = activeConversation?.messages || [];
   
+  // 🆕 NEW: Device control state for AI agent tool calls
+  // Callback ref to notify parent when AI takes/releases control
+  const onDeviceControlChangeRef = useRef<((host: string, deviceId: string, isActive: boolean) => void) | null>(null);
+  
+  // Set callback for device control changes (called by parent - AgentChat.tsx)
+  const setOnDeviceControlChange = useCallback((callback: (host: string, deviceId: string, isActive: boolean) => void) => {
+    onDeviceControlChangeRef.current = callback;
+  }, []);
+  
   // Debug: Log active conversation details
   useEffect(() => {
     if (activeConversationId) {
@@ -937,6 +946,31 @@ export const useAgentChat = () => {
     });
 
     socket.on('agent_event', (event: AgentEvent) => {
+      // 🆕 NEW: Detect AI agent device control tool calls
+      // When AI calls take_control or release_control, notify parent to sync device state
+      if (event.type === 'tool_call' && event.tool_name) {
+        // Check for take_control success
+        if (event.tool_name === 'mcp_virtualpytest_take_control' && event.success === true) {
+          console.log('[useAgentChat] AI agent took control, notifying parent:', event.tool_params);
+          const hostName = (event.tool_params?.host_name as string) || '';
+          const deviceId = (event.tool_params?.device_id as string) || 'device1';
+          
+          if (hostName && onDeviceControlChangeRef.current) {
+            onDeviceControlChangeRef.current(hostName, deviceId, true);
+          }
+        }
+        // Check for release_control success
+        else if (event.tool_name === 'mcp_virtualpytest_release_control' && event.success === true) {
+          console.log('[useAgentChat] AI agent released control, notifying parent');
+          const hostName = (event.tool_params?.host_name as string) || '';
+          const deviceId = (event.tool_params?.device_id as string) || 'device1';
+          
+          if (hostName && onDeviceControlChangeRef.current) {
+            onDeviceControlChangeRef.current(hostName, deviceId, false);
+          }
+        }
+      }
+      
       // Helper to save current events as a message
       const saveCurrentEventsAsMessage = (agentName: string, eventsToSave: AgentEvent[]) => {
         const messageResultEvents = eventsToSave.filter(e => 
@@ -1541,5 +1575,8 @@ export const useAgentChat = () => {
     switchConversation,
     deleteConversation,
     clearBackgroundHistory,
+    
+    // 🆕 NEW: Device control callback for AI agent tool calls
+    setOnDeviceControlChange,
   };
 };

@@ -70,6 +70,9 @@ import { AGENT_CHAT_PALETTE as PALETTE, AGENT_CHAT_LAYOUT, AGENT_COLORS } from '
 import { getInitials, mergeToolEvents, groupConversationsByTime } from '../utils/agentChatUtils';
 import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { DeviceControlPanels } from '../components/common/DeviceControlPanels';
+import { useDevicePanels } from '../hooks/useDevicePanels';
+import { useHostManager } from '../contexts/index';
 
 const { 
   sidebarWidth: SIDEBAR_WIDTH, 
@@ -115,6 +118,29 @@ const AgentChat: React.FC = () => {
   const [showHistory, setShowHistory] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [showDevice, setShowDevice] = useState(false);
+  
+  // 🆕 NEW: Get HostManager for AI-driven device control
+  const { getAllHosts, handleDeviceSelect, handleControlStateChange } = useHostManager();
+  
+  // 🆕 NEW: Device control panels - automatically show/hide when control is taken/released
+  const devicePanels = useDevicePanels({
+    sessionId: 'agent-chat-session',
+    requireTreeId: false, // AgentChat doesn't require tree_id
+    autoCleanup: true,
+  });
+  
+  // Override panel visibility: AgentChat only shows device screen (HDMI/VNC), not remote control
+  const agentChatPanelProps = {
+    ...devicePanels.panelProps,
+    showRemotePanel: false, // ❌ Hide remote control in AgentChat
+    showAVPanel: devicePanels.showAVPanel, // ✅ Show device screen when control is active
+    // 🆕 Custom positioning - position device screen in AgentChat layout
+    customPosition: {
+      left: showHistory ? '290px' : '10px', // Account for sidebar width (280px + 10px margin)
+      bottom: '10px', // 10px from bottom (no footer in AgentChat)
+      // You can also use: right, top
+    },
+  };
   
   // Sidebar tab state: 'system' for background agents, 'chats' for conversations
   const [sidebarTab, setSidebarTab] = useState<'system' | 'chats'>('chats');
@@ -352,6 +378,7 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     clearBackgroundHistory,
     setAgentId,
     setNavigationContext,
+    setOnDeviceControlChange, // 🆕 NEW: For AI agent device control detection
   } = useAgentChat();
   
 // Sync selected agent with hook once we have a real value
@@ -365,6 +392,32 @@ useEffect(() => {
   useEffect(() => {
     setNavigationContext(allowAutoNavigation, location.pathname);
   }, [allowAutoNavigation, location.pathname, setNavigationContext]);
+  
+  // 🆕 NEW: Listen for AI agent device control tool calls
+  // When AI calls take_control/release_control, sync frontend state
+  useEffect(() => {
+    const handleAIDeviceControl = (hostName: string, deviceId: string, isActive: boolean) => {
+      console.log('[AgentChat] AI agent device control change:', { hostName, deviceId, isActive });
+      
+      // Find host by name
+      const hosts = getAllHosts();
+      const host = hosts.find(h => h.host_name === hostName);
+      
+      if (host) {
+        // Update device selection
+        handleDeviceSelect(host, deviceId);
+        
+        // Update control state to trigger panel visibility
+        handleControlStateChange(isActive);
+        
+        console.log('[AgentChat] Synced device state - panel should', isActive ? 'show' : 'hide');
+      } else {
+        console.warn('[AgentChat] Host not found:', hostName);
+      }
+    };
+    
+    setOnDeviceControlChange(handleAIDeviceControl);
+  }, [setOnDeviceControlChange, getAllHosts, handleDeviceSelect, handleControlStateChange]);
   
   // Only show processing state if viewing the conversation that's being processed
   const showProcessing = isProcessing && activeConversationId === pendingConversationId;
@@ -2259,6 +2312,14 @@ useEffect(() => {
         confirmColor="error"
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      
+      {/* 🆕 NEW: Device Control Panels - auto-mount when control is taken, auto-unmount when released */}
+      {/* AgentChat only shows device screen (HDMI/VNC), not remote control */}
+      <DeviceControlPanels
+        {...agentChatPanelProps}
+        isSidebarOpen={showHistory}
+        footerHeight={0} // No footer in AgentChat
       />
     </Box>
   );
