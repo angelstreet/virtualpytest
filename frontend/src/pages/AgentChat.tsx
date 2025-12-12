@@ -872,11 +872,11 @@ useEffect(() => {
                     }}
                     sx={{
                       display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.75,
-                      px: 1,
-                      py: 0.4,
-                      borderRadius: 1,
+                      alignItems: 'flex-start',
+                      gap: 1,
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 1.5,
                       cursor: 'pointer',
                       bgcolor: task.conversationId === activeConversationId && sidebarTab === 'system'
                         ? (isDarkMode ? PALETTE.hoverBg : 'grey.200')
@@ -889,8 +889,9 @@ useEffect(() => {
                   >
                     {task.isInProgress ? (
                       <Box sx={{ 
-                        width: 6, 
-                        height: 6, 
+                        width: 14, 
+                        height: 14,
+                        mt: 0.3,
                         borderRadius: '50%',
                         bgcolor: agent.color || PALETTE.accent,
                         flexShrink: 0,
@@ -902,11 +903,14 @@ useEffect(() => {
                       }} />
                     ) : (
                       <Box sx={{ 
-                        fontSize: 12, 
-                        minWidth: 12, 
+                        fontSize: 14, 
+                        minWidth: 14, 
+                        height: 14,
+                        mt: 0.3,
                         textAlign: 'center', 
                         flexShrink: 0,
-                        fontWeight: 600,
+                        fontWeight: 700,
+                        lineHeight: 1,
                         color: icon === '✗' ? '#ef4444' : '#22c55e'
                       }}>
                         {icon}
@@ -914,19 +918,36 @@ useEffect(() => {
                     )}
                     
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      {/* Simplified: just script name */}
+                      {/* Script name */}
                       <Typography 
-                        variant="caption" 
+                        variant="body2" 
                         sx={{ 
-                          display: 'block',
-                          fontSize: '0.7rem',
-                          color: task.isInProgress ? 'text.primary' : 'text.secondary',
-                          fontWeight: task.isInProgress ? 500 : 400,
-                          lineHeight: 1.4,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          color: task.conversationId === activeConversationId ? 'text.primary' : 'text.secondary',
+                          fontSize: '0.85rem',
                         }}
-                        noWrap
                       >
                         {task.subtitle ? `${task.title}-${task.subtitle}` : task.title}
+                      </Typography>
+                      {/* Date/time - same format as Chats tab */}
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          color: PALETTE.textMuted,
+                          fontSize: '0.65rem',
+                          opacity: 0.7,
+                          mt: -0.25,
+                        }}
+                      >
+                        {(() => {
+                          const d = new Date(task.startedAt);
+                          const time = `${d.getHours().toString().padStart(2, '0')}h${d.getMinutes().toString().padStart(2, '0')}m${d.getSeconds().toString().padStart(2, '0')}s`;
+                          const date = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(-2)}`;
+                          return `${time} - ${date}`;
+                        })()}
                       </Typography>
                     </Box>
                   </Box>
@@ -1593,7 +1614,30 @@ useEffect(() => {
                           '& p': { m: 0, mb: 1, '&:last-child': { mb: 0 } },
                           '& a': { color: PALETTE.accent, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
                           '& strong': { fontWeight: 600 },
-                          '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
+                          '& code': { 
+                            bgcolor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', 
+                            px: 0.5, 
+                            py: 0.15,
+                            borderRadius: 0.5, 
+                            fontFamily: 'monospace', 
+                            fontSize: '0.85em',
+                            border: '1px solid',
+                            borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                          },
+                          '& pre': {
+                            bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                            p: 1.5,
+                            borderRadius: 1,
+                            overflow: 'auto',
+                            border: '1px solid',
+                            borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                            '& code': { 
+                              bgcolor: 'transparent', 
+                              p: 0, 
+                              border: 'none',
+                              fontSize: '0.8em',
+                            },
+                          },
                           '& h1, & h2, & h3, & h4, & h5, & h6': { fontSize: '0.95rem', fontWeight: 600, m: 0, mt: 1, mb: 0.5 },
                           '& ul, & ol': { m: 0, pl: 2, '& li': { mb: 0.25 } },
                           fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',
@@ -1619,7 +1663,30 @@ useEffect(() => {
                         '& p': { m: 0, mb: 1, '&:last-child': { mb: 0 } },
                         '& a': { color: PALETTE.accent, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
                         '& strong': { fontWeight: 600 },
-                        '& code': { bgcolor: isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.85em' },
+                        '& code': { 
+                          bgcolor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', 
+                          px: 0.5, 
+                          py: 0.15,
+                          borderRadius: 0.5, 
+                          fontFamily: 'monospace', 
+                          fontSize: '0.85em',
+                          border: '1px solid',
+                          borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                        },
+                        '& pre': {
+                          bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                          p: 1.5,
+                          borderRadius: 1,
+                          overflow: 'auto',
+                          border: '1px solid',
+                          borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                          '& code': { 
+                            bgcolor: 'transparent', 
+                            p: 0, 
+                            border: 'none',
+                            fontSize: '0.8em',
+                          },
+                        },
                         '& h1, & h2, & h3, & h4, & h5, & h6': { fontSize: '0.95rem', fontWeight: 600, m: 0, mt: 1, mb: 0.5 },
                         '& ul, & ol': { m: 0, pl: 2, '& li': { mb: 0.25 } },
                         fontSize: '0.9rem', lineHeight: 1.6, color: 'text.primary',

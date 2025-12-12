@@ -182,7 +182,10 @@ export const useAgentChat = () => {
   
   // Background agents info (agents with background_queues) - set from parent
   const backgroundAgentsRef = useRef<Map<string, BackgroundAgentInfo>>(new Map());
-  
+
+  // Track script executions to conversations for background analysis correlation
+  const scriptConversationMapRef = useRef<Map<string, string>>(new Map()); // script_result_id -> conversation_id
+
   // Set background agents (called by parent after loading from API)
   const setBackgroundAgents = useCallback((agents: BackgroundAgentInfo[]) => {
     console.log(`[useAgentChat] setBackgroundAgents called with ${agents.length} agents:`, agents.map(a => `${a.id}/${a.nickname}`));
@@ -1087,7 +1090,57 @@ export const useAgentChat = () => {
       // The handler checks if the event.agent is a background agent
       if (event.agent && handleBackgroundEvent(event)) {
         console.log(`[useAgentChat] Background event handled for agent: ${event.agent}`);
-        // Event was handled by a background agent, don't return - still process for conversation view
+
+        // For interactive experience: show a brief summary message in main conversation
+        // when background analysis completes, but don't show the detailed analysis
+        if (event.type === 'message' && event.agent) {
+          // Try to find the correct conversation for this analysis
+          let targetConversationId = pendingConversationIdRef.current;
+
+          // First try direct mapping
+          if (event.task_id) {
+            const mappedConversationId = scriptConversationMapRef.current.get(event.task_id);
+            if (mappedConversationId) {
+              targetConversationId = mappedConversationId;
+              console.log(`[useAgentChat] 🎯 Found mapped conversation ${targetConversationId} for script ${event.task_id}`);
+            }
+          }
+
+          // If no direct mapping, find the most recent conversation with script execution
+          if (!targetConversationId || targetConversationId === pendingConversationIdRef.current) {
+            const recentScriptConvo = conversations
+              .filter(c => c.messages.some(m => m.content?.includes('execute_script') || m.content?.includes('script execution')))
+              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+
+            if (recentScriptConvo) {
+              targetConversationId = recentScriptConvo.id;
+              console.log(`[useAgentChat] 📋 Using most recent script conversation ${targetConversationId} for analysis`);
+            }
+          }
+
+          const summaryMessage: Message = {
+            id: `bg-summary-${Date.now()}`,
+            role: 'agent',
+            content: `**${event.agent}** analyzed the execution result`,
+            agent: event.agent, // Use the actual agent nickname (e.g., 'Sherlock')
+            timestamp: new Date().toISOString(),
+            events: [],
+          };
+
+          setConversations(prev => prev.map(c => {
+            if (c.id === targetConversationId) {
+              return {
+                ...c,
+                messages: [...c.messages, summaryMessage],
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return c;
+          }));
+        }
+
+        // Don't add the full background event details to main conversation
+        return;
       } else if (event.agent) {
         console.log(`[useAgentChat] Event NOT handled as background (agent: ${event.agent})`);
       }
