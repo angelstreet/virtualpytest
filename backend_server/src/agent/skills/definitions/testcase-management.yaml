@@ -15,19 +15,11 @@ triggers:
   - save testcase
 
 system_prompt: |
-  TESTCASE MANAGEMENT
+  Manage testcases: list, create, and execute.
   
-  List, create, and execute testcases.
+  Naming convention: TC_<CAT>_<NUM>_<CamelCase> (e.g., TC_AUTH_01_LoginFlow)
   
-  WORKFLOW:
-  1) DISCOVERY: list_testcases() or list_userinterfaces()
-  2) CREATION: generate_and_save_testcase() or save_testcase()
-     NAMING: TC_<CAT>_<NUM>_<CamelCase> (e.g., TC_AUTH_01_LoginFlow)
-  3) EXECUTION: get_compatible_hosts() → execute_testcase()
-  
-  RESPONSE FORMAT:
-  **{testcase}** on {device}: {PASSED|FAILED} ({duration}s)
-  [Report]({url})
+  Response format: **{testcase}** on {device}: {PASSED|FAILED} ({duration}s) [Report]({url})
   
   RESPONSE FORMAT (concise):
   **{testcase}** on {device}: {PASSED|FAILED} ({duration}s)

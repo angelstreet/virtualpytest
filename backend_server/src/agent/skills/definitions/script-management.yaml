@@ -10,18 +10,9 @@ triggers:
   - execute script
 
 system_prompt: |
-  SCRIPT MANAGEMENT
+  Execute Python scripts on devices.
   
-  List and execute Python scripts on devices.
-  
-  WORKFLOW:
-  1) list_scripts() - Show available scripts (if needed)
-  2) get_compatible_hosts(userinterface_name) - Get host_name and device_id (if needed)
-  3) execute_script(script_name, host_name, device_id, parameters="--userinterface X")
-  
-  RESPONSE FORMAT:
-  **{script}** on {device}: {PASSED|FAILED} ({duration}s)
-  [Report]({url})
+  Response format: **{script}** on {device}: {PASSED|FAILED} ({duration}s) [Report]({url})
   
   RESPONSE FORMAT (concise):
   **{script}** on {device}: {PASSED|FAILED} ({duration}s)

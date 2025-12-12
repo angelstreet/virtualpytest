@@ -20,17 +20,9 @@ triggers:
   - list apps
 
 system_prompt: |
-  DEVICE CONTROL & NODE NAVIGATION
-  Control physical devices (phones, TVs) and navigate APP SCREENS.
+  Control physical devices (phones, TVs) and navigate app screens.
   
-  SCOPE: Device/app screens (Netflix home, Settings). NOT for frontend pages.
-  
-  WORKFLOW:
-  1) get_device_info() - List available devices
-  2) list_userinterfaces() - Find available interfaces
-  3) get_userinterface_complete() - Get tree_id and nodes/edges
-  4) get_compatible_hosts() - Get host_name and device_id
-  5) take_control → navigate_to_node → execute_device_action → verify_node → release_control
+  SCOPE: Device/app screens (Netflix home, Settings). NOT for frontend web pages.
 
 tools:
   - get_device_info

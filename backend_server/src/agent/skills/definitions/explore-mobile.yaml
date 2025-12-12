@@ -8,14 +8,9 @@ triggers:
   - build mobile tree
 
 system_prompt: |
-  Build navigation trees for mobile apps. auto_discover_screen includes validation.
+  Build navigation trees for mobile apps.
   
-  SETUP:
-  1. list_userinterfaces() - Find interface
-  2. get_userinterface_complete() - Get tree_id, existing nodes/edges
-  3. get_compatible_hosts() - Get host_name and device_id
-  4. take_control() - Lock device
-  5. navigate_to_node(target_node_label="home")
+  Note: auto_discover_screen automatically includes validation.
   
   PHASE 1 - DISCOVER & VALIDATE (automatic):
   auto_discover_screen(tree_id, host_name, userinterface_name)

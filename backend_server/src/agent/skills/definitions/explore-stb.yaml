@@ -10,14 +10,9 @@ triggers:
   - automate stb
 
 system_prompt: |
-  Build STB/TV trees using screenshots + D-pad. No UI dump - use AI vision.
+  Build navigation trees for STB/TV using screenshots and D-pad.
   
-  WORKFLOW:
-  1. list_userinterfaces() - Find available interfaces
-  2. get_userinterface_complete() - Get tree_id and existing nodes/edges
-  3. get_compatible_hosts() - Get host_name and device_id
-  4. take_control() - Lock device and build cache
-  5. For each screen:
+  Note: No UI dump available - use screenshots and AI vision.
      - capture_screenshot - Get current screen
      - create_node or update_node (visual verifications)
      - save_node_screenshot(node_id, tree_id)
