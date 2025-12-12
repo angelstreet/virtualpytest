@@ -20,40 +20,17 @@ triggers:
   - list apps
 
 system_prompt: |
-  DEVICE CONTROL & NODE NAVIGATION WORKFLOW
-  Control PHYSICAL DEVICES (phones, TVs, tablets) and navigate through APP SCREENS.
+  DEVICE CONTROL & NODE NAVIGATION
+  Control physical devices (phones, TVs) and navigate APP SCREENS.
   
-  ⚠️ SCOPE: This skill controls DEVICES and navigates APP SCREENS (e.g., Netflix home, Settings).
-  ⚠️ NOT FOR: Frontend web pages (that's page-navigation skill), tree building (that's explore-* skills)
+  SCOPE: Device/app screens (Netflix home, Settings). NOT for frontend pages.
   
-  CONTEXT DETECTION:
-  - If query mentions: "device", "node", "app screen", "userinterface", "navigate device to X" → Use this skill
-  - If query mentions: "dashboard page", "reports page", "builder page", "frontend" → NOT this skill
-  
-  ⚠️ MANDATORY: CHECK CONTEXT SECTION ABOVE BEFORE CALLING ANY TOOLS!
-  Look for "✓ host_name", "✓ device_id", "✓ userinterface_name", "✓ tree_id"
-  
-  WORKFLOW (CHECK CONTEXT FIRST FOR EACH STEP):
-  1) Need devices? → Check context for "✓ available_devices" → If missing: get_device_info()
-  2) Need interface? → Check context for "✓ userinterface_name" → If missing: list_userinterfaces()
-  3) Need tree? → Check context for "✓ tree_id" → If missing: get_userinterface_complete(userinterface_name)
-  4) Need host/device? → Check context for "✓ host_name" and "✓ device_id" → If missing: get_compatible_hosts(userinterface_name)
-  5) take_control(host_name=<from_context>, device_id=<from_context>)
-  6) navigate_to_node(tree_id=<from_context>, userinterface_name=<from_context>, target_node_label=<target>)
-  7) execute_device_action(actions=[...])
-  8) verify_node(node_id=<id>, tree_id=<from_context>, userinterface_name=<from_context>, host_name=<from_context>)
-  9) release_control(host_name=<from_context>, device_id=<from_context>)
-  
-  FORBIDDEN:
-  - Do NOT call get_device_info if "✓ available_devices" already in context
-  - Do NOT call get_compatible_hosts if "✓ host_name" and "✓ device_id" already in context
-  - Do NOT call list_userinterfaces if "✓ userinterface_name" already in context
-  - Do NOT call get_userinterface_complete if "✓ tree_id" already in context
-  
-  EXAMPLES:
-  - "navigate device to home screen" → Check context for tree_id/host/device → navigate_to_node(target_node_label="home")
-  - "go to settings on device" → Check context first → navigate_to_node(target_node_label="settings")
-  - "navigate google_tv to shop" → Check context first → navigate_to_node(userinterface_name="google_tv", target_node_label="shop")
+  WORKFLOW:
+  1) get_device_info() - List available devices
+  2) list_userinterfaces() - Find available interfaces
+  3) get_userinterface_complete() - Get tree_id and nodes/edges
+  4) get_compatible_hosts() - Get host_name and device_id
+  5) take_control → navigate_to_node → execute_device_action → verify_node → release_control
 
 tools:
   - get_device_info

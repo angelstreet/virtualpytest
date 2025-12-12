@@ -28,7 +28,6 @@ from .tool_bridge import ToolBridge
 from .message_types import EventType, AgentEvent
 from .sherlock_handler import SherlockHandler
 from .nightwatch_handler import NightwatchHandler
-from .context_extractor import extract_context_from_result
 
 
 class QAManagerAgent:
@@ -156,52 +155,8 @@ class QAManagerAgent:
         return self._build_router_prompt(context)
     
     def _build_context_section(self, ctx: Dict[str, Any]) -> str:
-        """Build context section for system prompt - inject working context"""
-        if not ctx:
-            return ""
-        
-        # Extract key context values
-        ui_name = ctx.get('userinterface_name')
-        tree_id = ctx.get('tree_id')
-        host = ctx.get('host_name')
-        device = ctx.get('device_id')
-        hosts_list = ctx.get('hosts', [])
-        devices_list = ctx.get('devices', [])
-        
-        # Only show context if we have at least one value
-        if not any([ui_name, tree_id, host, device, hosts_list, devices_list]):
-            return ""
-        
-        lines = [
-            "## ⚠️ ACTIVE CONTEXT - USE THESE VALUES DIRECTLY",
-            ""
-        ]
-        
-        # Show active working context as variable assignments
-        if host:
-            lines.append(f"✓ host_name = \"{host}\"")
-        if device:
-            lines.append(f"✓ device_id = \"{device}\"")
-        if ui_name:
-            lines.append(f"✓ userinterface_name = \"{ui_name}\"")
-        if tree_id:
-            lines.append(f"✓ tree_id = \"{tree_id}\"")
-        
-        # Show discovered resources
-        if hosts_list:
-            lines.append(f"✓ available_hosts = [{', '.join(repr(h) for h in hosts_list)}]")
-        if devices_list:
-            device_summary = ', '.join([f'"{d.get("device_id")}"' for d in devices_list[:3]])
-            if len(devices_list) > 3:
-                device_summary += f", ... (+{len(devices_list) - 3} more)"
-            lines.append(f"✓ available_devices = [{device_summary}]")
-        
-        # Single, clear instruction
-        lines.append("")
-        lines.append("⚠️ Do NOT re-fetch these with get_device_info, get_compatible_hosts, or list_userinterfaces.")
-        
-        # Add TWO newlines after context section (creates blank line separator)
-        return '\n'.join(lines) + "\n\n"
+        """Context injection disabled - rely on conversation history"""
+        return ""
     
     def _build_router_prompt(self, ctx: Dict[str, Any] = None) -> str:
         """Build router mode prompt - decides which skill to load"""
@@ -292,17 +247,10 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         
         return tools
 
-    def _log_turn_state(self, session: Session, system_prompt: List[Dict], turn_messages: List[Dict], summary: str, keep_last_n: int, incoming_message: str, is_delegated: bool) -> None:
-        """Log injected context, summary, and the raw prompt (system + messages) being sent to the model"""
-        ctx_keys = ['userinterface_name', 'tree_id', 'host_name', 'device_id', 'session_id']
-        ctx_parts = [f"{k}={session.context[k]}" for k in ctx_keys if session.context.get(k)]
-        context_line = ", ".join(ctx_parts) if ctx_parts else "None"
-        
+    def _log_turn_state(self, session: Session, system_prompt: List[Dict], turn_messages: List[Dict], incoming_message: str, is_delegated: bool) -> None:
+        """Log the raw prompt (system + messages) being sent to the model"""
         print(f"[TURN] Incoming message: {incoming_message[:120]}{'...' if len(incoming_message) > 120 else ''}")
-        print(f"[TURN] Injected context: {context_line}")
-        
-        print("[TURN] Rolling summary:")
-        print(summary if summary else "(none)")
+        print(f"[TURN] Full conversation: {len(turn_messages)} messages (all turns included)")
         
         # Show raw prompt exactly as sent to the model (system + messages)
         print("---------------- RAW prompt ----------------")
@@ -447,27 +395,14 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         mode_str = f"[{self._active_skill.name}]" if self._active_skill else "[router]"
         yield AgentEvent(type=EventType.THINKING, agent=self.nickname, content=f"Analyzing... {mode_str}")
         
-        # Build message history: summary + last 2 messages only (efficient)
+        # Build message history: FULL conversation (no truncation, no summary)
         turn_messages = []
-        KEEP_LAST_N = 2  # Keep last 1 turn (2 messages: 1 user + 1 assistant)
-        summary = ""
         
         if _is_delegated:
             turn_messages = [{"role": "user", "content": message}]
         else:
-            all_messages = session.messages
-            
-            # Always prepend summary if available (gives context from older turns)
-            summary = session.get_context('conversation_summary', '')
-            if summary and len(all_messages) > KEEP_LAST_N:
-                turn_messages.append({
-                    "role": "user",
-                    "content": f"Summary:\n{summary}"
-                })
-            
-            # Add last N messages (or all if fewer)
-            messages_to_add = all_messages[-KEEP_LAST_N:] if len(all_messages) > KEEP_LAST_N else all_messages
-            for msg in messages_to_add:
+            # Include ALL messages from session - full conversation context
+            for msg in session.messages:
                 turn_messages.append({
                     "role": msg["role"],
                     "content": msg["content"]
@@ -477,15 +412,9 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         cached_system = self._build_cached_system(session.context)
         cached_tools = self._build_cached_tools(self.tool_names)
         
-        # Debug log: show what context is being injected
-        if session.context:
-            ctx_keys = [k for k in ['hosts', 'devices', 'userinterface_name', 'tree_id', 'host_name', 'device_id'] if session.context.get(k)]
-            if ctx_keys:
-                print(f"[CONTEXT] Injecting: {', '.join(ctx_keys)}")
-        
         # Log raw prompt only for root calls (avoid duplicate logs on delegated runs)
         if not _is_delegated:
-            self._log_turn_state(session, cached_system, turn_messages, summary, KEEP_LAST_N, message, _is_delegated)
+            self._log_turn_state(session, cached_system, turn_messages, message, _is_delegated)
         
         print(f"[AGENT] Tools: {len(cached_tools)} | System: {len(cached_system[0]['text'])} chars")
         
@@ -494,14 +423,8 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         
         response_text = ""
         
-        # Track tool calls for context extraction and summary
+        # Track tool calls for summary
         tool_calls_this_turn = []
-        
-        # Tools that set working context (interface, tree, host, device)
-        CONTEXT_TOOLS = {
-            'navigate_to_node', 'take_control', 'click_element', 'execute_device_action',
-            'auto_discover_screen', 'get_node_tree', 'explore_navigation'
-        }
         
         # Tool loop
         while True:
@@ -563,20 +486,6 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                         'success': True
                     })
                     
-                    # Extract context from tool inputs (for action tools)
-                    if tool_use.name in CONTEXT_TOOLS:
-                        for key in ['userinterface_name', 'tree_id', 'host_name', 'device_id']:
-                            value = tool_use.input.get(key)
-                            if value:
-                                session.set_context(key, value)
-                                print(f"[CONTEXT] Set {key}={value}")
-
-                    # Extract context from tool outputs (discovery tools)
-                    output_updates = extract_context_from_result(tool_use.name, result)
-                    for key, value in output_updates.items():
-                        session.set_context(key, value)
-                        print(f"[CONTEXT] Set {key}={value} (from output)")
-                    
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": json.dumps(result)}]})
                 except Exception as e:
                     if LANGFUSE_ENABLED:
@@ -629,10 +538,6 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         # Save assistant response to session history (clean, no tool details)
         if response_text:
             session.add_message("assistant", response_text, agent=self.nickname)
-            
-            # Update rolling conversation summary (3-line max)
-            if not _is_delegated:
-                self._update_conversation_summary(session, message, response_text, tool_calls_this_turn)
         
         if LANGFUSE_ENABLED:
             flush()

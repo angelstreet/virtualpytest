@@ -153,8 +153,26 @@ class ScriptTools:
         # Check for errors - use exit_code since 'success' is not returned by script executor
         exit_code = result.get('exit_code', 0)
         if exit_code != 0:
+            report_url = result.get('report_url')
+            logs_url = result.get('logs_url')
+            script_success = result.get('script_success')
             error_msg = result.get('stderr') or result.get('error') or f'Script execution failed with exit code {exit_code}'
-            return {"content": [{"type": "text", "text": f"❌ Script failed: {error_msg}"}], "isError": True}
+            
+            response_text = f"❌ Script '{script_name}' failed\n"
+            response_text += f"Exit code: {exit_code}\n"
+            if script_success is not None:
+                response_text += f"Test result: {'PASSED' if script_success else 'FAILED'}\n"
+            response_text += f"Error: {error_msg}\n"
+            if report_url:
+                response_text += f"\n📄 Report: {report_url}"
+            if logs_url:
+                response_text += f"\n📋 Logs: {logs_url}"
+            
+            return {
+                "content": [{"type": "text", "text": response_text}],
+                "isError": True,
+                "result": self._filter_result_for_mcp(result)
+            }
         
         # Sync result - return directly (useScript.ts lines 283-300)
         print(f"[@MCP:execute_script] Sync execution completed")
@@ -243,8 +261,28 @@ class ScriptTools:
                 
                 elif current_status == 'failed':
                     print(f"[@MCP:poll_script] Script failed after {elapsed}s")
+                    task_result = task.get('result', {})
+                    exit_code = task_result.get('exit_code', 1)
+                    script_success = task_result.get('script_success')
+                    report_url = task_result.get('report_url', '')
+                    logs_url = task_result.get('logs_url', '')
                     error = task.get('error', 'Script execution failed')
-                    return {"content": [{"type": "text", "text": f"❌ Script failed: {error}"}], "isError": True}
+                    
+                    response_text = f"❌ Script '{script_name}' failed after {elapsed}s\n"
+                    response_text += f"Exit code: {exit_code}\n"
+                    if script_success is not None:
+                        response_text += f"Test result: {'PASSED' if script_success else 'FAILED'}\n"
+                    response_text += f"Error: {error}\n"
+                    if report_url:
+                        response_text += f"\n📄 Report: {report_url}"
+                    if logs_url:
+                        response_text += f"\n📋 Logs: {logs_url}"
+                    
+                    return {
+                        "content": [{"type": "text", "text": response_text}],
+                        "isError": True,
+                        "result": self._filter_result_for_mcp(task_result)
+                    }
                 
                 elif current_status in ['pending', 'running']:
                     print(f"[@MCP:poll_script] Status: {current_status} - {elapsed}s elapsed")
