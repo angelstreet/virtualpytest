@@ -46,7 +46,7 @@ def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tup
     time.sleep(3)
     if verify_func(): 
         print(f"    ✅ Step 2 worked → reverse = BACK x1")
-        return 'success', 2, [{'command': 'press_key', 'params': {'key': 'BACK'}, 'iterator': 1}]
+        return 'success', 2, [{'command': 'press_key', 'params': {'key': 'BACK', 'wait_time': 2000}, 'iterator': 1}]
     
     # Step 3: BACK again
     print(f"    🔄 Step 3: BACK again")
@@ -55,7 +55,7 @@ def smart_backward(executor, controller, verify_func: Callable[[], bool]) -> Tup
     time.sleep(3)
     if verify_func(): 
         print(f"    ✅ Step 3 worked → reverse = BACK x2")
-        return 'success', 3, [{'command': 'press_key', 'params': {'key': 'BACK'}, 'iterator': 2}]
+        return 'success', 3, [{'command': 'press_key', 'params': {'key': 'BACK', 'wait_time': 2000}, 'iterator': 2}]
     
     # Step 4: Entry→home retry action (recovery)
     if entry_edge:
