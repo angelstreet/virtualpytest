@@ -15,7 +15,6 @@ Provide EITHER userinterface_name (recommended) OR tree_id.""",
                 "properties": {
                     "tree_id": {"type": "string", "description": "Tree ID (or use userinterface_name)"},
                     "userinterface_name": {"type": "string", "description": "UI name (recommended)"},
-                    "team_id": {"type": "string", "description": "Team ID (optional)"},
                     "page": {"type": "integer", "description": "Page (default: 0)"},
                     "limit": {"type": "integer", "description": "Per page (default: 100)"}
                 },
@@ -28,18 +27,17 @@ Provide EITHER userinterface_name (recommended) OR tree_id.""",
 
 Requires take_control() first. tree_id auto-resolved from userinterface_name.
 
-Example: navigate_to_node(userinterface_name='google_tv', target_node_label='shop')""",
+Example: navigate_to_node(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv', target_node_label='shop')""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
+                    "host_name": {"type": "string", "description": "Host name where device is connected"},
+                    "device_id": {"type": "string", "description": "Device identifier (e.g. 'device1')"},
                     "userinterface_name": {"type": "string", "description": "UI name (auto-resolves tree_id)"},
                     "target_node_label": {"type": "string", "description": "Target screen (e.g., 'shop', 'home')"},
-                    "host_name": {"type": "string", "description": "Host name"},
-                    "device_id": {"type": "string", "description": "Device ID (default: device1)"},
-                    "tree_id": {"type": "string", "description": "Tree ID (optional - auto-resolved)"},
-                    "team_id": {"type": "string", "description": "Team ID (optional)"}
+                    "tree_id": {"type": "string", "description": "Tree ID (optional - auto-resolved)"}
                 },
-                "required": ["userinterface_name", "target_node_label"]
+                "required": ["host_name", "device_id", "userinterface_name", "target_node_label"]
             }
         },
         {
@@ -49,8 +47,7 @@ Shows nodes, edges, actions, verifications. No prerequisites.""",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "userinterface_name": {"type": "string", "description": "UI name"},
-                    "team_id": {"type": "string", "description": "Team ID (optional)"}
+                    "userinterface_name": {"type": "string", "description": "UI name"}
                 },
                 "required": ["userinterface_name"]
             }

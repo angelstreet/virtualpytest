@@ -214,8 +214,7 @@ Quick queries → use router tools. Complex tasks → load a skill.
 ## Rules
 - Quick query → use tool directly
 - Complex task → respond ONLY: `LOAD SKILL [name]`
-
-Be concise."""
+"""
     
     def _build_skill_prompt(self, ctx: Dict[str, Any] = None) -> str:
         """Build skill mode prompt"""
@@ -232,7 +231,7 @@ Be concise."""
 
 Tools: {', '.join(skill.tools)}
 
-CRITICAL: Never modify URLs from tools. Copy exactly."""
+Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."""
     
     def _build_cached_system(self, context: Dict[str, Any] = None) -> List[Dict]:
         """Build system prompt with cache control for Anthropic prompt caching"""

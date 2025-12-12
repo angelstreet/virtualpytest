@@ -52,8 +52,7 @@ class DeviceTools:
         
         response_text = f"📋 Registered Hosts ({len(host_list)} total):\n\n"
         for host in host_list:
-            status_icon = "✅" if host['status'] == 'online' else "⚠️"
-            response_text += f"{status_icon} {host['host_name']}\n"
+            response_text += f"✅ {host['host_name']}\n"
             response_text += f"   Devices: {host['device_count']}\n\n"
         
         response_text += "💡 Use get_device_info(host_name='...') for device details"
