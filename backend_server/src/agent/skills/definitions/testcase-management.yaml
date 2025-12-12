@@ -20,8 +20,8 @@ system_prompt: |
   Naming convention: TC_<CAT>_<NUM>_<CamelCase> (e.g., TC_AUTH_01_LoginFlow)
 
   CRITICAL:
-   - Call get_compatible_hosts only if host_name, device_id not available in history messages
-   - Call list_scripts only if script_name not available in history messages
+   - Call get_compatible_hosts only if host_name, device_id not available in current message or conversation history
+   - Call list_scripts only if script_name not available in current message or conversation history or conversation history
 
 
 tools:
