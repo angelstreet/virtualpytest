@@ -48,6 +48,7 @@ skills:
   - list_userinterfaces
   - list_hosts
   - get_analysis_queue_status
+  - take_control
 
 permissions:
   devices:
