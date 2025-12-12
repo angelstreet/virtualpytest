@@ -222,11 +222,8 @@ class QAManagerAgent:
 
         return f"""You are {config['nickname']} executing **{skill.name}** skill.
 
-## Context Usage
 ⚠️ CRITICAL: Always check conversation history for existing information before calling tools.
-- Reuse host_name, device_id, device_name, userinterface_name,  and other details already discovered
-- Avoid redundant tool calls when data is available in the conversation
-- Use known values from previous messages instead of re-fetching
+- Reuse host_name, device_id, device_name, userinterface_name and script_name from conversation history automatically
 
 {context_section}{skill.system_prompt}
 
@@ -257,20 +254,41 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         """Log the raw prompt (system + messages) being sent to the model"""
         print(f"[TURN] Incoming message: {incoming_message[:120]}{'...' if len(incoming_message) > 120 else ''}")
         print(f"[TURN] Full conversation: {len(turn_messages)} messages (all turns included)")
-        
-        # Show raw prompt exactly as sent to the model (system + messages)
-        print("---------------- RAW prompt ----------------")
+
+        # Show system prompt
+        print("---------------- SYSTEM PROMPT ----------------")
         try:
-            print(json.dumps({
-                "system": system_prompt,
-                "messages": turn_messages,
-            }, ensure_ascii=False, indent=2))
+            print(json.dumps(system_prompt, ensure_ascii=False, indent=2))
         except Exception:
+            print(str(system_prompt))
+        print("-----------------------------------------------")
+
+        # Separate history messages from current prompt
+        if len(turn_messages) > 1:
+            history_messages = turn_messages[:-1]  # All messages except the last one
+            current_prompt = turn_messages[-1]     # The last message (current user input)
+
+            print("---------------- HISTORY MESSAGES ----------------")
             try:
-                print(str({"system": system_prompt, "messages": turn_messages}))
+                print(json.dumps(history_messages, ensure_ascii=False, indent=2))
             except Exception:
-                print("<<unable to render prompt>>")
-        print("--------------------------------------------")
+                print(str(history_messages))
+            print("--------------------------------------------------")
+
+            print("---------------- CURRENT PROMPT ----------------")
+            try:
+                print(json.dumps(current_prompt, ensure_ascii=False, indent=2))
+            except Exception:
+                print(str(current_prompt))
+            print("-----------------------------------------------")
+        else:
+            # Only one message (current prompt)
+            print("---------------- CURRENT PROMPT ----------------")
+            try:
+                print(json.dumps(turn_messages, ensure_ascii=False, indent=2))
+            except Exception:
+                print(str(turn_messages))
+            print("-----------------------------------------------")
     
     def _update_conversation_summary(self, session: Session, user_msg: str, ai_response: str, tool_calls: List[Dict]):
         """
