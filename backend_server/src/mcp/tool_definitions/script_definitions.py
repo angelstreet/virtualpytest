@@ -21,7 +21,7 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
     {
         "name": "execute_script",
-        "description": "Execute a Python script on a device",
+        "description": "Execute a Python script on a device MCP-formatted response with script execution results",
         "inputSchema": {
             "type": "object",
             "properties": {
