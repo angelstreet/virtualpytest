@@ -105,18 +105,13 @@ class DeviceTools:
                 if device_id and device.get('device_id') != device_id:
                     continue
                 
-                # Remove confusing controller_status and controllers fields
-                # These are internal implementation details that shouldn't be exposed
+                # Only expose essential fields for agent (remove internal implementation details)
                 device_clean = {
                     'device_id': device.get('device_id'),
                     'device_name': device.get('device_name'),
                     'device_model': device.get('device_model'),
-                    'device_ip': device.get('device_ip'),
-                    'device_port': device.get('device_port'),
-                    'video_device': device.get('video_device'),
-                    'video_stream_path': device.get('video_stream_path'),
-                    'video_capture_path': device.get('video_capture_path'),
-                    **host_info
+                    'host_name': host_info.get('host_name'),
+                    'status': host_info.get('status')
                 }
                 all_devices.append(device_clean)
         

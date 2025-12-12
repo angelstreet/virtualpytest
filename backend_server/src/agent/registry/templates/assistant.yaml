@@ -25,6 +25,7 @@ metadata:
     - "List all testcases"
     - "Explore the sauce-demo web app"
     - "Show device status"
+    - "Navigate to test results page"
 
 subagents: []
 
@@ -43,13 +44,8 @@ available_skills:
   # Design (2 skills)
   - create-testcase
   - manage-requirements
-
-# Router mode tools (minimal - just for quick queries)
-skills:
-  - list_userinterfaces
-  - list_hosts
-  - get_analysis_queue_status
-  - take_control
+  # UI Interaction
+  - page-navigation
 
 permissions:
   devices:

@@ -1,0 +1,39 @@
+name: page-navigation
+version: 1.0.0
+description: Navigate and interact with frontend pages
+
+triggers:
+  - navigate to page
+  - show page
+  - open page
+  - highlight element
+  - click element
+  - interact with ui
+  - page navigation
+
+system_prompt: |
+  PAGE NAVIGATION WORKFLOW
+  1) get_available_pages() → list all navigable pages in the application
+  2) get_page_schema(page_path) → get interactive elements on a specific page
+  3) navigate_to_page(page_name, context) → navigate user's browser to a page
+  4) highlight_element(element_id, duration_ms) → highlight an element to draw attention
+  5) interact_with_element(element_id, action, params) → interact with UI elements
+     - Actions: click, select, filter, open, close, type, scroll_to
+  6) show_toast(message, severity) → show notification to user
+  
+  Available pages: device control, heatmap, test builder, campaign builder, navigation editor, test results
+  
+  Always check page_schema first to find correct element IDs before interacting.
+
+tools:
+  - get_available_pages
+  - get_page_schema
+  - navigate_to_page
+  - highlight_element
+  - interact_with_element
+  - show_toast
+
+platform: null
+requires_device: false
+timeout_seconds: 300
+
