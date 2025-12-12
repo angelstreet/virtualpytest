@@ -380,8 +380,6 @@ class AIGraphBuilder:
                         'available_nodes': context.get('nodes_raw', [])  # Include nodes used
                     }
                 
-                print(f"[@ai_builder] Cache MISS - this request will generate")
-                
                 # Step 5: SMART PREPROCESSING with context filtering
                 # nodes_raw is already a list of strings, actions_raw and verifications_raw are lists of dicts
                 node_list = context.get('nodes_raw', [])  # Already strings: ['home', 'live', ...]

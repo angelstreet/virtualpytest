@@ -137,12 +137,7 @@ def get_graph_by_fingerprint(fingerprint: str, team_id: str) -> Optional[Dict]:
             
     except Exception as e:
         error_str = str(e)
-        # Check if it's normal "no rows" (cache miss - not an error)
-        if 'PGRST116' in error_str or '0 rows' in error_str or 'no rows' in error_str.lower():
-            print(f"[@ai_graph_cache_db] Cache MISS: {fingerprint[:8]}... (normal)")
-        else:
-            print(f"[@ai_graph_cache_db] ❌ Error getting graph: {e}")
-        return None
+       return None
 
 
 def _increment_use_count(fingerprint: str, team_id: str) -> None:

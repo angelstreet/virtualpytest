@@ -44,8 +44,6 @@ export async function getCachedTestCaseList(
     return inflightRequest;
   }
   
-  console.log('[@testcaseCache] Cache MISS - fetching fresh data');
-  
   // Start new request
   inflightRequest = fetch(apiUrl)
     .then(async (response) => {

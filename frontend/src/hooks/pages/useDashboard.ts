@@ -74,8 +74,6 @@ export const useDashboard = (): UseDashboardReturn => {
       return;
     }
     
-    console.log('[@useDashboard] Cache MISS - fetching fresh data');
-    
     try {
       setIsRequestInProgress(true);
       setLoading(true);

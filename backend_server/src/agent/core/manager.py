@@ -252,6 +252,33 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
             tools[-1]["cache_control"] = {"type": "ephemeral"}
         
         return tools
+
+    def _log_turn_state(self, session: Session, turn_messages: List[Dict], summary: str, keep_last_n: int, incoming_message: str, is_delegated: bool) -> None:
+        """Log injected context, summary, and the messages being sent to the model"""
+        ctx_keys = ['userinterface_name', 'tree_id', 'host_name', 'device_id', 'session_id']
+        ctx_parts = [f"{k}={session.context[k]}" for k in ctx_keys if session.context.get(k)]
+        context_line = ", ".join(ctx_parts) if ctx_parts else "None"
+        
+        print(f"[TURN] Incoming message: {incoming_message[:120]}{'...' if len(incoming_message) > 120 else ''}")
+        print(f"[TURN] Injected context: {context_line}")
+        
+        if is_delegated:
+            print("[TURN] Delegated call - summary not included")
+        else:
+            print("[TURN] Rolling summary:")
+            print(summary if summary else "(none)")
+        
+        # Show the messages that will be sent to the model
+        print(f"[TURN] Assembled turn messages (keep_last_n={keep_last_n}):")
+        for idx, msg in enumerate(turn_messages):
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                try:
+                    content = json.dumps(content)
+                except Exception:
+                    content = str(content)
+            content_preview = content[:200] + ("..." if len(str(content)) > 200 else "")
+            print(f"  [{idx}] {msg.get('role')}: {content_preview}")
     
     def _update_conversation_summary(self, session: Session, user_msg: str, ai_response: str, tool_calls: List[Dict]):
         """
@@ -385,6 +412,7 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
         # Build message history: summary + last 2 messages only (efficient)
         turn_messages = []
         KEEP_LAST_N = 2  # Keep last 1 turn (2 messages: 1 user + 1 assistant)
+        summary = ""
         
         if _is_delegated:
             turn_messages = [{"role": "user", "content": message}]
@@ -410,6 +438,9 @@ CRITICAL: Never modify URLs from tools. Copy exactly."""
                     "role": msg["role"],
                     "content": msg["content"]
                 })
+        
+        # Log exactly what will be sent to the model for visibility
+        self._log_turn_state(session, turn_messages, summary, KEEP_LAST_N, message, _is_delegated)
         
         # Build cached system prompt and tools
         cached_system = self._build_cached_system(session.context)

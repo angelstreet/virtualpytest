@@ -52,9 +52,7 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str, silent: bool = Fal
                 del _unified_cache_timestamps[cache_key]
                 if not silent:
                     print(f"[@navigation:cache:get_cached_unified_graph] Cache expired, removed: {cache_key}")
-    
-    if not silent:
-        print(f"[@navigation:cache:get_cached_unified_graph] ❌ Cache MISS: {cache_key}")
+
     return None
 
 def refresh_cache_timestamp(root_tree_id: str, team_id: str) -> bool:

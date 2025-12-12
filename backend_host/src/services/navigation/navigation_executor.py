@@ -1264,8 +1264,6 @@ class NavigationExecutor:
             print(f"[@navigation_executor:get_navigation_preview] ✅ Cache HIT for {target_node_id} from {current_node_id or 'root'}")
             return self._preview_cache[cache_key]
         
-        print(f"[@navigation_executor:get_navigation_preview] ❌ Cache MISS for {target_node_id} from {current_node_id or 'root'} - calculating path")
-        
         try:
             # Get navigation path using unified cache (should be pre-populated by tree loading)
             transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)

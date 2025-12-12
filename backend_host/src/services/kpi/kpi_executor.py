@@ -541,7 +541,8 @@ class KPIExecutor:
         team_id: str,
         success: bool,
         kpi_ms: Optional[int],
-        error: Optional[str]
+        error: Optional[str],
+        report_url: Optional[str] = None
     ):
         """
         Update execution_results with KPI measurement result using shared database function
@@ -554,11 +555,15 @@ class KPIExecutor:
                 team_id=team_id,
                 kpi_measurement_success=success,
                 kpi_measurement_ms=kpi_ms,
-                kpi_measurement_error=error
+                kpi_measurement_error=error,
+                kpi_report_url=report_url
             )
             
             if result:
-                print(f"💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success})")
+                if report_url:
+                    print(f"💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success}) - Report: {report_url}")
+                else:
+                    print(f"💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success})")
             else:
                 print(f"⚠️ [KPIExecutor] Failed to update execution_result_id: {execution_result_id[:8]}")
                 
