@@ -172,26 +172,33 @@ class QAManagerAgent:
         if not any([ui_name, tree_id, host, device, hosts_list, devices_list]):
             return ""
         
-        lines = ["## Context"]
+        lines = [
+            "## ⚠️ ACTIVE CONTEXT - USE THESE VALUES DIRECTLY",
+            ""
+        ]
+        
+        # Show active working context as variable assignments
+        if host:
+            lines.append(f"✓ host_name = \"{host}\"")
+        if device:
+            lines.append(f"✓ device_id = \"{device}\"")
+        if ui_name:
+            lines.append(f"✓ userinterface_name = \"{ui_name}\"")
+        if tree_id:
+            lines.append(f"✓ tree_id = \"{tree_id}\"")
         
         # Show discovered resources
         if hosts_list:
-            lines.append(f"Hosts: {', '.join(hosts_list)}")
+            lines.append(f"✓ available_hosts = [{', '.join(repr(h) for h in hosts_list)}]")
         if devices_list:
-            device_summary = ', '.join([f"{d.get('device_id')}" for d in devices_list[:3]])
+            device_summary = ', '.join([f'"{d.get("device_id")}"' for d in devices_list[:3]])
             if len(devices_list) > 3:
-                device_summary += f" +{len(devices_list) - 3}"
-            lines.append(f"Devices: {device_summary}")
+                device_summary += f", ... (+{len(devices_list) - 3} more)"
+            lines.append(f"✓ available_devices = [{device_summary}]")
         
-        # Show active working context
-        if ui_name:
-            lines.append(f"Interface: {ui_name}")
-        if tree_id:
-            lines.append(f"Tree: {tree_id}")
-        if host:
-            lines.append(f"Host: {host}")
-        if device:
-            lines.append(f"Device: {device}")
+        # Single, clear instruction
+        lines.append("")
+        lines.append("⚠️ Do NOT re-fetch these with get_device_info, get_compatible_hosts, or list_userinterfaces.")
         
         # Add TWO newlines after context section (creates blank line separator)
         return '\n'.join(lines) + "\n\n"
