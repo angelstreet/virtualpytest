@@ -69,9 +69,9 @@ class LogsTools:
     
     def list_services(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        List available systemd services
+        List available systemd services for monitoring.
         
-        Returns list of VirtualPyTest services that can be monitored.
+        Example: list_services()
         
         Args:
             params: {}

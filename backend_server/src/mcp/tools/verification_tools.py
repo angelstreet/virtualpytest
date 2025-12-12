@@ -20,15 +20,14 @@ class VerificationTools:
     
     def list_verifications(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        List available verification types for a device
+        List available verification types for a device.
         
-        REUSES existing /server/system/device-actions endpoint (returns both actions and verifications)
+        Example: list_verifications(host_name='sunri-pi1', device_id='device1')
         
         Args:
             params: {
-                'device_id': str (REQUIRED),
-                'host_name': str (REQUIRED),
-                'team_id': str (OPTIONAL)
+                'host_name': str (REQUIRED - host name where device is connected),
+                'device_id': str (REQUIRED - device identifier)
             }
             
         Returns:
@@ -228,18 +227,18 @@ class VerificationTools:
     
     def verify_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute verifications for a specific node (frontend: NodeEditDialog "Run" button)
+        Execute verifications for a specific node. Runs embedded verifications using executeBatch endpoint.
         
-        This runs the embedded verifications directly using /server/verification/executeBatch.
-        Frontend pattern: useVerification.ts handleTest (line 247) - NOT navigation!
+        Example: verify_node(node_id='home', tree_id='abc', userinterface_name='google_tv')
         
         Args:
-            node_id: Node identifier (REQUIRED)
-            tree_id: Navigation tree ID (REQUIRED)
-            device_id: Device identifier (optional - defaults to 'device1')
-            host_name: Host name (optional - defaults to 'sunri-pi1')
-            userinterface_name: User interface name (REQUIRED)
-            team_id: Team ID (optional - defaults to default)
+            params: {
+                'node_id': str (REQUIRED - node identifier),
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'userinterface_name': str (REQUIRED - user interface name),
+                'device_id': str (OPTIONAL - device identifier),
+                'host_name': str (OPTIONAL - host name where device is connected)
+            }
         
         Returns:
             Verification results with pass/fail status

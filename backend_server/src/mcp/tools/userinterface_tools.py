@@ -21,13 +21,16 @@ class UserInterfaceTools:
     
     def create_userinterface(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a new userinterface (app model)
+        Create a new userinterface (app model).
+        
+        Example: create_userinterface(name='netflix_android', device_model='android_tv')
         
         Args:
-            name: Interface name (e.g., 'netflix_android')
-            device_model: Device model ('android_mobile', 'android_tv', 'web', etc.)
-            description: Optional description
-            team_id: Team ID (optional - uses default)
+            params: {
+                'name': str (REQUIRED - interface name like netflix_android),
+                'device_model': str (REQUIRED - device model like android_tv or web),
+                'description': str (OPTIONAL - optional description)
+            }
         
         Returns:
             Created userinterface with root tree info
@@ -145,7 +148,17 @@ class UserInterfaceTools:
             return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
     
     def list_userinterfaces(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """List all userinterfaces"""
+        """
+        List all userinterfaces.
+        
+        Example: list_userinterfaces()
+        
+        Args:
+            params: {}
+        
+        Returns:
+            MCP-formatted response with list of interfaces
+        """
         try:
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
@@ -176,15 +189,16 @@ class UserInterfaceTools:
     
     def get_userinterface_complete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get complete userinterface with ALL nodes, edges, subtrees, and metrics
+        Get complete userinterface with ALL nodes, edges, subtrees, and metrics. Accepts EITHER userinterface_id OR userinterface_name.
         
-        Can accept EITHER userinterface_id (UUID) OR userinterface_name (string)
+        Example: get_userinterface_complete(userinterface_name='google_tv')
         
         Args:
-            userinterface_id: User interface UUID (OPTIONAL if userinterface_name provided)
-            userinterface_name: User interface name (OPTIONAL if userinterface_id provided)
-            team_id: Team ID (optional - uses default)
-            include_metrics: Include metrics data (optional - default true)
+            params: {
+                'userinterface_id': str (OPTIONAL - UUID if not using name),
+                'userinterface_name': str (OPTIONAL - name if not using ID),
+                'include_metrics': bool (OPTIONAL - include metrics data default true)
+            }
         
         Returns:
             Complete tree structure with nodes, edges, subtrees, metrics
@@ -283,13 +297,16 @@ class UserInterfaceTools:
     
     def list_nodes(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        List all nodes in a tree
+        List all nodes in a navigation tree.
+        
+        Example: list_nodes(tree_id='abc123')
         
         Args:
-            tree_id: Navigation tree ID
-            team_id: Team ID (optional - uses default)
-            page: Page number (optional - default 0)
-            limit: Results per page (optional - default 100)
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'page': int (OPTIONAL - page number default 0),
+                'limit': int (OPTIONAL - results per page default 100)
+            }
         
         Returns:
             List of nodes with details
@@ -348,12 +365,15 @@ class UserInterfaceTools:
     
     def list_edges(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        List all edges in a tree
+        List all edges in a navigation tree.
+        
+        Example: list_edges(tree_id='abc123')
         
         Args:
-            tree_id: Navigation tree ID
-            team_id: Team ID (optional - uses default)
-            node_ids: Optional list of node IDs to filter edges
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'node_ids': list (OPTIONAL - filter by node IDs)
+            }
         
         Returns:
             List of edges with action sets
@@ -408,14 +428,15 @@ class UserInterfaceTools:
     
     def delete_userinterface(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Delete a userinterface (soft delete)
+        Delete a userinterface (soft delete). DESTRUCTIVE OPERATION - requires explicit confirmation.
         
-        ⚠️ DESTRUCTIVE OPERATION - Requires explicit confirmation
+        Example: delete_userinterface(userinterface_id='abc123', confirm=true)
         
         Args:
-            userinterface_id: User interface UUID to delete
-            confirm: REQUIRED - Must be true to proceed (safety check)
-            team_id: Team ID (optional - uses default)
+            params: {
+                'userinterface_id': str (REQUIRED - UUID to delete),
+                'confirm': bool (REQUIRED - must be true to proceed as safety check)
+            }
         
         Returns:
             Success confirmation

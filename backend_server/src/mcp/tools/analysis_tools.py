@@ -36,17 +36,18 @@ class AnalysisTools:
     
     def get_execution_results(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get execution results from database with filters.
-        Automatically fetches and includes report content for analysis.
+        Get execution results from database with filters. Automatically fetches and includes report content.
+        
+        Example: get_execution_results(userinterface_name='google_tv', limit=5)
         
         Args:
-            userinterface_name: Filter by app/interface
-            device_name: Filter by device
-            host_name: Filter by host
-            success: Filter by success status
-            checked: Filter by checked status
-            limit: Max results (default 1)
-            include_report: Auto-fetch report content (default True)
+            params: {
+                'userinterface_name': str (OPTIONAL - filter by interface),
+                'device_name': str (OPTIONAL - filter by device),
+                'host_name': str (OPTIONAL - filter by host),
+                'success': bool (OPTIONAL - filter by success status),
+                'limit': int (OPTIONAL - max results default 1)
+            }
         
         Returns:
             List of execution results with pre-fetched report content
@@ -167,11 +168,15 @@ class AnalysisTools:
         """
         Save analysis results to database.
         
+        Example: update_execution_analysis(script_result_id='123', classification='BUG', explanation='Button not found')
+        
         Args:
-            script_result_id: ID of script result to update
-            discard: True if false positive, False if valid
-            classification: BUG, SCRIPT_ISSUE, SYSTEM_ISSUE, VALID_PASS, VALID_FAIL
-            explanation: Brief analysis explanation
+            params: {
+                'script_result_id': str (REQUIRED - ID of script result to update),
+                'discard': bool (OPTIONAL - true if false positive),
+                'classification': str (REQUIRED - BUG SCRIPT_ISSUE SYSTEM_ISSUE VALID_PASS VALID_FAIL),
+                'explanation': str (REQUIRED - brief analysis explanation)
+            }
         
         Returns:
             Success/failure status
@@ -298,10 +303,15 @@ class AnalysisTools:
     
     def get_analysis_queue_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get analysis queue status - pending items and session processing stats.
+        Get analysis queue status with pending items and session processing stats.
+        
+        Example: get_analysis_queue_status()
+        
+        Args:
+            params: {}
         
         Returns:
-            Queue lengths and session statistics (no DB queries)
+            Queue lengths and session statistics
         """
         try:
             # Get Redis queue lengths

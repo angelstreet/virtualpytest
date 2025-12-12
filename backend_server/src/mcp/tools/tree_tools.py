@@ -106,28 +106,19 @@ class TreeTools:
     
     def create_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a node in navigation tree
+        Create a node in navigation tree. Remember to add verifications and test them after creation.
         
-        ⚠️ REMINDER: Add verifications and test them
-        
-        After creating a node, consider:
-        1. Add verifications to the node (unique stable elements)
-        2. Test them: verify_node(node_id='...', tree_id='...')
-        3. Create edges to/from this node
-        4. Test each edge: get_edge() then execute_device_action()
-        
-        **Tools for validation:**
-        - verify_node(node_id, tree_id) - Test node verifications
-        - get_edge(edge_id, tree_id) - Get edge details
-        - execute_device_action(actions=[...]) - Test edge actions
+        Example: create_node(tree_id='abc', node_id='home', label='Home Screen')
         
         Args:
-            tree_id: Navigation tree ID
-            node_id: Node identifier (optional - auto-generated if omitted)
-            label: Node label/name
-            type: Node type (default: "screen")
-            position: {x, y} coordinates (optional)
-            data: Custom metadata (optional)
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'node_id': str (OPTIONAL - node identifier auto-generated if omitted),
+                'label': str (REQUIRED - node label or name),
+                'type': str (OPTIONAL - node type default screen),
+                'position': dict (OPTIONAL - x y coordinates),
+                'data': dict (OPTIONAL - custom metadata)
+            }
         
         Returns:
             Created node object
@@ -178,22 +169,19 @@ class TreeTools:
     
     def update_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update an existing node
+        Update an existing node. Verifications in updates will be validated against available device controllers.
+        
+        Example: update_node(tree_id='abc', node_id='home', updates={'label': 'Home Screen New'})
         
         Args:
-            tree_id: Navigation tree ID
-            node_id: Node identifier to update
-            updates: Dict with fields to update (label, position, type, data)
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'node_id': str (REQUIRED - node identifier to update),
+                'updates': dict (REQUIRED - fields to update like label position type or data)
+            }
         
         Returns:
             Updated node object
-            
-        ⚠️ VERIFICATION VALIDATION:
-        If updates contain 'data' with 'verifications', they will be validated
-        against available device controllers before saving.
-        
-        To see valid verification commands, call:
-            list_verifications(device_id='device_id', host_name='host_name')
         """
         try:
             tree_id = params['tree_id']
@@ -321,11 +309,15 @@ class TreeTools:
     
     def delete_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Delete a node from navigation tree
+        Delete a node from navigation tree.
+        
+        Example: delete_node(tree_id='abc', node_id='home')
         
         Args:
-            tree_id: Navigation tree ID
-            node_id: Node identifier to delete
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'node_id': str (REQUIRED - node identifier to delete)
+            }
         
         Returns:
             Success confirmation
@@ -360,235 +352,17 @@ class TreeTools:
         """
         Create an edge between two nodes
         
-        ⚠️ CRITICAL: INCREMENTAL VALIDATION REQUIRED
-        
-        After creating an edge, you MUST test it before creating the next one.
-        
-        **Workflow (AI must follow):**
-          1. create_edge(...)  
-          2. get_edge(edge_id='...', tree_id='...')  ← GET EDGE DETAILS
-          3. execute_device_action(actions=edge['action_sets'][0]['actions'], ...)  ← TEST IT
-          4. If fails: update_edge() with correct selectors, test again
-          5. If success: Create next edge
-        
-        **Why this matters:**
-        - Catches selector errors immediately
-        - Prevents cascading failures (10 broken edges)
-        - Easier to debug when tested incrementally
-        - Ensures each transition works before building on it
-        
-        **Tools for validation:**
-        - get_edge(edge_id, tree_id) - Get edge details
-        - execute_device_action(actions=[...]) - Test edge actions
-        - navigate_to_node(target_node_label, tree_id) - Test full path
-        - verify_node(node_id, tree_id) - Test node verifications
+        Example: create_edge(tree_id='abc', source_node_id='home', target_node_id='settings', source_label='home', target_label='settings', action_sets=[...])
         
         Args:
-            tree_id: Navigation tree ID (REQUIRED)
-            source_node_id: Source node_id string (REQUIRED) - USE 'node_id' field from list_navigation_nodes
-                           Example: "home" (NOT the UUID from 'id' field!)
-            target_node_id: Target node_id string (REQUIRED) - USE 'node_id' field from list_navigation_nodes
-                           Example: "tv_guide" (NOT the UUID from 'id' field!)
-            source_label: Source node label (REQUIRED) - same as source_node_id for simple nodes
-            target_label: Target node label (REQUIRED) - same as target_node_id for simple nodes
-            action_sets: Array of action sets (REQUIRED) - MUST contain bidirectional actions
-                         
-                         ⚠️ CRITICAL FORMAT RULES:
-                         1. Web/Remote: MUST include "action_type" field in EACH action
-                         2. Mobile/ADB: NO "action_type" field needed (controller routes by device model)
-                         3. Web/Remote: Include "wait_time" in params for timing control
-                         4. Mobile/ADB: NO "wait_time" needed (ADB handles timing automatically)
-                         5. Each action_set needs "id", "label", "actions", "retry_actions", "failure_actions"
-                         6. Bidirectional edges need 2 action_sets (forward + backward)
-                         
-                         ⛔ COMMAND VALIDATION - MUST READ:
-                         - ONLY use commands from list_actions() for your device model
-                         - Invalid commands will FAIL with clear error messages
-                         - For android_mobile/tv: Use "click_element" with text parameter
-                         - NEVER use "click_element_by_index" - this command DOES NOT EXIST
-                         - Example: {"command": "click_element", "params": {"element_id": "Home Tab"}}
-                         - If unsure, call list_actions(device_id='...', host_name='...') first
-                         
-                         📋 COMPLETE EXAMPLES (COPY THESE EXACTLY):
-                         
-                         🔴 REMOTE/INFRARED (STB, TV):
-                         [
-                           {
-                             "id": "home_to_settings",
-                             "label": "home → settings",
-                             "actions": [
-                               {
-                                 "command": "press_key",
-                                 "action_type": "remote",
-                                 "params": {
-                                   "key": "RIGHT",
-                                   "wait_time": 1500
-                                 }
-                               }
-                             ],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           },
-                           {
-                             "id": "settings_to_home",
-                             "label": "settings → home",
-                             "actions": [
-                               {
-                                 "command": "press_key",
-                                 "action_type": "remote",
-                                 "params": {
-                                   "key": "LEFT",
-                                   "wait_time": 1500
-                                 }
-                               }
-                             ],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           }
-                         ]
-                         
-                         🌐 WEB (Playwright/Browser):
-                         [
-                           {
-                             "id": "welcome_to_admin",
-                             "label": "welcome → admin",
-                             "actions": [
-                               {
-                                 "command": "click_element",
-                                 "action_type": "web",
-                                 "params": {
-                                   "element_id": "Admin",
-                                   "wait_time": 1000
-                                 }
-                               }
-                             ],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           },
-                           {
-                             "id": "admin_to_welcome",
-                             "label": "admin → welcome",
-                             "actions": [
-                               {
-                                 "command": "click_element",
-                                 "action_type": "web",
-                                 "params": {
-                                   "element_id": "Home",
-                                   "wait_time": 1000
-                                 }
-                               }
-                             ],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           }
-                         ]
-                         
-                         📱 MOBILE/ADB (Android):
-                         [
-                           {
-                             "id": "home_to_home_movies_series",
-                             "label": "home → home_movies_series",
-                             "actions": [
-                               {
-                                 "command": "click_element",
-                                 "params": {
-                                   "element_id": "Movies & Series Tab"
-                                 }
-                               }
-                             ],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           },
-                           {
-                             "id": "home_movies_series_to_home",
-                             "label": "home_movies_series → home",
-                             "actions": [
-                               {
-                                 "command": "click_element",
-                                 "params": {
-                                   "element_id": "Home Tab"
-                                 }
-                               }
-                             ],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           }
-                         ]
-                         
-                         📊 MULTIPLE ACTIONS IN SEQUENCE (Web example):
-                         [
-                           {
-                             "id": "home_to_settings",
-                             "label": "home → settings",
-                             "actions": [
-                               {
-                                 "command": "press_key",
-                                 "action_type": "web",
-                                 "params": {
-                                   "key": "OK",
-                                   "wait_time": 200
-                                 }
-                               },
-                               {
-                                 "command": "tap_x_y",
-                                 "action_type": "web",
-                                 "params": {
-                                   "x": 226,
-                                   "y": 847,
-                                   "wait_time": 500
-                                 }
-                               }
-                             ],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           },
-                           {
-                             "id": "settings_to_home",
-                             "label": "settings → home",
-                             "actions": [],
-                             "retry_actions": [],
-                             "failure_actions": []
-                           }
-                         ]
-                         
-                         ❌ COMMON MISTAKES TO AVOID:
-                         1. Web/Remote: Missing "action_type" field → ALWAYS include it
-                         2. Mobile/ADB: Including "action_type" → DO NOT include it
-                         3. Mobile/ADB: Including "wait_time" → DO NOT include it (ADB handles timing)
-                         4. Using "delay" at action level → Never use "delay", use "wait_time" in params (web/remote only)
-                         5. Only one action_set → Need 2 for bidirectional navigation
-                         6. Wrong param names: 
-                            - Remote: use "key" (e.g., "RIGHT", "OK", "BACK")
-                            - Web/Mobile: use "element_id" (e.g., "Admin", "Movies & Series Tab")
-            
-            edge_id: Edge identifier (optional - auto-generated if omitted)
-            label: Edge label (optional - auto-generated from labels)
-            priority: Edge priority p1/p2/p3 (optional - default p3)
-        
-        IMPORTANT: When calling list_navigation_nodes, the response contains TWO ID fields:
-            - 'node_id': "home" ← USE THIS for source_node_id and target_node_id
-            - 'id': "ce97c317-7394-466d-b20d-328a5d53e479" ← DO NOT USE THIS (database UUID)
-        
-        Example:
-            list_navigation_nodes returns:
-                • home (id: ce97c317-7394-466d-b20d-328a5d53e479, type: screen)
-                           ↑ DO NOT USE                ↑ USE THIS
-            
-            Correct call:
-                create_edge(
-                    source_node_id="home",      ← Correct! Uses node_id string
-                    target_node_id="tv_guide",  ← Correct! Uses node_id string
-                    source_label="home",
-                    target_label="tv_guide",
-                    ...
-                )
-            
-            WRONG call:
-                create_edge(
-                    source_node_id="ce97c317-7394-466d-b20d-328a5d53e479",  ← WRONG! This is the database UUID
-                    target_node_id="3a90bcb0-cd5c-4c80-bd7a-4b7ef9869744",  ← WRONG! This is the database UUID
-                    ...
-                )
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'source_node_id': str (REQUIRED - source node ID),
+                'target_node_id': str (REQUIRED - target node ID),
+                'source_label': str (REQUIRED - source node label),
+                'target_label': str (REQUIRED - target node label),
+                'action_sets': list (REQUIRED - array of action sets with bidirectional actions)
+            }
         
         Returns:
             Created edge object
@@ -757,26 +531,16 @@ class TreeTools:
     
     def update_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update an existing edge's actions
+        Update an existing edge's actions. Must use same format as create_edge.
+        
+        Example: update_edge(tree_id='abc', edge_id='edge1', action_sets=[...])
         
         Args:
-            tree_id: Navigation tree ID (REQUIRED)
-            edge_id: Edge identifier to update (REQUIRED)
-            action_sets: New action sets to replace existing (REQUIRED)
-                         
-                         ⚠️ MUST USE SAME FORMAT AS create_edge:
-                         - Web/Remote: Include "action_type" in each action
-                         - Mobile/ADB: NO "action_type" field
-                         - Web/Remote: Include "wait_time" in params
-                         - Mobile/ADB: NO "wait_time" field
-                         - Include "id", "label", "actions", "retry_actions", "failure_actions"
-                         
-                         See create_edge() docstring for complete examples.
-                         
-                         Quick Reference:
-                         - Remote: {"command": "press_key", "action_type": "remote", "params": {"key": "RIGHT", "wait_time": 1500}}
-                         - Web: {"command": "click_element", "action_type": "web", "params": {"element_id": "Admin", "wait_time": 1000}}
-                         - Mobile: {"command": "click_element", "params": {"element_id": "Movies & Series Tab"}}
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'edge_id': str (REQUIRED - edge identifier to update),
+                'action_sets': list (REQUIRED - new action sets to replace existing)
+            }
         
         Returns:
             Updated edge object
@@ -908,11 +672,15 @@ class TreeTools:
     
     def delete_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Delete an edge from navigation tree
+        Delete an edge from navigation tree.
+        
+        Example: delete_edge(tree_id='abc', edge_id='edge1')
         
         Args:
-            tree_id: Navigation tree ID
-            edge_id: Edge identifier to delete
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'edge_id': str (REQUIRED - edge identifier to delete)
+            }
         
         Returns:
             Success confirmation
@@ -945,12 +713,16 @@ class TreeTools:
     
     def create_subtree(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a subtree for a parent node
+        Create a subtree for a parent node.
+        
+        Example: create_subtree(parent_tree_id='abc', parent_node_id='menu', subtree_name='Menu Options')
         
         Args:
-            parent_tree_id: Parent tree ID
-            parent_node_id: Parent node ID to attach subtree to
-            subtree_name: Name for the subtree
+            params: {
+                'parent_tree_id': str (REQUIRED - parent tree ID),
+                'parent_node_id': str (REQUIRED - parent node ID to attach subtree),
+                'subtree_name': str (REQUIRED - name for the subtree)
+            }
         
         Returns:
             Created subtree with new tree_id
@@ -995,11 +767,15 @@ class TreeTools:
     
     def get_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get a specific node by ID
+        Get a specific node by ID.
+        
+        Example: get_node(tree_id='abc', node_id='home')
         
         Args:
-            tree_id: Navigation tree ID
-            node_id: Node identifier
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'node_id': str (REQUIRED - node identifier)
+            }
         
         Returns:
             Full node object with all fields
@@ -1040,11 +816,15 @@ class TreeTools:
     
     def get_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get a specific edge by ID
+        Get a specific edge by ID.
+        
+        Example: get_edge(tree_id='abc', edge_id='edge1')
         
         Args:
-            tree_id: Navigation tree ID
-            edge_id: Edge identifier
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'edge_id': str (REQUIRED - edge identifier)
+            }
         
         Returns:
             Full edge object with all fields
@@ -1084,40 +864,22 @@ class TreeTools:
     
     def save_node_screenshot(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Take screenshot and save it to a specific node (frontend: useNode.ts takeAndSaveScreenshot)
+        Take screenshot and save it to a specific node. Wraps screenshot capture and node update into single operation.
         
-        This wraps the screenshot capture and node update into a single operation:
-        1. Takes screenshot from device
-        2. Saves it to userinterface-specific path
-        3. Updates node with screenshot URL
-        
-        Frontend equivalent: useNode.ts line 99-160
+        Example: save_node_screenshot(tree_id='abc', node_id='home', label='Home Screen', host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv')
         
         Args:
-            tree_id: Navigation tree ID (REQUIRED)
-            node_id: Node identifier to attach screenshot to (REQUIRED)
-            label: Node label used as filename (REQUIRED)
-            host_name: Host where device is connected (REQUIRED)
-            device_id: Device identifier (REQUIRED)
-            userinterface_name: User interface name for organizing screenshots (REQUIRED)
-            team_id: Team ID (optional - defaults to default)
-        
-        Returns:
-            {
-                "success": true,
-                "screenshot_url": "/screenshots/netflix_mobile/home_screen.png",
-                "node_id": "home"
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'node_id': str (REQUIRED - node identifier to attach screenshot),
+                'label': str (REQUIRED - node label used as filename),
+                'host_name': str (REQUIRED - host where device is connected),
+                'device_id': str (REQUIRED - device identifier),
+                'userinterface_name': str (REQUIRED - interface name for organizing screenshots)
             }
         
-        Example:
-            save_node_screenshot({
-                "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
-                "node_id": "home",
-                "label": "Home Screen",
-                "host_name": "sunri-pi1",
-                "device_id": "device1",
-                "userinterface_name": "netflix_mobile"
-            })
+        Returns:
+            Success with screenshot URL and node ID
         """
         try:
             import re

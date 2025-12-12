@@ -58,7 +58,17 @@ class RequirementsTools:
         return {"content": [{"type": "text", "text": response_text}], "isError": False}
     
     def list_requirements(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """List all requirements"""
+        """
+        List all requirements.
+        
+        Example: list_requirements()
+        
+        Args:
+            params: {}
+        
+        Returns:
+            List of requirements with codes and names
+        """
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         result = self.api.get('/server/requirements/list', params={
@@ -87,25 +97,22 @@ class RequirementsTools:
     
     def update_requirement(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update an existing requirement
+        Update an existing requirement.
+        
+        Example: update_requirement(requirement_id='123', priority='high', status='in_progress')
         
         Args:
             params: {
-                'requirement_id': str (REQUIRED)
-                'requirement_name': str (OPTIONAL)
-                'requirement_code': str (OPTIONAL)
-                'description': str (OPTIONAL)
-                'priority': str (OPTIONAL)
-                'category': str (OPTIONAL)
-                'app_type': str (OPTIONAL)
-                'device_model': str (OPTIONAL)
-                'status': str (OPTIONAL)
-                'acceptance_criteria': str (OPTIONAL)
-                'team_id': str (OPTIONAL)
+                'requirement_id': str (REQUIRED - requirement ID to update),
+                'requirement_name': str (OPTIONAL - new name),
+                'requirement_code': str (OPTIONAL - new code),
+                'description': str (OPTIONAL - new description),
+                'priority': str (OPTIONAL - new priority),
+                'status': str (OPTIONAL - new status)
             }
             
         Returns:
-            MCP-formatted response
+            Updated requirement details
         """
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         requirement_id = params.get('requirement_id')
@@ -157,16 +164,17 @@ class RequirementsTools:
     
     def get_requirement(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get requirement by ID
+        Get requirement by ID.
+        
+        Example: get_requirement(requirement_id='REQ-001')
         
         Args:
             params: {
-                'requirement_id': str (REQUIRED)
-                'team_id': str (OPTIONAL)
+                'requirement_id': str (REQUIRED - requirement ID to fetch)
             }
             
         Returns:
-            MCP-formatted response with requirement details
+            Requirement details with linked test cases
         """
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         requirement_id = params.get('requirement_id')
@@ -231,16 +239,18 @@ class RequirementsTools:
     
     def unlink_testcase_from_requirement(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Unlink testcase from requirement
+        Unlink testcase from requirement.
+        
+        Example: unlink_testcase_from_requirement(testcase_id='tc1', requirement_id='req1')
         
         Args:
             params: {
-                'testcase_id': str (REQUIRED)
-                'requirement_id': str (REQUIRED)
+                'testcase_id': str (REQUIRED - test case ID),
+                'requirement_id': str (REQUIRED - requirement ID)
             }
             
         Returns:
-            MCP-formatted response
+            Success confirmation
         """
         body = {
             'testcase_id': params.get('testcase_id'),
@@ -260,15 +270,17 @@ class RequirementsTools:
     
     def get_testcase_requirements(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get all requirements linked to a testcase
+        Get all requirements linked to a testcase.
+        
+        Example: get_testcase_requirements(testcase_id='tc123')
         
         Args:
             params: {
-                'testcase_id': str (REQUIRED)
+                'testcase_id': str (REQUIRED - test case ID)
             }
             
         Returns:
-            MCP-formatted response with requirements list
+            List of requirements linked to the test case
         """
         testcase_id = params.get('testcase_id')
         
@@ -298,16 +310,17 @@ class RequirementsTools:
     
     def get_requirement_coverage(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get detailed coverage for a requirement
+        Get detailed coverage for a requirement showing linked test cases and executions.
+        
+        Example: get_requirement_coverage(requirement_id='REQ-001')
         
         Args:
             params: {
-                'requirement_id': str (REQUIRED)
-                'team_id': str (OPTIONAL)
+                'requirement_id': str (REQUIRED - requirement ID to check coverage)
             }
             
         Returns:
-            MCP-formatted response with coverage details
+            Coverage details with test cases and execution stats
         """
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         requirement_id = params.get('requirement_id')
@@ -338,17 +351,18 @@ class RequirementsTools:
     
     def get_coverage_summary(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get coverage summary across all requirements
+        Get coverage summary across all requirements with breakdowns by priority and category.
+        
+        Example: get_coverage_summary()
         
         Args:
             params: {
-                'team_id': str (OPTIONAL)
-                'category': str (OPTIONAL)
-                'priority': str (OPTIONAL)
+                'category': str (OPTIONAL - filter by category),
+                'priority': str (OPTIONAL - filter by priority)
             }
             
         Returns:
-            MCP-formatted response with coverage metrics
+            Coverage metrics and percentages
         """
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
@@ -390,15 +404,15 @@ class RequirementsTools:
     
     def get_uncovered_requirements(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Get all requirements without test coverage
+        Get all requirements without test coverage.
+        
+        Example: get_uncovered_requirements()
         
         Args:
-            params: {
-                'team_id': str (OPTIONAL)
-            }
+            params: {}
             
         Returns:
-            MCP-formatted response with uncovered requirements
+            List of uncovered requirements
         """
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         

@@ -13,7 +13,28 @@ class DeploymentTools:
         self.formatter = MCPFormatter()
     
     def create_deployment(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a scheduled deployment"""
+        """
+        Create a scheduled deployment for automated test execution.
+        
+        Example: create_deployment(name='nightly_test', host_name='sunri-pi1', device_id='device1', script_name='test.py', cron_expression='0 2 * * *')
+        
+        Args:
+            params: {
+                'name': str (REQUIRED - deployment name),
+                'host_name': str (REQUIRED - host where device is connected),
+                'device_id': str (REQUIRED - device identifier),
+                'script_name': str (REQUIRED - script to execute),
+                'cron_expression': str (REQUIRED - cron schedule),
+                'userinterface_name': str (OPTIONAL - interface name),
+                'parameters': str (OPTIONAL - script parameters),
+                'start_date': str (OPTIONAL - start date),
+                'end_date': str (OPTIONAL - end date),
+                'max_executions': int (OPTIONAL - max execution count)
+            }
+        
+        Returns:
+            Created deployment details
+        """
         team_id = params.get('team_id', 'default')
         
         deployment_data = {
@@ -56,7 +77,17 @@ class DeploymentTools:
             return self.formatter.error(f"Failed to create deployment: {result.get('error', 'Unknown error')}")
     
     def list_deployments(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """List all deployments"""
+        """
+        List all scheduled deployments.
+        
+        Example: list_deployments()
+        
+        Args:
+            params: {}
+        
+        Returns:
+            List of deployments with status and schedules
+        """
         team_id = params.get('team_id', 'default')
         
         result = self.api.get('/server/deployment/list', {'team_id': team_id})
@@ -84,7 +115,19 @@ class DeploymentTools:
             return self.formatter.error(f"Failed to list deployments: {result.get('error', 'Unknown error')}")
     
     def pause_deployment(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Pause a deployment"""
+        """
+        Pause a running deployment.
+        
+        Example: pause_deployment(deployment_id='abc123')
+        
+        Args:
+            params: {
+                'deployment_id': str (REQUIRED - deployment ID to pause)
+            }
+        
+        Returns:
+            Success confirmation
+        """
         deployment_id = params['deployment_id']
         
         result = self.api.post(f'/server/deployment/pause/{deployment_id}', {})
@@ -95,7 +138,19 @@ class DeploymentTools:
             return self.formatter.error(f"Failed to pause deployment: {result.get('error', 'Unknown error')}")
     
     def resume_deployment(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Resume a deployment"""
+        """
+        Resume a paused deployment.
+        
+        Example: resume_deployment(deployment_id='abc123')
+        
+        Args:
+            params: {
+                'deployment_id': str (REQUIRED - deployment ID to resume)
+            }
+        
+        Returns:
+            Success confirmation
+        """
         deployment_id = params['deployment_id']
         
         result = self.api.post(f'/server/deployment/resume/{deployment_id}', {})
@@ -106,7 +161,23 @@ class DeploymentTools:
             return self.formatter.error(f"Failed to resume deployment: {result.get('error', 'Unknown error')}")
     
     def update_deployment(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Update a deployment"""
+        """
+        Update a deployment's configuration.
+        
+        Example: update_deployment(deployment_id='abc123', cron_expression='0 3 * * *')
+        
+        Args:
+            params: {
+                'deployment_id': str (REQUIRED - deployment ID to update),
+                'name': str (OPTIONAL - new deployment name),
+                'cron_expression': str (OPTIONAL - new cron schedule),
+                'userinterface_name': str (OPTIONAL - new interface name),
+                'parameters': str (OPTIONAL - new script parameters)
+            }
+        
+        Returns:
+            Updated deployment details
+        """
         deployment_id = params['deployment_id']
         
         update_data = {}
@@ -137,7 +208,19 @@ class DeploymentTools:
             return self.formatter.error(f"Failed to update deployment: {result.get('error', 'Unknown error')}")
     
     def delete_deployment(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Delete a deployment"""
+        """
+        Delete a deployment.
+        
+        Example: delete_deployment(deployment_id='abc123')
+        
+        Args:
+            params: {
+                'deployment_id': str (REQUIRED - deployment ID to delete)
+            }
+        
+        Returns:
+            Success confirmation
+        """
         deployment_id = params['deployment_id']
         
         result = self.api.delete(f'/server/deployment/delete/{deployment_id}', {})
@@ -148,7 +231,20 @@ class DeploymentTools:
             return self.formatter.error(f"Failed to delete deployment: {result.get('error', 'Unknown error')}")
     
     def get_deployment_history(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get execution history for a deployment"""
+        """
+        Get execution history for a deployment.
+        
+        Example: get_deployment_history(deployment_id='abc123', limit=10)
+        
+        Args:
+            params: {
+                'deployment_id': str (REQUIRED - deployment ID),
+                'limit': int (OPTIONAL - max results default 50)
+            }
+        
+        Returns:
+            Execution history with results
+        """
         deployment_id = params['deployment_id']
         
         result = self.api.get(f'/server/deployment/history/{deployment_id}', {})

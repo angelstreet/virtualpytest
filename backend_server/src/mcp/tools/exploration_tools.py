@@ -16,7 +16,23 @@ class ExplorationTools:
         self.formatter = MCPFormatter()
     
     def auto_discover_screen(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Auto-discover elements, create nodes/edges, and validate them."""
+        """
+        Auto-discover screen elements, create nodes/edges, and validate them.
+        
+        Example: auto_discover_screen(tree_id='abc', host_name='sunri-pi1', userinterface_name='google_tv')
+        
+        Args:
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'host_name': str (REQUIRED - host name where device is connected),
+                'userinterface_name': str (REQUIRED - UI interface name),
+                'device_id': str (OPTIONAL - device identifier),
+                'parent_node_id': str (OPTIONAL - parent node for discovered elements)
+            }
+            
+        Returns:
+            MCP-formatted response with discovered nodes, edges, and validation results
+        """
         tree_id = params.get('tree_id')
         host_name = params.get('host_name')
         userinterface_name = params.get('userinterface_name')

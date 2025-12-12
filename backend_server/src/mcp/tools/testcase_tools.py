@@ -498,7 +498,17 @@ class TestCaseTools:
         return {"content": [{"type": "text", "text": f"✅ Test case '{testcase_name}' saved successfully (ID: {testcase_id})"}], "isError": False}
     
     def list_testcases(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """List all saved test cases"""
+        """
+        List all saved test cases.
+        
+        Example: list_testcases()
+        
+        Args:
+            params: {}
+        
+        Returns:
+            MCP-formatted response with list of test cases
+        """
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         result = self.api.get('/server/testcase/list', params={'team_id': team_id})
@@ -524,15 +534,13 @@ class TestCaseTools:
     
     def load_testcase(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Load a saved test case by ID
+        Load a saved test case by ID.
         
-        REUSES existing /server/testcase/<id> endpoint (same as frontend)
-        Pattern from server_testcase_routes.py line 127
+        Example: load_testcase(testcase_id='abc123')
         
         Args:
             params: {
-                'testcase_id': str (REQUIRED),
-                'team_id': str (OPTIONAL)
+                'testcase_id': str (REQUIRED - test case ID to load)
             }
             
         Returns:

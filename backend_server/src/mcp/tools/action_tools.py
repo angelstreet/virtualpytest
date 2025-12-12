@@ -25,15 +25,14 @@ class ActionTools:
     
     def list_actions(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        List available actions for a device
+        List available actions for a device.
         
-        REUSES existing /server/system/device-actions endpoint
+        Example: list_actions(host_name='sunri-pi1', device_id='device1')
         
         Args:
             params: {
-                'device_id': str (REQUIRED),
-                'host_name': str (REQUIRED),
-                'team_id': str (OPTIONAL)
+                'host_name': str (REQUIRED - host name where device is connected),
+                'device_id': str (REQUIRED - device identifier)
             }
             
         Returns:
@@ -121,29 +120,15 @@ class ActionTools:
     
     def execute_device_action(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute batch of actions on a device
+        Execute batch of actions on a device. Supports remote commands, ADB, web actions, desktop automation. Call list_actions() first to get valid commands.
         
-        Supports: remote commands (IR, CEC, etc.), ADB commands, web actions, desktop automation.
-        
-        REUSES existing /server/action/executeBatch endpoint (same as frontend)
-        
-        ⚠️ CRITICAL - COMMAND VALIDATION:
-        - ALWAYS call list_actions() FIRST to get valid commands for your device
-        - ONLY use commands returned by list_actions() - invalid commands will FAIL
-        - For web: Use 'click_element' with text/selector
+        Example: execute_device_action(host_name='sunri-pi1', device_id='device1', actions=[{'command': 'KEY_HOME'}])
         
         Args:
             params: {
-                'device_id': str (REQUIRED),
-                'host_name': str (OPTIONAL),
-                'team_id': str (REQUIRED),
-                'actions': List[Dict] (REQUIRED) - [{
-                    'command': str (MUST be from list_actions() output),
-                    'params': dict (structure depends on command),
-                    'delay': int (ms, optional)
-                }],
-                'retry_actions': List[Dict] (OPTIONAL),
-                'failure_actions': List[Dict] (OPTIONAL)
+                'host_name': str (REQUIRED - host name where device is connected),
+                'device_id': str (REQUIRED - device identifier),
+                'actions': list (REQUIRED - list of action dicts with command and params)
             }
             
         Returns:

@@ -19,16 +19,15 @@ class ScreenshotTools:
     
     def capture_screenshot(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Capture screenshot from device
+        Capture screenshot from device using AV controller.
         
-        Uses AV controller for all devices (unified screenshot endpoint).
+        Example: capture_screenshot(device_id='device1', host_name='sunri-pi1')
         
         Args:
             params: {
-                'device_id': str (REQUIRED),
-                'team_id': str (REQUIRED),
-                'include_ui_dump': bool (OPTIONAL, default: False) - Include UI hierarchy,
-                'host_name': str (OPTIONAL)
+                'device_id': str (REQUIRED - device identifier),
+                'host_name': str (OPTIONAL - host name where device is connected),
+                'include_ui_dump': bool (OPTIONAL - include UI hierarchy dump)
             }
             
         Returns:

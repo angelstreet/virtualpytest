@@ -38,15 +38,12 @@ class ScriptTools:
     
     def list_scripts(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        List all available Python scripts
+        List all available Python scripts in the scripts directory.
         
-        REUSES existing /server/script/list endpoint (same as frontend)
-        Pattern from server_script_routes.py line 284
+        Example: list_scripts()
         
         Args:
-            params: {
-                'team_id': str (OPTIONAL)
-            }
+            params: {}
             
         Returns:
             MCP-formatted response with list of scripts

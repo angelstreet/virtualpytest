@@ -71,9 +71,14 @@ def parse_docstring(docstring: str) -> Dict[str, Any]:
             in_params_dict = False
             continue
         
-        # Parse params dict entries: 'key_name': type (REQUIRED/OPTIONAL - description)
+        # Parse params dict entries: 'key_name': type (REQUIRED/OPTIONAL - description) or (REQUIRED) - description
         if in_params_dict:
-            param_match = re.match(r"[\'\"](\w+)[\'\"]:\s*(\w+)\s*\((REQUIRED|OPTIONAL)[^\)]*\s*-\s*(.+)\)", stripped)
+            # Try pattern 1: 'param': type (REQUIRED - description)
+            param_match = re.match(r"[\'\"](\w+)[\'\"]:\s*(\w+)\s*\((REQUIRED|OPTIONAL)\s*-\s*(.+)\)", stripped)
+            if not param_match:
+                # Try pattern 2: 'param': type (REQUIRED) - description  
+                param_match = re.match(r"[\'\"](\w+)[\'\"]:\s*(\w+)\s*\((REQUIRED|OPTIONAL)\)\s*-\s*(.+)", stripped)
+            
             if param_match:
                 param_name = param_match.group(1)
                 param_type = param_match.group(2).lower()

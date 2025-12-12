@@ -20,27 +20,19 @@ class ScreenAnalysisTools:
     
     def analyze_screen_for_action(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analyze screen elements to find best selector for clicking/interacting.
-        Returns ready-to-use action parameters.
+        Analyze screen elements to find best selector for clicking/interacting. Returns ready-to-use action parameters.
+        
+        Example: analyze_screen_for_action(elements=[...], intent='search button', platform='web')
         
         Args:
             params: {
-                'elements': list - Elements from dump_ui_elements
-                'intent': str - What to click (e.g., "search field", "login button")
-                'platform': str - 'mobile' or 'web'
-                'team_id': str (optional)
+                'elements': list (REQUIRED - elements from dump_ui_elements),
+                'intent': str (REQUIRED - what to click like search field or login button),
+                'platform': str (REQUIRED - mobile or web)
             }
         
         Returns:
-            {
-                'selector_type': 'id',
-                'selector_value': 'search-field',
-                'command': 'click_element_by_id',
-                'action_params': {'element_id': 'search-field', 'wait_time': 1000},
-                'score': 1200,
-                'unique': true,
-                'confidence': 'high'
-            }
+            MCP-formatted response with selector and action params
         """
         elements = params.get('elements', [])
         intent = params.get('intent', '')
@@ -125,26 +117,19 @@ class ScreenAnalysisTools:
     
     def analyze_screen_for_verification(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analyze screen elements to find best verification for node detection.
-        Returns ready-to-use verification parameters.
+        Analyze screen elements to find best verification for node detection. Returns ready-to-use verification parameters.
+        
+        Example: analyze_screen_for_verification(elements=[...], node_label='home', platform='web')
         
         Args:
             params: {
-                'elements': list - Elements from dump_ui_elements
-                'node_label': str - Node name (e.g., "home", "login", "search_results")
-                'platform': str - 'mobile' or 'web'
-                'team_id': str (optional)
+                'elements': list (REQUIRED - elements from dump_ui_elements),
+                'node_label': str (REQUIRED - node name like home or login),
+                'platform': str (REQUIRED - mobile or web)
             }
         
         Returns:
-            {
-                'primary_verification': {
-                    'command': 'waitForElementToAppear',
-                    'params': {'search_term': '#home-tab-selected'},
-                    'score': 1500
-                },
-                'confidence': 'high'
-            }
+            MCP-formatted response with verification params
         """
         elements = params.get('elements', [])
         node_label = params.get('node_label', '')
