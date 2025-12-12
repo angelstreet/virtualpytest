@@ -10,6 +10,7 @@ The orchestrator dynamically loads skills based on user requests:
 Skills are defined in YAML files and provide focused capabilities.
 """
 
+import re
 import logging
 import time
 import threading
@@ -164,12 +165,25 @@ class QAManagerAgent:
         tree_id = ctx.get('tree_id')
         host = ctx.get('host_name')
         device = ctx.get('device_id')
+        hosts_list = ctx.get('hosts', [])
+        devices_list = ctx.get('devices', [])
         
         # Only show context if we have at least one value
-        if not any([ui_name, tree_id, host, device]):
+        if not any([ui_name, tree_id, host, device, hosts_list, devices_list]):
             return ""
         
         lines = ["## Current Context (use as defaults)"]
+        
+        # Show discovered resources
+        if hosts_list:
+            lines.append(f"- Available Hosts: {', '.join(hosts_list)}")
+        if devices_list:
+            device_summary = ', '.join([f"{d.get('device_id')} ({d.get('device_name')})" for d in devices_list[:3]])
+            if len(devices_list) > 3:
+                device_summary += f" +{len(devices_list) - 3} more"
+            lines.append(f"- Available Devices: {device_summary}")
+        
+        # Show active working context
         if ui_name:
             lines.append(f"- Interface: {ui_name}")
         if tree_id:
