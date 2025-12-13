@@ -91,21 +91,37 @@ def execute_navigation(tree_id):
                 'error': 'userinterface_name is required for reference resolution'
             }), 400
         
-        # Check cache exists - NEVER clear or rebuild (only takeControl should do that)
+        # Check cache exists - populate if missing (navigation can work without exclusive control)
         print(f"[@route:navigation_execution:execute_navigation] Navigation execution for tree {tree_id}, team_id {team_id}")
-        
+
         # Verify cache exists before execution (quick check - should be fast)
         from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
         cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=5)
-        
+
         if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
             print(f"[@route:navigation_execution:execute_navigation] ✅ Cache exists for tree {tree_id}")
         else:
-            print(f"[@route:navigation_execution:execute_navigation] ❌ Cache missing for tree {tree_id}")
-            return jsonify({
-                'success': False,
-                'error': 'Navigation cache not ready. Please take control first to build the cache.'
-            }), 503  # Service Unavailable - temporary state, client should retry
+            print(f"[@route:navigation_execution:execute_navigation] ❌ Cache missing for tree {tree_id} - populating now...")
+
+            # Cache missing - populate it (doesn't require device locking, just tree data loading)
+            from backend_server.src.routes.server_control_routes import populate_navigation_cache_for_control
+            cache_populated = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+
+            if not cache_populated:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to populate navigation cache for tree {tree_id}. Check server logs for details.'
+                }), 500
+
+            print(f"[@route:navigation_execution:execute_navigation] ✅ Cache populated successfully for tree {tree_id}")
+
+            # Verify cache was populated
+            cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=5)
+            if not (cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists')):
+                return jsonify({
+                    'success': False,
+                    'error': f'Cache population failed verification for tree {tree_id}'
+                }), 500
         
         # Proxy to host navigation execution endpoint
         execution_payload = {
@@ -214,17 +230,33 @@ def get_navigation_preview_with_executor(tree_id, node_id):
                 'error': 'host_name query parameter is required'
             }), 400
         
-        # ✅ CHECK CACHE EXISTS (NEVER clear or rebuild - only takeControl should do that)
+        # Check cache exists - populate if missing (navigation can work without exclusive control)
         cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=10)
-        
+
         if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
             print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ✅ Cache exists for tree {tree_id}")
         else:
-            print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ❌ Cache missing for tree {tree_id}")
-            return jsonify({
-                'success': False,
-                'error': 'Navigation cache not ready. Please wait for take control to complete building the cache.'
-            }), 503  # Service Unavailable - temporary state, client should retry
+            print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ❌ Cache missing for tree {tree_id} - populating now...")
+
+            # Cache missing - populate it (doesn't require device locking, just tree data loading)
+            from backend_server.src.routes.server_control_routes import populate_navigation_cache_for_control
+            cache_populated = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+
+            if not cache_populated:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to populate navigation cache for tree {tree_id}. Check server logs for details.'
+                }), 500
+
+            print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ✅ Cache populated successfully for tree {tree_id}")
+
+            # Verify cache was populated
+            cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=10)
+            if not (cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists')):
+                return jsonify({
+                    'success': False,
+                    'error': f'Cache population failed verification for tree {tree_id}'
+                }), 500
         
         # Create minimal host configuration for preview
         host = {'host_name': host_name}
@@ -308,7 +340,7 @@ def batch_execute_navigation():
         unique_tree_ids = list(set(nav.get('tree_id') for nav in navigations if nav.get('tree_id')))
         for tree_id in unique_tree_ids:
             print(f"[@route:navigation_execution:batch_execute_navigation] Ensuring cache for tree {tree_id}")
-            cache_populated = ensure_unified_cache_populated(tree_id, team_id, host_name)
+            cache_populated = populate_navigation_cache_for_control(tree_id, team_id, host_name)
             if not cache_populated:
                 return jsonify({
                     'success': False,

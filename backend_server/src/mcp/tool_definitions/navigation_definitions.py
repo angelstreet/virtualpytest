@@ -47,7 +47,7 @@ def get_tools() -> List[Dict[str, Any]]:
     },
     {
         "name": "navigate_to_node",
-        "description": "Navigate to target node using pathfinding. Requires take_control() first. tree_id auto-resolved from userinterface_name. MCP-formatted response with navigation result\n\nExample: navigate_to_node(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv', target_node_label='shop')",
+        "description": "Navigate to target node using pathfinding. Navigation cache is populated automatically. MCP-formatted response with navigation result\n\nExample: navigate_to_node(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv', target_node_label='shop')",
         "inputSchema": {
             "type": "object",
             "properties": {

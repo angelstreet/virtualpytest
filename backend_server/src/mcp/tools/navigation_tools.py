@@ -162,8 +162,8 @@ class NavigationTools:
     
     def navigate_to_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Navigate to target node using pathfinding. Requires take_control() first. tree_id auto-resolved from userinterface_name.
-        
+        Navigate to target node using pathfinding. Navigation cache is populated automatically if needed. tree_id auto-resolved from userinterface_name.
+
         Example: navigate_to_node(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv', target_node_label='shop')
         
         Args:
