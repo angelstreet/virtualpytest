@@ -61,22 +61,22 @@ export interface ContentData {
 
   // Campaign
   campaign_id?: string;
-}
-  
+
   // REC preview
   device_ids?: string[];
   stream_urls?: string[];
-  
+
   // Report/Chart
   chart_type?: 'bar' | 'line' | 'pie' | 'area';
   chart_data?: any;
-  
+
   // Data table
   columns?: { field: string; header: string }[];
   rows?: any[];
-  
+
   // Execution log
   log_entries?: { timestamp: string; level: string; message: string }[];
+}
 }
 
 export type ContentTab = 'navigation' | 'testcase' | 'campaign' | 'heatmap' | 'alerts';
