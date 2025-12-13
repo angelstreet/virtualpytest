@@ -78,6 +78,15 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     }
   }, [selectedHost, deviceId]);
 
+  // Reset overlay state on mount or when host/deviceId changes (e.g., release and take control)
+  useEffect(() => {
+    console.log('[@hook:useAndroidMobile] Resetting overlay state (mount or host/device change)');
+    setAndroidElements([]);
+    setShowOverlay(false);
+    setSelectedElement('');
+    setIsLandscape(false); // Reset orientation to portrait
+  }, [selectedHost, deviceId]);
+
   // Toggle orientation manually
   const toggleOrientation = useCallback(() => {
     setIsLandscape(prev => {
