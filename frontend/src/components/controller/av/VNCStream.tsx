@@ -382,8 +382,9 @@ export const VNCStream = React.memo(
               bottom: 0,
               left: 0,
               backgroundColor: '#2A2A2A', // Slightly different from HDMI
-              border: '2px solid #2A2A2A',
-              borderRadius: isVerificationVisible ? '1px 0 0 1px' : 1,
+              // Default discreet white border for all VNC panels (consistent with HDMI)
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: isVerificationVisible ? '1px 0 0 1px' : '8px',
               overflow: 'hidden',
               transition: 'width 0.3s ease-in-out, height 0.3s ease-in-out',
             }}

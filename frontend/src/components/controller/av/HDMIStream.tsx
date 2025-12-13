@@ -275,8 +275,11 @@ export const HDMIStream = React.memo(
             left: panelLayout.collapsed.position.left || '20px',
           }),
       transition: 'left 0.3s ease, bottom 0.3s ease',
-      ...sx,
+      // Don't apply sx here - it will be applied to inner content box
     };
+    
+    // Extract border/visual styles from sx for inner box
+    const contentStyles = sx || {};
 
     const headerHeight = panelLayout.header?.height || '40px';
 
@@ -327,10 +330,12 @@ export const HDMIStream = React.memo(
               bottom: 0,
               left: 0,
               backgroundColor: '#1E1E1E',
-              border: '2px solid #1E1E1E',
-              borderRadius: isVerificationVisible ? '1px 0 0 1px' : 1, // Connect to side panel when visible
+              // Default discreet white border for all HDMI panels
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: isVerificationVisible ? '1px 0 0 1px' : '8px', // Connect to side panel when visible
               overflow: 'hidden',
               transition: 'width 0.3s ease-in-out, height 0.3s ease-in-out',
+              ...contentStyles, // Apply custom styles (can override defaults)
             }}
           >
             {/* Header with minimize and expand/collapse buttons */}

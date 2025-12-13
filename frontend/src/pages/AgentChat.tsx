@@ -146,12 +146,7 @@ const AgentChat: React.FC = () => {
       bottom: '22px', // 10px from bottom (no footer in AgentChat)
       // You can also use: right, top
     },
-    // Custom styling - discreet white border
-    avPanelSx: {
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '8px',
-      overflow: 'hidden',
-    },
+    // Note: Border styling is now default in HDMIStream/VNCStream components
   };
   
   // Sidebar tab state: 'system' for background agents, 'chats' for conversations
