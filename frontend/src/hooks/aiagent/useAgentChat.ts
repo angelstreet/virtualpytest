@@ -1538,28 +1538,28 @@ export const useAgentChat = () => {
   
   const clearBackgroundHistory = useCallback((agentId: string) => {
     console.log(`[useAgentChat] Clearing background history for agent: ${agentId}`);
-    
+
     // Remove all conversations for this background agent
     setConversations(prev => {
       const filtered = prev.filter(c => !c.id.startsWith(`bg_${agentId}_`));
-      
+
       // Update localStorage
       if (filtered.length > 0) {
         localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(filtered));
       } else {
         localStorage.removeItem(STORAGE_KEY_CONVERSATIONS);
       }
-      
+
       console.log(`[useAgentChat] Cleared ${prev.length - filtered.length} conversations for ${agentId}`);
       return filtered;
     });
-    
+
     // Clear background tasks for this agent
     setBackgroundTasks(prev => ({
       ...prev,
       [agentId]: { inProgress: [], recent: [] }
     }));
-    
+
     // Clear active conversation if it was from this agent
     setActiveConversationId(prev => {
       if (prev && prev.startsWith(`bg_${agentId}_`)) {
@@ -1569,6 +1569,27 @@ export const useAgentChat = () => {
       }
       return prev;
     });
+  }, []);
+
+  const reloadSkills = useCallback(async () => {
+    try {
+      console.log('[useAgentChat] Reloading skills...');
+      const response = await fetch(buildServerUrl('/server/skills/reload'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to reload skills: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('[useAgentChat] Skills reloaded successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('[useAgentChat] Failed to reload skills:', error);
+      throw error;
+    }
   }, []);
 
   // Handle visibility change - ensure socket reconnects when tab becomes visible
@@ -1653,5 +1674,8 @@ export const useAgentChat = () => {
     
     // 🆕 NEW: Device control callback for AI agent tool calls
     setOnDeviceControlChange,
+
+    // 🆕 NEW: Skills reload function for development
+    reloadSkills,
   };
 };

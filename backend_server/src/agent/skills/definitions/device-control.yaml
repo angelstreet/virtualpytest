@@ -4,32 +4,13 @@ description: Control devices with direct hardware actions
 
 triggers:
   # DEVICE CONTROL (direct hardware actions)
-  - control device
-  - execute device action
+  - execute action
   - device action
-  - click on device
-  - click element on device
-  - tap on device
-  - swipe on device
-  - swipe up on device
-  - swipe down on device
-  - swipe left on device
-  - swipe right on device
-  - press button on device
-  - press key on device
-  - device control
-  - hardware action
-  - button press
-  - device interaction
-  - interact with device
-  - device swipe
-  - device click
-  - device press
-  - device tap
-
-  # DEVICE DISCOVERY
+  - click
+  - tap
+  - swipe
+  - press key
   - available actions
-  - device actions
 
 system_prompt: |
   Control physical devices with raw hardware actions (click, swipe, press).

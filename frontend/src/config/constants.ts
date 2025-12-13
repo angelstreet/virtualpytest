@@ -55,6 +55,11 @@ export const APP_CONFIG = {
    * Default team identifier for legacy APIs
    */
   DEFAULT_TEAM_NAME: 'default-team-id',
+
+  /**
+   * Whether we're in development mode (from existing VITE_DEV_MODE)
+   */
+  IS_DEVELOPMENT: getEnv('VITE_DEV_MODE', 'false') === 'true',
 } as const;
 
 // =====================================================

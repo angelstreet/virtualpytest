@@ -57,6 +57,7 @@ import {
   OpenInNew as RedirectIcon,
   ThumbUp,
   ThumbDown,
+  Refresh as ReloadIcon,
 } from '@mui/icons-material';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -379,6 +380,7 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     setAgentId,
     setNavigationContext,
     setOnDeviceControlChange, // 🆕 NEW: For AI agent device control detection
+    reloadSkills, // 🆕 NEW: Skills reload for development
   } = useAgentChat();
   
 // Sync selected agent with hook once we have a real value
@@ -986,31 +988,65 @@ useEffect(() => {
         <>
           {/* New Chat Button */}
           <Box sx={{ p: 1.5, pb: 1 }}>
-            <Button
-              fullWidth
-              startIcon={<AddIcon />}
-              onClick={() => {
-                createNewConversation();
-                setSidebarTab('chats'); // Switch to chats tab when creating new
-              }}
-              sx={{
-                justifyContent: 'flex-start',
-                color: 'text.primary',
-                bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.100',
-                border: '1px solid',
-                borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 500,
-                py: 1,
-                '&:hover': {
-                  bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.200',
-                  borderColor: PALETTE.accent,
-                },
-              }}
-            >
-              New Chat
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                fullWidth
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  createNewConversation();
+                  setSidebarTab('chats'); // Switch to chats tab when creating new
+                }}
+                sx={{
+                  flex: 1,
+                  justifyContent: 'flex-start',
+                  color: 'text.primary',
+                  bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.100',
+                  border: '1px solid',
+                  borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  py: 1,
+                  '&:hover': {
+                    bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.200',
+                    borderColor: PALETTE.accent,
+                  },
+                }}
+              >
+                New Chat
+              </Button>
+
+              {/* Development: Skills Reload Button */}
+              {APP_CONFIG.IS_DEVELOPMENT && (
+                <Tooltip title="Reload Skills (Dev Only)">
+                  <IconButton
+                    onClick={async () => {
+                      try {
+                        await reloadSkills();
+                        console.log('✅ Skills reloaded successfully');
+                      } catch (error) {
+                        console.error('❌ Failed to reload skills:', error);
+                      }
+                    }}
+                    sx={{
+                      color: PALETTE.accent,
+                      bgcolor: isDarkMode ? PALETTE.inputBg : 'grey.100',
+                      border: '1px solid',
+                      borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+                      borderRadius: 2,
+                      width: 48,
+                      height: 48,
+                      '&:hover': {
+                        bgcolor: isDarkMode ? PALETTE.hoverBg : 'grey.200',
+                        borderColor: PALETTE.accent,
+                      },
+                    }}
+                  >
+                    <ReloadIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           </Box>
 
           {/* Tabs for System vs Chats */}
