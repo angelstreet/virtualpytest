@@ -69,6 +69,47 @@ tools:
   - take_control
   - release_control
 
+# Tool-specific caching configuration
+tool_cache:
+  # Discovery/listing tools - cache aggressively
+  list_userinterfaces:
+    enabled: true
+    ttl_seconds: 600        # 10 minutes - userinterfaces rarely change
+    prompt_cache: true
+  
+  get_userinterface_complete:
+    enabled: true
+    ttl_seconds: 600        # 10 minutes - tree structure stable
+    prompt_cache: true
+  
+  preview_userinterface:
+    enabled: true
+    ttl_seconds: 300        # 5 minutes
+    prompt_cache: false
+  
+  list_nodes:
+    enabled: true
+    ttl_seconds: 600        # 10 minutes
+    prompt_cache: false
+  
+  list_edges:
+    enabled: true
+    ttl_seconds: 600        # 10 minutes
+    prompt_cache: false
+  
+  # Execution tools - NEVER cache
+  navigate_to_node:
+    enabled: false
+  
+  verify_node:
+    enabled: false
+  
+  take_control:
+    enabled: false
+  
+  release_control:
+    enabled: false
+
 platform: null
 requires_device: true
 requires_userinterface: true  # Navigation tools require userinterface context

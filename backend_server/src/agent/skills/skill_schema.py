@@ -6,7 +6,14 @@ Skills are loaded from YAML files and provide focused capabilities to agents.
 """
 
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
+from typing import List, Optional, Dict, Union
+
+
+class ToolCacheConfig(BaseModel):
+    """Cache configuration for a tool"""
+    enabled: bool = Field(default=True, description="Enable result caching")
+    ttl_seconds: int = Field(default=300, ge=0, description="Time-to-live in seconds (0 = session-only)")
+    prompt_cache: bool = Field(default=True, description="Mark for Anthropic prompt caching")
 
 
 class SkillDefinition(BaseModel):
@@ -45,6 +52,10 @@ class SkillDefinition(BaseModel):
         min_length=1,
         description="MCP tools this skill exposes"
     )
+    tool_cache: Optional[Dict[str, Union[bool, ToolCacheConfig]]] = Field(
+        default=None,
+        description="Tool-specific caching config. Format: {tool_name: true|false|{config}}"
+    )
     platform: Optional[str] = Field(
         default=None,
         description="Platform focus: mobile, web, stb, or null for all"
@@ -68,6 +79,42 @@ class SkillDefinition(BaseModel):
                 raise ValueError(f"Platform must be one of: {valid}")
             return v.lower()
         return v
+    
+    def get_tool_cache_config(self, tool_name: str) -> Optional[ToolCacheConfig]:
+        """Get cache configuration for a specific tool"""
+        if not self.tool_cache or tool_name not in self.tool_cache:
+            return None
+        
+        config = self.tool_cache[tool_name]
+        
+        # Already a ToolCacheConfig (Pydantic auto-converted)
+        if isinstance(config, ToolCacheConfig):
+            return config if config.enabled else None
+        
+        # Simple boolean format
+        if isinstance(config, bool):
+            if config:
+                return ToolCacheConfig()  # Use defaults
+            return None
+        
+        # Dict format - convert to ToolCacheConfig (shouldn't reach here if Pydantic works)
+        if isinstance(config, dict):
+            return ToolCacheConfig(**config)
+        
+        return None
+    
+    def get_cacheable_tools(self) -> List[str]:
+        """Get list of tools marked for prompt caching"""
+        if not self.tool_cache:
+            return []
+        
+        cacheable = []
+        for tool_name in self.tools:
+            config = self.get_tool_cache_config(tool_name)
+            if config and config.prompt_cache:
+                cacheable.append(tool_name)
+        
+        return cacheable
     
     def matches_triggers(self, message: str) -> bool:
         """Check if user message matches any of this skill's triggers"""

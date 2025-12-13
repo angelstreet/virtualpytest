@@ -23,6 +23,23 @@ tools:
   - get_compatible_hosts
   - execute_script
 
+# Tool-specific caching configuration
+tool_cache:
+  # Discovery tools - cache aggressively
+  list_scripts:
+    enabled: true
+    ttl_seconds: 300        # 5 minutes - scripts don't change often
+    prompt_cache: true
+  
+  get_compatible_hosts:
+    enabled: true
+    ttl_seconds: 120        # 2 minutes - hosts may come/go
+    prompt_cache: false
+  
+  # Execution - NEVER cache
+  execute_script:
+    enabled: false
+
 platform: null
 requires_device: true
 timeout_seconds: 3600

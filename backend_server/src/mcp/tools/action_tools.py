@@ -57,6 +57,7 @@ class ActionTools:
         # Call EXISTING endpoint
         print(f"[@MCP:list_actions] Calling /server/system/getDeviceActions")
         result = self.api.get('/server/system/getDeviceActions', params=query_params)
+        print(f"[@MCP:list_actions] ✅ Fetched actions from backend")
         
         # Check for errors
         if not result.get('success'):

@@ -431,7 +431,7 @@ def register_agent_socketio_handlers(socketio):
         
         # Try to get manager - handle API key not configured
         try:
-            manager = get_manager(team_id=team_id, agent_id=agent_id)
+            manager = get_manager(team_id=team_id, agent_id=agent_id, session=session)
         except Exception as e:
             logger.warning(f"Failed to initialize manager: {e}")
             # Emit friendly error asking for API key (use generic System agent)

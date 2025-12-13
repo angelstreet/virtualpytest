@@ -27,6 +27,28 @@ tools:
   - execute_device_action
   - dump_ui_elements
 
+# Tool-specific caching configuration
+tool_cache:
+  # Discovery tools - cache results aggressively
+  get_device_info:
+    enabled: true
+    ttl_seconds: 300        # 5 minutes
+    prompt_cache: true      # Mark for Anthropic prompt caching
+  
+  list_actions:
+    enabled: true
+    ttl_seconds: 300        # 5 minutes - actions rarely change
+    prompt_cache: true
+  
+  dump_ui_elements:
+    enabled: true
+    ttl_seconds: 30         # 30 seconds - UI changes frequently
+    prompt_cache: false
+  
+  # Action execution - NEVER cache (different each time)
+  execute_device_action:
+    enabled: false
+
 platform: null
 requires_device: true
 timeout_seconds: 1800

@@ -5,7 +5,10 @@ Connects Claude Agent SDK to existing MCP tools and UI interaction tools.
 """
 
 import logging
-from typing import Dict, Any, List
+import time
+import hashlib
+import json
+from typing import Dict, Any, List, Optional
 
 from backend_server.src.mcp.mcp_server import VirtualPyTestMCPServer
 from ..tools.page_interaction import (
@@ -20,14 +23,92 @@ from ..tools.page_interaction import (
 )
 
 
+class ToolResultCache:
+    """Session-based cache for tool call results"""
+    
+    def __init__(self):
+        self._cache: Dict[str, Dict[str, Any]] = {}
+        self.logger = logging.getLogger(__name__)
+        print(f"[cache] 🆕 ToolResultCache initialized (id: {id(self)})")
+    
+    def _make_key(self, tool_name: str, params: Dict[str, Any]) -> str:
+        """Generate cache key from tool name and params"""
+        # Sort params for consistent hashing
+        params_str = json.dumps(params, sort_keys=True)
+        key_data = f"{tool_name}:{params_str}"
+        cache_key = hashlib.sha256(key_data.encode()).hexdigest()[:16]
+        
+        # Debug logging
+        print(f"[cache] 🔑 Cache key for {tool_name}: {cache_key}")
+        print(f"[cache] 📋 Params: {params_str[:100]}...")
+        
+        return cache_key
+    
+    def get(self, tool_name: str, params: Dict[str, Any], ttl_seconds: int) -> Optional[Dict[str, Any]]:
+        """Get cached result if not expired"""
+        cache_key = self._make_key(tool_name, params)
+        
+        # Debug: show what's in cache
+        print(f"[cache] 🗂️  Cache has {len(self._cache)} entries: {list(self._cache.keys())}")
+        
+        if cache_key not in self._cache:
+            print(f"[cache] ❌ Key {cache_key} not found in cache")
+            return None
+        
+        entry = self._cache[cache_key]
+        age = time.time() - entry['timestamp']
+        
+        # Check TTL (0 = never expire during session)
+        if ttl_seconds > 0 and age > ttl_seconds:
+            print(f"[cache] ❌ {tool_name} expired (age: {age:.1f}s > ttl: {ttl_seconds}s)")
+            self.logger.debug(f"[cache] ❌ {tool_name} expired (age: {age:.1f}s > ttl: {ttl_seconds}s)")
+            del self._cache[cache_key]
+            return None
+        
+        print(f"[cache] ✅ HIT {tool_name} (cached result, age: {age:.1f}s)")
+        self.logger.info(f"[cache] ✅ HIT {tool_name} (age: {age:.1f}s)")
+        return entry['result']
+    
+    def set(self, tool_name: str, params: Dict[str, Any], result: Dict[str, Any]):
+        """Store result in cache"""
+        cache_key = self._make_key(tool_name, params)
+        self._cache[cache_key] = {
+            'result': result,
+            'timestamp': time.time(),
+            'tool_name': tool_name
+        }
+        print(f"[cache] 💾 STORED {tool_name} (result will be cached)")
+        self.logger.debug(f"[cache] 💾 STORED {tool_name}")
+    
+    def clear(self):
+        """Clear all cached results"""
+        self._cache.clear()
+        self.logger.info("[cache] 🗑️  CLEARED")
+
+
 class ToolBridge:
     """Bridge between agents and MCP tools"""
     
-    def __init__(self):
+    def __init__(self, session=None):
         self.logger = logging.getLogger(__name__)
         self.mcp_server = VirtualPyTestMCPServer()
         self._tool_cache = None
+        self.session = session
+        
+        # Use session-scoped cache if available, otherwise create new
+        if session and '_tool_result_cache' in session.context:
+            self._result_cache = session.context['_tool_result_cache']
+            print(f"[cache] ♻️  Reusing existing cache from session (cache id: {id(self._result_cache)})")
+        else:
+            self._result_cache = ToolResultCache()
+            if session:
+                session.context['_tool_result_cache'] = self._result_cache
+                print(f"[cache] 🆕 Created new cache and stored in session (cache id: {id(self._result_cache)})")
+            else:
+                print(f"[cache] ⚠️  No session provided - cache won't persist across messages!")
+        
         self.logger.info("ToolBridge initialized with MCP server")
+        print(f"[cache] 🌉 ToolBridge initialized (id: {id(self)}, cache id: {id(self._result_cache)})")
     
     def _get_all_tools(self) -> List[Dict[str, Any]]:
         """Get all available MCP tools (cached)"""
@@ -219,14 +300,16 @@ class ToolBridge:
         
         return result
     
-    def execute(self, tool_name: str, params: Dict[str, Any], allowed_tools: List[str] = None) -> Dict[str, Any]:
+    def execute(self, tool_name: str, params: Dict[str, Any], allowed_tools: List[str] = None, 
+                cache_config: Optional[Any] = None) -> Dict[str, Any]:
         """
-        Execute an MCP tool or UI interaction tool
+        Execute an MCP tool or UI interaction tool with result caching
         
         Args:
             tool_name: Name of the tool
             params: Tool parameters
             allowed_tools: Optional list of tools the agent is allowed to use
+            cache_config: Optional ToolCacheConfig for this tool
             
         Returns:
             Tool result
@@ -236,6 +319,17 @@ class ToolBridge:
         """
         self.logger.info(f"Executing tool: {tool_name}")
         self.logger.debug(f"Params: {params}")
+        
+        # Check result cache if enabled
+        if cache_config and cache_config.enabled:
+            cached_result = self._result_cache.get(tool_name, params, cache_config.ttl_seconds)
+            if cached_result is not None:
+                print(f"[@ToolBridge] ⚡ {tool_name} (CACHED - no API call)")
+                return cached_result
+        
+        # Log when actually calling the tool
+        if cache_config and cache_config.enabled:
+            print(f"[@ToolBridge] 🔄 {tool_name} (cache miss - calling API)")
         
         # VALIDATION: Check if tool exists in the system
         all_available = self.get_available_tool_names()
@@ -312,6 +406,10 @@ class ToolBridge:
 
         # MCP tools
         result = self.mcp_server.handle_tool_call(tool_name, params)
+        
+        # Store in cache if enabled
+        if cache_config and cache_config.enabled:
+            self._result_cache.set(tool_name, params, result)
         
         self.logger.info(f"Tool {tool_name} completed")
         return result

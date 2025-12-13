@@ -61,6 +61,12 @@ system_prompt: |
 tools:
   - update_execution_analysis
 
+# Tool-specific caching configuration
+tool_cache:
+  # Database write - NEVER cache
+  update_execution_analysis:
+    enabled: false
+
 platform: null
 requires_device: false
 timeout_seconds: 300

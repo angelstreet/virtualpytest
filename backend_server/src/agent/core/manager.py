@@ -45,12 +45,13 @@ class QAManagerAgent:
     - Each handler implements its own filtering logic (duration, rate limiting, etc.)
     """
     
-    def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, user_identifier: Optional[str] = None, agent_id: Optional[str] = None, session: Optional[any] = None):
         self.logger = logging.getLogger(__name__)
         self.user_identifier = user_identifier
         self._api_key = api_key
         self._client = None
-        self.tool_bridge = ToolBridge()
+        self._session = session  # Store session reference
+        self.tool_bridge = ToolBridge(session=session)
         
         # Load from YAML
         self.agent_id = agent_id or 'assistant'
@@ -241,11 +242,25 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         }]
     
     def _build_cached_tools(self, tool_names: List[str]) -> List[Dict]:
-        """Build tool definitions with cache control on the last tool"""
+        """Build tool definitions with cache control based on skill configuration"""
         tools = self.tool_bridge.get_tool_definitions(tool_names)
         
-        # Add cache_control to last tool (caches everything up to and including it)
-        if tools:
+        # Get cacheable tools from active skill
+        cacheable_tools = set()
+        if self._active_skill:
+            cacheable_tools = set(self._active_skill.get_cacheable_tools())
+            if cacheable_tools:
+                self.logger.debug(f"[cache] Cacheable tools from skill: {cacheable_tools}")
+        
+        # Mark tools for Anthropic prompt caching
+        for tool in tools:
+            tool_name = tool['name']
+            if tool_name in cacheable_tools:
+                tool["cache_control"] = {"type": "ephemeral"}
+                self.logger.debug(f"[cache] 🔖 Marked {tool_name} for prompt caching")
+        
+        # Always cache the last tool (Anthropic best practice)
+        if tools and tools[-1].get('cache_control') is None:
             tools[-1]["cache_control"] = {"type": "ephemeral"}
         
         return tools
@@ -498,7 +513,19 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                 yield AgentEvent(type=EventType.TOOL_CALL, agent=self.nickname, content=f"Calling: {tool_use.name}", tool_name=tool_use.name, tool_params=tool_use.input, metrics=metrics)
                 
                 try:
-                    result = self.tool_bridge.execute(tool_use.name, tool_use.input, allowed_tools=self.tool_names)
+                    # Get cache config for this tool (if in active skill)
+                    cache_config = None
+                    if self._active_skill:
+                        cache_config = self._active_skill.get_tool_cache_config(tool_use.name)
+                        if cache_config:
+                            print(f"[cache] 🔧 {tool_use.name} config: enabled={cache_config.enabled}, ttl={cache_config.ttl_seconds}s")
+                    
+                    result = self.tool_bridge.execute(
+                        tool_use.name, 
+                        tool_use.input, 
+                        allowed_tools=self.tool_names,
+                        cache_config=cache_config
+                    )
                     if LANGFUSE_ENABLED:
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
                     yield AgentEvent(type=EventType.TOOL_RESULT, agent=self.nickname, content="Success", tool_name=tool_use.name, tool_result=result, success=True)
