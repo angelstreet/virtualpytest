@@ -5,7 +5,7 @@ Navigation tool definitions - AUTO-GENERATED (DEBUG VIEW)
 This file is auto-generated from docstrings in navigation_tools.py
 To change definitions, update the docstrings in the implementation.
 
-Generated: 3 tools
+Generated: 4 tools
 """
 
 from typing import List, Dict, Any
@@ -18,78 +18,4 @@ def get_tools() -> List[Dict[str, Any]]:
     🔍 DEBUG VIEW: This file shows what was generated from docstrings.
     ⚠️  Source of truth: ../tools/navigation_tools.py docstrings
     """
-    return [
-    {
-        "name": "list_navigation_nodes",
-        "description": "List navigation nodes available in a tree Can accept EITHER tree_id OR userinterface_name (same approach as frontend) MCP-formatted response with list of navigation nodes and their properties",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "tree_id": {
-                    "type": "string",
-                    "description": "Direct tree ID"
-                },
-                "userinterface_name": {
-                    "type": "string",
-                    "description": "Convert to tree_id first"
-                },
-                "page": {
-                    "type": "integer",
-                    "description": "Page number (default: 0"
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Results per page (default: 100"
-                }
-            },
-            "required": []
-        }
-    },
-    {
-        "name": "navigate_to_node",
-        "description": "Navigate to target node using pathfinding. Navigation cache is populated automatically if needed. tree_id auto-resolved from userinterface_name. MCP-formatted response with navigation result\n\nExample: navigate_to_node(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv', target_node_label='shop')",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "host_name": {
-                    "type": "string",
-                    "description": "host where device is connected"
-                },
-                "device_id": {
-                    "type": "string",
-                    "description": "device identifier"
-                },
-                "userinterface_name": {
-                    "type": "string",
-                    "description": "UI name for auto-resolving tree_id"
-                },
-                "target_node_label": {
-                    "type": "string",
-                    "description": "target screen like shop or home"
-                }
-            },
-            "required": [
-                "host_name",
-                "device_id",
-                "userinterface_name",
-                "target_node_label"
-            ]
-        }
-    },
-    {
-        "name": "preview_userinterface",
-        "description": "Get compact text preview of userinterface navigation tree Shows all nodes, edges, actions, and verifications in compact format. Perfect for quick overview: \"What do we test and how?\" Compact text showing all transitions (8-10 lines) Example output: netflix_mobile (7 nodes, 13 transitions) Entry\u2192home: launch_app + tap(540,1645) [\u2713 Startseite] home\u27f7search: click(Suchen) \u27f7 click(Nach oben navigieren) [\u2713 Suchen] home\u27f7content_detail: click(The Witcher) \u27f7 BACK [\u2713 abspielen] ...",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "userinterface_name": {
-                    "type": "string",
-                    "description": "e.g., 'netflix_mobile'"
-                }
-            },
-            "required": [
-                "userinterface_name"
-            ]
-        }
-    }
-]
+    return [{'name': 'execute_edge', 'description': "Execute actions defined in a specific navigation edge. This tool directly executes the device actions stored in an edge, similar to how navigate_to_node() automatically executes edge actions during navigation. MCP-formatted response with execution results\n\nExample: execute_edge(tree_id='abc123', edge_id='edge1', device_id='device1', host_name='sunri-pi1')", 'inputSchema': {'type': 'object', 'properties': {'tree_id': {'type': 'string', 'description': 'navigation tree ID'}, 'edge_id': {'type': 'string', 'description': 'edge identifier'}, 'device_id': {'type': 'string', 'description': 'device identifier'}, 'host_name': {'type': 'string', 'description': 'host where device is connected'}}, 'required': ['tree_id', 'edge_id', 'device_id', 'host_name']}}, {'name': 'list_navigation_nodes', 'description': 'List navigation nodes available in a tree Can accept EITHER tree_id OR userinterface_name (same approach as frontend) MCP-formatted response with list of navigation nodes and their properties', 'inputSchema': {'type': 'object', 'properties': {'tree_id': {'type': 'string', 'description': 'Direct tree ID'}, 'userinterface_name': {'type': 'string', 'description': 'Convert to tree_id first'}, 'page': {'type': 'integer', 'description': 'Page number (default: 0'}, 'limit': {'type': 'integer', 'description': 'Results per page (default: 100'}}, 'required': []}}, {'name': 'navigate_to_node', 'description': "Navigate to target node using pathfinding. Navigation cache is populated automatically if needed. tree_id auto-resolved from userinterface_name. MCP-formatted response with navigation result\n\nExample: navigate_to_node(host_name='sunri-pi1', device_id='device1', userinterface_name='google_tv', target_node_label='shop')", 'inputSchema': {'type': 'object', 'properties': {'host_name': {'type': 'string', 'description': 'host where device is connected'}, 'device_id': {'type': 'string', 'description': 'device identifier'}, 'userinterface_name': {'type': 'string', 'description': 'UI name for auto-resolving tree_id'}, 'target_node_label': {'type': 'string', 'description': 'target screen like shop or home'}}, 'required': ['host_name', 'device_id', 'userinterface_name', 'target_node_label']}}, {'name': 'preview_userinterface', 'description': 'Get compact text preview of userinterface navigation tree Shows all nodes, edges, actions, and verifications in compact format. Perfect for quick overview: "What do we test and how?" Compact text showing all transitions (8-10 lines) Example output: netflix_mobile (7 nodes, 13 transitions) Entry→home: launch_app + tap(540,1645) [✓ Startseite] home⟷search: click(Suchen) ⟷ click(Nach oben navigieren) [✓ Suchen] home⟷content_detail: click(The Witcher) ⟷ BACK [✓ abspielen] ...', 'inputSchema': {'type': 'object', 'properties': {'userinterface_name': {'type': 'string', 'description': "e.g., 'netflix_mobile'"}}, 'required': ['userinterface_name']}}]

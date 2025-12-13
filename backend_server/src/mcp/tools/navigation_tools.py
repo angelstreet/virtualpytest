@@ -626,3 +626,92 @@ class NavigationTools:
         
         return ""
 
+    def execute_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute actions defined in a specific navigation edge.
+
+        This tool directly executes the device actions stored in an edge, similar to how
+        navigate_to_node() automatically executes edge actions during navigation.
+
+        Example: execute_edge(tree_id='abc123', edge_id='edge1', device_id='device1', host_name='sunri-pi1')
+
+        Args:
+            params: {
+                'tree_id': str (REQUIRED - navigation tree ID),
+                'edge_id': str (REQUIRED - edge identifier),
+                'device_id': str (REQUIRED - device identifier),
+                'host_name': str (REQUIRED - host where device is connected),
+                'team_id': str (OPTIONAL)
+            }
+
+        Returns:
+            MCP-formatted response with execution results
+        """
+        tree_id = params.get('tree_id')
+        edge_id = params.get('edge_id')
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+
+        # Validate required parameters
+        if not tree_id:
+            return {"content": [{"type": "text", "text": "Error: tree_id is required"}], "isError": True}
+        if not edge_id:
+            return {"content": [{"type": "text", "text": "Error: edge_id is required"}], "isError": True}
+        if not device_id:
+            return {"content": [{"type": "text", "text": "Error: device_id is required"}], "isError": True}
+        if not host_name:
+            return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
+
+        try:
+            # Step 1: Get edge data
+            print(f"[@MCP:execute_edge] Getting edge {edge_id} from tree {tree_id}")
+            edge_result = self.api.get(
+                f'/server/navigationTrees/{tree_id}/edges/{edge_id}',
+                params={'team_id': team_id}
+            )
+
+            if not edge_result.get('success'):
+                error_msg = edge_result.get('error', 'Failed to get edge')
+                return {"content": [{"type": "text", "text": f"❌ Failed to get edge: {error_msg}"}], "isError": True}
+
+            edge = edge_result.get('edge', {})
+            action_sets = edge.get('action_sets', [])
+
+            if not action_sets or not action_sets[0].get('actions'):
+                return {"content": [{"type": "text", "text": "❌ Edge has no actions to execute"}], "isError": True}
+
+            # Step 2: Extract actions from the first action set (forward direction)
+            actions = action_sets[0].get('actions', [])
+            if not actions:
+                return {"content": [{"type": "text", "text": "❌ Edge has no actions in the forward direction"}], "isError": True}
+
+            # Step 3: Execute the actions using device-control skill
+            print(f"[@MCP:execute_edge] Executing {len(actions)} actions from edge {edge_id}")
+
+            # Import ActionTools to execute the actions
+            from .action_tools import ActionTools
+            action_tools = ActionTools(self.api)
+
+            execution_params = {
+                'device_id': device_id,
+                'host_name': host_name,
+                'actions': actions,
+                'team_id': team_id
+            }
+
+            # Call execute_device_action
+            result = action_tools.execute_device_action(execution_params)
+
+            # Add edge context to the result
+            if result.get('content') and len(result['content']) > 0:
+                original_text = result['content'][0].get('text', '')
+                enhanced_text = f"Edge {edge_id} ({edge.get('source_node_id')}→{edge.get('target_node_id')}): {original_text}"
+                result['content'][0]['text'] = enhanced_text
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error executing edge: {e}", exc_info=True)
+            return {"content": [{"type": "text", "text": f"❌ Edge execution failed: {str(e)}"}], "isError": True}
+

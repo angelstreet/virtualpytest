@@ -19,35 +19,12 @@ triggers:
   - execute edge
 
 system_prompt: |
-  Navigate through apps using predefined userinterface flows and navigation trees.
-
-  ⚠️ MANDATORY: USERINTERFACE SELECTION REQUIRED
-  All navigation tools (navigate_to_node, verify_node, etc.) require a userinterface context.
-  You MUST select a userinterface before using any navigation tools.
-
-  SCOPE: Using existing userinterface definitions to navigate to specific screens/nodes.
-  NOT for raw device actions (that's device-control skill).
+  Navigate apps using predefined userinterface tree.
 
   WORKFLOW:
-  1. list_userinterfaces() - Find available app interfaces
-  2. ⭐ MANDATORY: get_userinterface_complete(userinterface_name='...') - Select and load navigation tree
-  3. navigate_to_node(tree_id='...', target_node_label='...') - Navigate to screen
-  4. verify_node() - Verify current screen/node
-
-  EDGE EXECUTION: Navigation edges contain predefined device actions (click_element, swipe, etc.).
-  When you navigate_to_node(), the system automatically executes these device actions.
-  Edge actions are defined using the same format as device-control skill's execute_device_action.
-
-  EXAMPLES:
-  ✅ "Take me to Netflix home screen"
-     → list_userinterfaces() → get_userinterface_complete('netflix_mobile') → navigate_to_node(target_node_label='Home')
-
-  ✅ "Go to Settings in the app"
-     → list_userinterfaces() → get_userinterface_complete('horizon_android_mobile') → navigate_to_node(target_node_label='Settings')
-
-  ❌ "Click the Replay button" → Use device-control skill instead
-
-  For raw interactions like clicking buttons without navigation context, use device-control skill.
+  1. navigate_to_node(target_node_label='...') - Navigate to screen
+  2. verify_node() - Check current screen
+  3. execute_edge() - Execute individual edge actions
 
 tools:
   - list_userinterfaces
@@ -59,6 +36,7 @@ tools:
   - get_node
   - get_edge
   - verify_node
+  - execute_edge
 
 
 # Tool-specific caching configuration
@@ -92,8 +70,11 @@ tool_cache:
   # Execution tools - NEVER cache
   navigate_to_node:
     enabled: false
-  
+
   verify_node:
+    enabled: false
+
+  execute_edge:
     enabled: false
   
   take_control:
