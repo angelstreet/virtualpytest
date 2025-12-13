@@ -1310,7 +1310,7 @@ useEffect(() => {
     </Box>
   );
 
-  // --- Right Panel (Device Stream - Video Only, No Headers) ---
+  // --- Right Panel (Device Execution) ---
   const renderRightPanel = () => {
     // Determine if device is mobile (for aspect ratio)
     const selectedDeviceObj = selectedHost?.devices?.find((d: any) => d.device_id === selectedDevice);
@@ -1323,7 +1323,7 @@ useEffect(() => {
           width: showDevice ? RIGHT_PANEL_WIDTH : 0,
           minWidth: showDevice ? RIGHT_PANEL_WIDTH : 0,
           height: '100%',
-          bgcolor: '#000', // Black background for video panel
+          bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
           borderLeft: showDevice ? '1px solid' : 'none',
           borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
           display: 'flex',
@@ -1333,55 +1333,59 @@ useEffect(() => {
         }}
       >
         {showDevice && (
-          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Video Stream - Full Height, No Headers */}
-            {selectedDevice && streamUrl ? (
-              <HLSVideoPlayer
-                streamUrl={streamUrl}
-                isStreamActive={!!streamUrl && !isLoadingUrl}
-                model={deviceModel}
-                layoutConfig={{
-                  minHeight: '100%',
-                  aspectRatio: isMobile ? '9/16' : '16/9',
-                  objectFit: 'contain',
-                  isMobileModel: isMobile,
-                }}
-                sx={{
-                  width: '100%',
-                  height: '100%',
-                  borderRadius: 0,
-                }}
-              />
-            ) : (
-              // No device selected or loading state
-              <Box
-                sx={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'column',
-                  gap: 1,
-                }}
-              >
-                {isLoadingUrl ? (
-                  <Typography variant="body2" color="grey.400">
-                    Loading stream...
-                  </Typography>
-                ) : !selectedDevice ? (
-                  <>
-                    <DevicesIcon sx={{ fontSize: 32, color: 'grey.600' }} />
-                    <Typography variant="body2" color="grey.500" sx={{ textAlign: 'center' }}>
-                      Select a device to view stream
-                    </Typography>
-                  </>
-                ) : (
-                  <Typography variant="body2" color="grey.400">
-                    Stream not available
-                  </Typography>
-                )}
-              </Box>
-            )}
+          <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Header with icon and title */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <DevicesIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
+              <Typography variant="subtitle2" fontWeight={600}>
+                Device Execution
+              </Typography>
+            </Box>
+            
+            {/* Content rectangle - contains video stream or placeholder */}
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 2,
+                border: '1px dashed',
+                borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
+                overflow: 'hidden',
+                bgcolor: '#000', // Black background for video
+              }}
+            >
+              {selectedDevice && streamUrl ? (
+                <HLSVideoPlayer
+                  streamUrl={streamUrl}
+                  isStreamActive={!!streamUrl && !isLoadingUrl}
+                  model={deviceModel}
+                  layoutConfig={{
+                    minHeight: '100%',
+                    aspectRatio: isMobile ? '9/16' : '16/9',
+                    objectFit: 'contain',
+                    isMobileModel: isMobile,
+                  }}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                  }}
+                />
+              ) : isLoadingUrl ? (
+                <Typography variant="body2" color="text.secondary">
+                  Loading stream...
+                </Typography>
+              ) : !selectedDevice ? (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+                  Select a device to view stream
+                </Typography>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
+                  Stream not available
+                </Typography>
+              )}
+            </Box>
           </Box>
         )}
       </Box>
