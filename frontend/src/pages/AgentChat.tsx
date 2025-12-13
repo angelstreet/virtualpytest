@@ -142,7 +142,7 @@ const AgentChat: React.FC = () => {
     showAVPanel: showDevicePanel, // Manual control via show/hide button
     // Custom positioning - position device screen in AgentChat layout
     customPosition: {
-      left: '15px', // Account for sidebar width (280px + 10px margin)
+      left: '20px', // Account for sidebar width (280px + 10px margin)
       bottom: '22px', // 10px from bottom (no footer in AgentChat)
       // You can also use: right, top
     },
