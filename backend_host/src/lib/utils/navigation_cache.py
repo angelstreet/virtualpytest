@@ -71,17 +71,25 @@ def refresh_cache_timestamp(root_tree_id: str, team_id: str) -> bool:
 def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List[Dict]) -> Optional[nx.DiGraph]:
     """
     Build and cache unified graph - memory-only (no file persistence)
-    CRITICAL: Always stores under the provided root_tree_id (from get_root_tree_for_interface)
+    CRITICAL: Always stores under the ROOT tree_id, not the entry tree_id
     """
     try:
         from shared.src.lib.utils.navigation_graph import create_unified_networkx_graph
-
+        
         if not all_trees_data:
             return None
-
-        # STEP 1: Use provided root_tree_id as cache key (single source of truth)
-        # This ensures consistency with navigation cache checks
-        cache_key = f"unified_{root_tree_id}_{team_id}"
+        
+        # STEP 1: Find the actual root tree from the hierarchy
+        actual_root_tree_id = root_tree_id
+        for tree_data in all_trees_data:
+            tree_info = tree_data.get('tree_info', {})
+            if tree_info.get('is_root_tree', False):
+                actual_root_tree_id = tree_data.get('tree_id')
+                print(f"[@navigation:cache:populate_unified_cache] Found root tree: {actual_root_tree_id}")
+                break
+        
+        # STEP 2: Use root tree_id as cache key (single source of truth)
+        cache_key = f"unified_{actual_root_tree_id}_{team_id}"
         
         # STEP 3: Build unified graph from all trees
         unified_graph = create_unified_networkx_graph(all_trees_data)
