@@ -74,7 +74,6 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { DeviceControlPanels } from '../components/common/DeviceControlPanels';
 import { useDevicePanels } from '../hooks/useDevicePanels';
 import { AgentDeviceProvider, useAgentDevice } from '../contexts/AgentDeviceContext';
-import { useHostManager } from '../contexts/index';
 
 const { 
   sidebarWidth: SIDEBAR_WIDTH, 
@@ -121,8 +120,6 @@ const AgentChatContent: React.FC = () => {
   const [showChat, setShowChat] = useState(true);
   const [showDevice, setShowDevice] = useState(false);
 
-  // Device panel visibility
-  const [showDevicePanel, setShowDevicePanel] = useState(false);
 
   // Auto-selected device and interface from context
   const {
@@ -135,8 +132,6 @@ const AgentChatContent: React.FC = () => {
     interfaceError,
   } = useAgentDevice();
 
-  // Get HostManager for device control (keeping for device panel management)
-  const { handleControlStateChange } = useHostManager();
 
   // Device control panels - manual control
   const devicePanels = useDevicePanels({
@@ -149,7 +144,7 @@ const AgentChatContent: React.FC = () => {
   const agentChatPanelProps = {
     ...devicePanels.panelProps,
     showRemotePanel: false, // ❌ Hide remote control in AgentChat
-    showAVPanel: showDevicePanel, // Manual control via show/hide button
+    showAVPanel: false, // No device panel in AgentChat header
     // Custom positioning - position device screen in AgentChat layout
     customPosition: {
       left: '20px', // Account for sidebar width (280px + 10px margin)
@@ -415,18 +410,6 @@ useEffect(() => {
   }, [allowAutoNavigation, location.pathname, selectedHost, selectedDevice, selectedUserInterface, setNavigationContext]);
   
 
-  // Handle device panel show/hide
-  const handleDevicePanelToggle = () => {
-    if (showDevicePanel) {
-      // Hide panel
-      setShowDevicePanel(false);
-      handleControlStateChange(false);
-    } else if (selectedDevice) {
-      // Show panel for auto-selected device
-      setShowDevicePanel(true);
-      handleControlStateChange(true);
-    }
-  };
   
   // Only show processing state if viewing the conversation that's being processed
   const showProcessing = isProcessing && activeConversationId === pendingConversationId;
@@ -1582,7 +1565,7 @@ useEffect(() => {
                               size="small"
                               variant="outlined"
                               sx={{
-                                height: 18,
+                                height: 20,
                                 fontSize: '0.65rem',
                                 borderColor: PALETTE.accent,
                                 color: PALETTE.accent,
@@ -2288,29 +2271,6 @@ useEffect(() => {
             )}
           </Box>
 
-          {/* Device Screen Controls */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Show/Hide Device Panel Button */}
-            <Button
-              variant={showDevicePanel ? 'contained' : 'outlined'}
-              size="small"
-              onClick={handleDevicePanelToggle}
-              disabled={!selectedDevice}
-              startIcon={<DevicesIcon />}
-              color={showDevicePanel ? 'success' : 'primary'}
-              sx={{
-                height: 32,
-                fontSize: '0.7rem',
-                minWidth: 90,
-                maxWidth: 90,
-                whiteSpace: 'nowrap',
-                px: 1.5,
-              }}
-              title={showDevicePanel ? 'Hide Device Screen' : 'Show Device Screen'}
-            >
-              {showDevicePanel ? 'Hide' : 'Show'}
-            </Button>
-          </Box>
 
           {/* Auto-redirect toggle */}
           <Tooltip title={allowAutoNavigation ? "Auto-redirect enabled" : "Auto-redirect disabled"}>
