@@ -833,8 +833,9 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     else:
                         print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed even after reconnection")
                 else:
-                    print(f"Remote[{self.device_type.upper()}]: Failed to reconnect for command '{command}' retry")
-                    return False
+                    error_msg = f"Failed to reconnect for command '{command}' retry"
+                    print(f"Remote[{self.device_type.upper()}]: {error_msg}")
+                    return {'success': False, 'error': error_msg}
                     
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Command '{command}' exception: {e}")
@@ -852,8 +853,9 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                     print(f"Remote[{self.device_type.upper()}]: Command '{command}' retry after exception also failed: {retry_e}")
                     return False
             else:
-                print(f"Remote[{self.device_type.upper()}]: Failed to reconnect after command '{command}' exception")
-                return False
+                error_msg = f"Failed to reconnect after command '{command}' exception"
+                print(f"Remote[{self.device_type.upper()}]: {error_msg}")
+                return {'success': False, 'error': error_msg}
         
         # Apply wait_time after successful command execution
         if result and wait_time > 0:
