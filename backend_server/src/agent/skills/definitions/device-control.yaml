@@ -14,7 +14,7 @@ triggers:
 
 system_prompt: |
   Control physical devices with raw hardware actions (click, swipe, press).
-  NOT for predefined navigation flows (that's app-navigation skill).
+  DO NOT use for go or goto (that's app-navigation skill).
 
   WORKFLOW:
   1. get_device_info() → find available devices

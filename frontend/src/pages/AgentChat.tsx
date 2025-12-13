@@ -27,6 +27,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  InputLabel,
   Switch,
   Tabs,
   Tab,
@@ -119,23 +120,27 @@ const AgentChat: React.FC = () => {
   const [showHistory, setShowHistory] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [showDevice, setShowDevice] = useState(false);
-  
-  // 🆕 NEW: Get HostManager for AI-driven device control
+
+  // Device selection state for manual control
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [showDevicePanel, setShowDevicePanel] = useState(false);
+
+  // Get HostManager for device selection
   const { getAllHosts, handleDeviceSelect, handleControlStateChange } = useHostManager();
-  
-  // 🆕 NEW: Device control panels - automatically show/hide when control is taken/released
+
+  // Device control panels - manual control
   const devicePanels = useDevicePanels({
     sessionId: 'agent-chat-session',
     requireTreeId: false, // AgentChat doesn't require tree_id
     autoCleanup: true,
   });
-  
+
   // Override panel visibility: AgentChat only shows device screen (HDMI/VNC), not remote control
   const agentChatPanelProps = {
     ...devicePanels.panelProps,
     showRemotePanel: false, // ❌ Hide remote control in AgentChat
-    showAVPanel: devicePanels.showAVPanel, // ✅ Show device screen when control is active
-    // 🆕 Custom positioning - position device screen in AgentChat layout
+    showAVPanel: showDevicePanel, // Manual control via show/hide button
+    // Custom positioning - position device screen in AgentChat layout
     customPosition: {
       left: showHistory ? '290px' : '10px', // Account for sidebar width (280px + 10px margin)
       bottom: '10px', // 10px from bottom (no footer in AgentChat)
@@ -379,7 +384,6 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     clearBackgroundHistory,
     setAgentId,
     setNavigationContext,
-    setOnDeviceControlChange, // 🆕 NEW: For AI agent device control detection
     reloadSkills, // 🆕 NEW: Skills reload for development
   } = useAgentChat();
   
@@ -395,31 +399,33 @@ useEffect(() => {
     setNavigationContext(allowAutoNavigation, location.pathname);
   }, [allowAutoNavigation, location.pathname, setNavigationContext]);
   
-  // 🆕 NEW: Listen for AI agent device control tool calls
-  // When AI calls take_control/release_control, sync frontend state
-  useEffect(() => {
-    const handleAIDeviceControl = (hostName: string, deviceId: string, isActive: boolean) => {
-      console.log('[AgentChat] AI agent device control change:', { hostName, deviceId, isActive });
-      
-      // Find host by name
-      const hosts = getAllHosts();
-      const host = hosts.find(h => h.host_name === hostName);
-      
-      if (host) {
-        // Update device selection
+  // Manual device selection handler
+  const handleDeviceSelection = (deviceId: string) => {
+    setSelectedDevice(deviceId);
+
+    // Find the host and device to update the device panels
+    const hosts = getAllHosts();
+    for (const host of hosts) {
+      const device = host.devices.find(d => d.device_id === deviceId);
+      if (device) {
         handleDeviceSelect(host, deviceId);
-        
-        // Update control state to trigger panel visibility
-        handleControlStateChange(isActive);
-        
-        console.log('[AgentChat] Synced device state - panel should', isActive ? 'show' : 'hide');
-      } else {
-        console.warn('[AgentChat] Host not found:', hostName);
+        break;
       }
-    };
-    
-    setOnDeviceControlChange(handleAIDeviceControl);
-  }, [setOnDeviceControlChange, getAllHosts, handleDeviceSelect, handleControlStateChange]);
+    }
+  };
+
+  // Handle device panel show/hide
+  const handleDevicePanelToggle = () => {
+    if (showDevicePanel) {
+      // Hide panel
+      setShowDevicePanel(false);
+      handleControlStateChange(false);
+    } else if (selectedDevice) {
+      // Show panel for selected device
+      setShowDevicePanel(true);
+      handleControlStateChange(true);
+    }
+  };
   
   // Only show processing state if viewing the conversation that's being processed
   const showProcessing = isProcessing && activeConversationId === pendingConversationId;
@@ -2236,13 +2242,68 @@ useEffect(() => {
           </FormControl>
         </Box>
         
-        {/* Right: Auto-redirect toggle + Section Toggles */}
+        {/* Right: Device Controls + Auto-redirect toggle + Section Toggles */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Device Controls */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Device Selection Dropdown */}
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel id="agent-chat-device-select-label">Device</InputLabel>
+              <Select
+                labelId="agent-chat-device-select-label"
+                value={selectedDevice || ''}
+                onChange={(e) => handleDeviceSelection(e.target.value)}
+                label="Device"
+                sx={{ height: 32, fontSize: '0.75rem' }}
+              >
+                {getAllHosts().flatMap((host) => {
+                  const devices = host.devices || [];
+                  return devices.map((device) => (
+                    <MenuItem
+                      key={`${host.host_name}:${device.device_id}`}
+                      value={device.device_id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}
+                    >
+                      <span>
+                        {device.device_name} ({host.host_name})
+                      </span>
+                    </MenuItem>
+                  ));
+                })}
+              </Select>
+            </FormControl>
+
+            {/* Show/Hide Device Panel Button */}
+            <Button
+              variant={showDevicePanel ? 'contained' : 'outlined'}
+              size="small"
+              onClick={handleDevicePanelToggle}
+              disabled={!selectedDevice}
+              startIcon={<DevicesIcon />}
+              color={showDevicePanel ? 'success' : 'primary'}
+              sx={{
+                height: 32,
+                fontSize: '0.7rem',
+                minWidth: 90,
+                maxWidth: 90,
+                whiteSpace: 'nowrap',
+                px: 1.5,
+              }}
+              title={showDevicePanel ? 'Hide Device Screen' : 'Show Device Screen'}
+            >
+              {showDevicePanel ? 'Hide' : 'Show'}
+            </Button>
+          </Box>
+
           {/* Auto-redirect toggle */}
           <Tooltip title={allowAutoNavigation ? "Auto-redirect enabled" : "Auto-redirect disabled"}>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
               gap: 0.5,
               opacity: 0.8,
             }}>
