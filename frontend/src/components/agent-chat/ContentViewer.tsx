@@ -77,7 +77,6 @@ export interface ContentData {
   // Execution log
   log_entries?: { timestamp: string; level: string; message: string }[];
 }
-}
 
 export type ContentTab = 'navigation' | 'testcase' | 'campaign' | 'heatmap' | 'alerts';
 
