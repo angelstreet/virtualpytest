@@ -139,7 +139,8 @@ const defaultEdgeOptions = {
   },
 };
 
-const TestCaseBuilderContent: React.FC = () => {
+// Exported for embedding in ContentViewer
+export const TestCaseBuilderContent: React.FC = () => {
   // Inject styles to hide React Flow attribution
   React.useEffect(() => {
     const styleTag = document.createElement('style');

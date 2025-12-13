@@ -671,6 +671,133 @@ def refresh_navigation_editor() -> str:
     return "✅ Navigation editor refreshed"
 
 
+def show_content_panel(
+    content_type: str,
+    content_data: Optional[Dict[str, Any]] = None,
+    title: Optional[str] = None
+) -> str:
+    """
+    Display content in the AgentChat content viewer panel.
+    This minimizes the chat and shows the content above it.
+    
+    Args:
+        content_type: Type of content to display. Options:
+            - 'navigation-tree': Show navigation tree (optionally pass tree_id, node_id, userinterface_name)
+            - 'testcase-flow': Show test case flow (optionally pass testcase_id, editable)
+            - 'rec-preview': Show device streams (optionally pass device_ids)
+            - 'report-chart': Show chart (optionally pass chart_type, chart_data)
+            - 'data-table': Show table (pass columns and rows)
+            - 'execution-log': Show log entries (pass log_entries)
+        content_data: Data for the content type (varies by type)
+        title: Optional title for the panel header
+    
+    Examples:
+        show_content_panel('navigation-tree', {'userinterface_name': 'Disney+'}, 'Navigation: Disney+')
+        show_content_panel('testcase-flow', {'testcase_id': 'tc_123', 'editable': True})
+        show_content_panel('data-table', {
+            'columns': [{'field': 'name', 'header': 'Name'}, {'field': 'status', 'header': 'Status'}],
+            'rows': [{'name': 'Test 1', 'status': 'PASSED'}]
+        }, 'Test Results')
+    """
+    logger.info(f"🤖 show_content_panel called: type={content_type}, title={title}")
+    
+    valid_types = ['navigation-tree', 'testcase-flow', 'rec-preview', 'report-chart', 'data-table', 'execution-log']
+    if content_type not in valid_types:
+        return f"❌ Invalid content_type '{content_type}'. Valid types: {', '.join(valid_types)}"
+    
+    if not socket_manager.socketio:
+        return "❌ Backend UI control system not ready."
+    
+    socket_manager.broadcast(
+        'ui_action',
+        {
+            "action": "show_content",
+            "payload": {
+                "content_type": content_type,
+                "content_data": content_data or {},
+                "title": title
+            },
+            "agent_message": f"Showing {content_type} panel..."
+        },
+        namespace='/agent'
+    )
+    
+    display_title = title or content_type.replace('-', ' ').title()
+    return f"✅ Showing {display_title} in content panel"
+
+
+def hide_content_panel() -> str:
+    """
+    Hide the content panel and restore full chat view.
+    Use this when done showing content to the user.
+    """
+    logger.info("🤖 hide_content_panel called")
+    
+    if not socket_manager.socketio:
+        return "❌ Backend UI control system not ready."
+    
+    socket_manager.broadcast(
+        'ui_action',
+        {
+            "action": "hide_content",
+            "payload": {},
+            "agent_message": "Hiding content panel..."
+        },
+        namespace='/agent'
+    )
+    
+    return "✅ Content panel hidden, chat restored"
+
+
+def sync_ui_context(
+    device_id: Optional[str] = None,
+    host_name: Optional[str] = None,
+    userinterface_name: Optional[str] = None,
+    testcase_id: Optional[str] = None
+) -> str:
+    """
+    Sync the AgentChat UI dropdowns with the agent's current execution context.
+    Call this when starting to work with a specific device, interface, or test case
+    so the UI stays in sync with what the agent is doing.
+    
+    Args:
+        device_id: The device ID to select in the Device dropdown
+        host_name: The host name (for reference, device_id is used for selection)
+        userinterface_name: The user interface name to select in the Interface dropdown
+        testcase_id: The test case ID to select in the TestCase dropdown
+    
+    Example:
+        sync_ui_context(device_id='s21', userinterface_name='Netflix', testcase_id='tc_login')
+    """
+    logger.info(f"🤖 sync_ui_context called: device={device_id}, host={host_name}, interface={userinterface_name}, testcase={testcase_id}")
+    
+    if not socket_manager.socketio:
+        return "❌ Backend UI control system not ready."
+    
+    payload = {}
+    if device_id:
+        payload['device_id'] = device_id
+    if host_name:
+        payload['host_name'] = host_name
+    if userinterface_name:
+        payload['userinterface_name'] = userinterface_name
+    if testcase_id:
+        payload['testcase_id'] = testcase_id
+    
+    socket_manager.broadcast(
+        'ui_action',
+        {
+            "action": "sync_context",
+            "payload": payload,
+            "agent_message": "Syncing UI context..."
+        },
+        namespace='/agent'
+    )
+    
+    synced_items = [k for k in payload.keys()]
+    return f"✅ UI context synced: {', '.join(synced_items)}"
+
+
 # Export all tools
 PAGE_INTERACTION_TOOLS = [
     "get_available_pages",
@@ -680,5 +807,8 @@ PAGE_INTERACTION_TOOLS = [
     "highlight_element",
     "show_toast",
     "get_alerts",
+    "show_content_panel",
+    "hide_content_panel",
+    "sync_ui_context",
 ]
 
