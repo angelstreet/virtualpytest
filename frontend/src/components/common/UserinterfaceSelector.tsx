@@ -13,7 +13,7 @@ import { FormControl, InputLabel, Select, MenuItem, CircularProgress, SelectChan
 import { useUserInterface } from '../../hooks/pages/useUserInterface';
 
 interface UserinterfaceSelectorProps {
-  deviceModel?: string;  // Device model to find compatible interfaces for
+  deviceModel?: string;  // Device model to find compatible interfaces for (undefined = show all)
   compatibleInterfaces?: string[];  // Pre-filtered list (e.g., from test case)
   value?: string;
   onChange: (userinterface: string) => void;
@@ -43,7 +43,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
   const [interfaces, setInterfaces] = useState<UserinterfaceOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getCompatibleInterfaces } = useUserInterface();
+  const { getCompatibleInterfaces, getAllUserInterfaces } = useUserInterface();
 
   useEffect(() => {
     const fetchInterfaces = async () => {
@@ -57,7 +57,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
         console.log('[@UserinterfaceSelector] Current value:', value);
         setInterfaces(options);
         setError(null); // Clear any previous error
-        
+
         // Auto-select first if no value set or value is empty string
         if ((!value || value.trim() === '') && onChange) {
           console.log('[@UserinterfaceSelector] Auto-selecting first interface:', options[0].name);
@@ -66,33 +66,38 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
         return;
       }
 
-      // Otherwise, fetch from API based on device model using centralized hook
-      if (!deviceModel || deviceModel === 'unknown') {
-        setError('Select a device first');
-        setInterfaces([]);
-        return;
-      }
-
       try {
         setLoading(true);
         setError(null);
 
-        const compatibleList = await getCompatibleInterfaces(deviceModel);
+        let interfacesList: any[];
 
-        if (compatibleList && compatibleList.length > 0) {
-          const options = compatibleList.map((iface: any) => ({
+        if (deviceModel && deviceModel !== 'unknown') {
+          // Fetch compatible interfaces for specific device model
+          console.log('[@UserinterfaceSelector] Fetching compatible interfaces for device model:', deviceModel);
+          interfacesList = await getCompatibleInterfaces(deviceModel);
+        } else {
+          // Fetch all interfaces when no device is selected
+          console.log('[@UserinterfaceSelector] No device selected - fetching all interfaces');
+          const allInterfaces = await getAllUserInterfaces();
+          interfacesList = allInterfaces;
+        }
+
+        if (interfacesList && interfacesList.length > 0) {
+          const options = interfacesList.map((iface: any) => ({
             id: iface.id,
             name: iface.name
           }));
           setInterfaces(options);
+          console.log(`[@UserinterfaceSelector] Loaded ${options.length} interfaces`);
 
-          // Auto-select first if no value set or value is empty string
-          if ((!value || value.trim() === '') && onChange) {
-            console.log('[@UserinterfaceSelector] Auto-selecting first interface:', options[0].name);
+          // Auto-select first interface if no value is set and deviceModel is provided (device selected)
+          if ((!value || value.trim() === '') && onChange && deviceModel) {
+            console.log('[@UserinterfaceSelector] Auto-selecting first compatible interface for device:', options[0].name);
             onChange(options[0].name);
           }
         } else {
-          setError('No compatible interfaces found');
+          setError('No interfaces found');
           setInterfaces([]);
         }
       } catch (err) {
@@ -106,7 +111,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
 
     fetchInterfaces();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceModel, compatibleInterfaces]); // getCompatibleInterfaces excluded to prevent unnecessary re-fetches
+  }, [deviceModel, compatibleInterfaces]); // getCompatibleInterfaces, getAllUserInterfaces excluded to prevent unnecessary re-fetches
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     onChange(event.target.value);
@@ -152,6 +157,9 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
         label={label}
         sx={sx}
       >
+        <MenuItem value="">
+          <em>Select Interface...</em>
+        </MenuItem>
         {interfaces.map((iface) => (
           <MenuItem key={iface.id} value={iface.name}>
             {iface.name}

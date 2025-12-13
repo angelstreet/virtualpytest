@@ -28,7 +28,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Switch,
   Tabs,
   Tab,
 } from '@mui/material';
@@ -55,7 +54,6 @@ import {
   ViewSidebar as SidebarIcon,
   Chat as ChatPanelIcon,
   PhoneAndroid as DevicePanelIcon,
-  OpenInNew as RedirectIcon,
   ThumbUp,
   ThumbDown,
   Refresh as ReloadIcon,
@@ -65,17 +63,16 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { useAgentChat, type AgentEvent, type BackgroundTask, type BackgroundAgentInfo } from '../hooks/aiagent';
 import { useProfile } from '../hooks/auth/useProfile';
-import { useAIContext } from '../contexts/AIContext';
-import { useUserInterface } from '../hooks/pages/useUserInterface';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { APP_CONFIG } from '../config/constants';
 import { AGENT_CHAT_PALETTE as PALETTE, AGENT_CHAT_LAYOUT, AGENT_COLORS } from '../constants/agentChatTheme';
 import { getInitials, mergeToolEvents, groupConversationsByTime } from '../utils/agentChatUtils';
 import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
-import { DeviceControlPanels } from '../components/common/DeviceControlPanels';
-import { useDevicePanels } from '../hooks/useDevicePanels';
+import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
+import { HLSVideoPlayer } from '../components/common/HLSVideoPlayer';
 import { useHostManager } from '../contexts/index';
+import { useStream } from '../hooks/controller';
 
 const { 
   sidebarWidth: SIDEBAR_WIDTH, 
@@ -115,7 +112,6 @@ const AgentChat: React.FC = () => {
   const { profile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const { allowAutoNavigation, setAllowAutoNavigation } = useAIContext();
   
   // Layout state - each section can be shown/hidden
   const [showHistory, setShowHistory] = useState(true);
@@ -125,47 +121,29 @@ const AgentChat: React.FC = () => {
   // Device selection state for manual control
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedUserInterface, setSelectedUserInterface] = useState<string>('');
-  const [showDevicePanel, setShowDevicePanel] = useState(false);
+  // showDevicePanel is now controlled by showDevice - when device panel is shown, HDMI is shown
 
   // Get HostManager for device selection
-  const { getAllHosts, handleDeviceSelect, handleControlStateChange } = useHostManager();
+  const { getAllHosts, handleDeviceSelect } = useHostManager();
 
-  // Available user interfaces state
-  const [availableUserInterfaces, setAvailableUserInterfaces] = useState<string[]>([]);
-
-  // Load available user interfaces
-  const { getAllUserInterfaces } = useUserInterface();
-  useEffect(() => {
-    const loadUserInterfaces = async () => {
-      try {
-        const interfaces = await getAllUserInterfaces();
-        setAvailableUserInterfaces(interfaces.map((ui: any) => ui.name));
-      } catch (error) {
-        console.error('Failed to load user interfaces:', error);
-      }
-    };
-    loadUserInterfaces();
-  }, [getAllUserInterfaces]);
-
-  // Device control panels - manual control
-  const devicePanels = useDevicePanels({
-    sessionId: 'agent-chat-session',
-    requireTreeId: false, // AgentChat doesn't require tree_id
-    autoCleanup: true,
-  });
-
-  // Override panel visibility: AgentChat only shows device screen (HDMI/VNC), not remote control
-  const agentChatPanelProps = {
-    ...devicePanels.panelProps,
-    showRemotePanel: false, // ❌ Hide remote control in AgentChat
-    showAVPanel: showDevicePanel, // Manual control via show/hide button
-    // Custom positioning - position device screen in AgentChat layout
-    customPosition: {
-      left: showHistory ? '290px' : '10px', // Account for sidebar width (280px + 10px margin)
-      bottom: '10px', // 10px from bottom (no footer in AgentChat)
-      // You can also use: right, top
-    },
+  // Get selected host object for stream hook
+  const getSelectedHost = () => {
+    if (!selectedDevice) return null;
+    const hosts = getAllHosts();
+    for (const host of hosts) {
+      const device = host.devices?.find(d => d.device_id === selectedDevice);
+      if (device) return host;
+    }
+    return null;
   };
+
+  const selectedHost = getSelectedHost();
+
+  // Stream URL for embedded video in right panel
+  const { streamUrl, isLoadingUrl } = useStream({
+    host: selectedHost,
+    device_id: selectedDevice || ''
+  });
   
   // Sidebar tab state: 'system' for background agents, 'chats' for conversations
   const [sidebarTab, setSidebarTab] = useState<'system' | 'chats'>('chats');
@@ -415,12 +393,21 @@ useEffect(() => {
   
   // Sync navigation context with hook (for 2-step workflow)
   useEffect(() => {
-    setNavigationContext(allowAutoNavigation, location.pathname);
-  }, [allowAutoNavigation, location.pathname, setNavigationContext]);
+    setNavigationContext(false, location.pathname);
+  }, [location.pathname, setNavigationContext]);
   
   // Manual device selection handler
   const handleDeviceSelection = (deviceId: string) => {
     setSelectedDevice(deviceId);
+
+    // Clear interface selection when device changes
+    setSelectedUserInterface('');
+
+    if (!deviceId) {
+      // Clearing device selection
+      handleDeviceSelect(null, null);
+      return;
+    }
 
     // Find the host and device to update the device panels
     const hosts = getAllHosts();
@@ -433,23 +420,35 @@ useEffect(() => {
     }
   };
 
+  // Get device model for the selected device (for userinterface filtering)
+  const getSelectedDeviceModel = () => {
+    if (!selectedDevice) return undefined;
+
+    const hosts = getAllHosts();
+    for (const host of hosts) {
+      const device = host.devices?.find(d => d.device_id === selectedDevice);
+      if (device) {
+        return device.device_model;
+      }
+    }
+    return undefined;
+  };
+
   // Manual userinterface selection handler
   const handleUserInterfaceSelection = (userInterface: string) => {
     setSelectedUserInterface(userInterface);
-    // Update navigation context with the selected userinterface
-    setNavigationContext(allowAutoNavigation, location.pathname, '', '', userInterface);
+    // Update navigation context with the selected userinterface (empty string for no selection)
+    setNavigationContext(false, location.pathname, '', '', userInterface || '');
   };
 
-  // Handle device panel show/hide
+  // Handle device panel toggle
   const handleDevicePanelToggle = () => {
-    if (showDevicePanel) {
+    if (showDevice) {
       // Hide panel
-      setShowDevicePanel(false);
-      handleControlStateChange(false);
+      setShowDevice(false);
     } else if (selectedDevice) {
       // Show panel for selected device
-      setShowDevicePanel(true);
-      handleControlStateChange(true);
+      setShowDevice(true);
     }
   };
 
@@ -1311,54 +1310,83 @@ useEffect(() => {
     </Box>
   );
 
-  // --- Right Panel (Device Execution - Placeholder) ---
-  const renderRightPanel = () => (
-    <Box
-      sx={{
-        width: showDevice ? RIGHT_PANEL_WIDTH : 0,
-        minWidth: showDevice ? RIGHT_PANEL_WIDTH : 0,
-        height: '100%',
-        bgcolor: isDarkMode ? PALETTE.sidebarBg : 'grey.50',
-        borderLeft: showDevice ? '1px solid' : 'none',
-        borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        transition: 'width 0.2s, min-width 0.2s',
-      }}
-    >
-      {showDevice && (
-        <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <DevicesIcon sx={{ fontSize: 18, color: PALETTE.accent }} />
-            <Typography variant="subtitle2" fontWeight={600}>
-              Device Execution
-            </Typography>
+  // --- Right Panel (Device Stream - Video Only, No Headers) ---
+  const renderRightPanel = () => {
+    // Determine if device is mobile (for aspect ratio)
+    const selectedDeviceObj = selectedHost?.devices?.find((d: any) => d.device_id === selectedDevice);
+    const deviceModel = selectedDeviceObj?.device_model;
+    const isMobile = deviceModel?.includes('mobile') || deviceModel === 'android_mobile';
+    
+    return (
+      <Box
+        sx={{
+          width: showDevice ? RIGHT_PANEL_WIDTH : 0,
+          minWidth: showDevice ? RIGHT_PANEL_WIDTH : 0,
+          height: '100%',
+          bgcolor: '#000', // Black background for video panel
+          borderLeft: showDevice ? '1px solid' : 'none',
+          borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          transition: 'width 0.2s, min-width 0.2s',
+        }}
+      >
+        {showDevice && (
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Video Stream - Full Height, No Headers */}
+            {selectedDevice && streamUrl ? (
+              <HLSVideoPlayer
+                streamUrl={streamUrl}
+                isStreamActive={!!streamUrl && !isLoadingUrl}
+                model={deviceModel}
+                layoutConfig={{
+                  minHeight: '100%',
+                  aspectRatio: isMobile ? '9/16' : '16/9',
+                  objectFit: 'contain',
+                  isMobileModel: isMobile,
+                }}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: 0,
+                }}
+              />
+            ) : (
+              // No device selected or loading state
+              <Box
+                sx={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  gap: 1,
+                }}
+              >
+                {isLoadingUrl ? (
+                  <Typography variant="body2" color="grey.400">
+                    Loading stream...
+                  </Typography>
+                ) : !selectedDevice ? (
+                  <>
+                    <DevicesIcon sx={{ fontSize: 32, color: 'grey.600' }} />
+                    <Typography variant="body2" color="grey.500" sx={{ textAlign: 'center' }}>
+                      Select a device to view stream
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="body2" color="grey.400">
+                    Stream not available
+                  </Typography>
+                )}
+              </Box>
+            )}
           </Box>
-          
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 2,
-              border: '1px dashed',
-              borderColor: isDarkMode ? PALETTE.borderColor : 'grey.300',
-            }}
-          >
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
-              Device execution panel
-              <br />
-              <Typography variant="caption" color="text.disabled">
-                Coming soon
-              </Typography>
-            </Typography>
-          </Box>
-        </Box>
-      )}
-    </Box>
-  );
+        )}
+      </Box>
+    );
+  };
 
   // --- Empty State / Focus Mode ---
   const renderEmptyState = () => (
@@ -2282,6 +2310,9 @@ useEffect(() => {
                 label="Device"
                 sx={{ height: 32, fontSize: '0.75rem' }}
               >
+                <MenuItem value="">
+                  <em>Select Device...</em>
+                </MenuItem>
                 {getAllHosts().flatMap((host) => {
                   const devices = host.devices || [];
                   return devices.map((device) => (
@@ -2304,97 +2335,19 @@ useEffect(() => {
             </FormControl>
 
             {/* UserInterface Selection Dropdown */}
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <InputLabel id="agent-chat-interface-select-label">Interface</InputLabel>
-              <Select
-                labelId="agent-chat-interface-select-label"
-                value={selectedUserInterface || ''}
-                onChange={(e) => handleUserInterfaceSelection(e.target.value)}
+            <Box sx={{ minWidth: 140 }}>
+              <UserinterfaceSelector
+                deviceModel={getSelectedDeviceModel()}
+                value={selectedUserInterface}
+                onChange={handleUserInterfaceSelection}
                 label="Interface"
-                sx={{ height: 32, fontSize: '0.75rem' }}
-              >
-                {availableUserInterfaces.map((ui) => (
-                  <MenuItem
-                    key={ui}
-                    value={ui}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <span>{ui}</span>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            {/* Show/Hide Device Panel Button */}
-            <Button
-              variant={showDevicePanel ? 'contained' : 'outlined'}
-              size="small"
-              onClick={handleDevicePanelToggle}
-              disabled={!selectedDevice}
-              startIcon={<DevicesIcon />}
-              color={showDevicePanel ? 'success' : 'primary'}
-              sx={{
-                height: 32,
-                fontSize: '0.7rem',
-                minWidth: 90,
-                maxWidth: 90,
-                whiteSpace: 'nowrap',
-                px: 1.5,
-              }}
-              title={showDevicePanel ? 'Hide Device Screen' : 'Show Device Screen'}
-            >
-              {showDevicePanel ? 'Hide' : 'Show'}
-            </Button>
-          </Box>
-
-          {/* Auto-redirect toggle */}
-          <Tooltip title={allowAutoNavigation ? "Auto-redirect enabled" : "Auto-redirect disabled"}>
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              opacity: 0.8,
-            }}>
-              <RedirectIcon sx={{ fontSize: 14, color: allowAutoNavigation ? PALETTE.accent : 'text.disabled' }} />
-              <Switch
                 size="small"
-                checked={allowAutoNavigation}
-                onChange={(e) => setAllowAutoNavigation(e.target.checked)}
-                sx={{
-                  width: 32,
-                  height: 18,
-                  padding: 0,
-                  '& .MuiSwitch-switchBase': {
-                    padding: 0,
-                    margin: '2px',
-                    transitionDuration: '200ms',
-                    '&.Mui-checked': {
-                      transform: 'translateX(14px)',
-                      color: '#fff',
-                      '& + .MuiSwitch-track': {
-                        backgroundColor: PALETTE.accent,
-                        opacity: 1,
-                        border: 0,
-                      },
-                    },
-                  },
-                  '& .MuiSwitch-thumb': {
-                    width: 14,
-                    height: 14,
-                  },
-                  '& .MuiSwitch-track': {
-                    borderRadius: 9,
-                    backgroundColor: isDarkMode ? PALETTE.borderColor : 'grey.400',
-                    opacity: 1,
-                  },
-                }}
+                fullWidth
               />
             </Box>
-          </Tooltip>
+
+          </Box>
+
           
           {/* Section Toggles */}
           <Box sx={{ 
@@ -2419,9 +2372,9 @@ useEffect(() => {
             />
             <SectionToggle
               active={showDevice}
-              onClick={() => setShowDevice(!showDevice)}
+              onClick={handleDevicePanelToggle}
               icon={DevicePanelIcon}
-              tooltip={showDevice ? "Hide device" : "Show device"}
+              tooltip={showDevice ? "Hide device panel" : "Show device panel"}
             />
           </Box>
         </Box>
@@ -2528,14 +2481,6 @@ useEffect(() => {
         confirmColor="error"
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
-      />
-      
-      {/* 🆕 NEW: Device Control Panels - auto-mount when control is taken, auto-unmount when released */}
-      {/* AgentChat only shows device screen (HDMI/VNC), not remote control */}
-      <DeviceControlPanels
-        {...agentChatPanelProps}
-        isSidebarOpen={showHistory}
-        footerHeight={0} // No footer in AgentChat
       />
     </Box>
   );

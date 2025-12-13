@@ -33,7 +33,7 @@ function setCachedStreamUrl(host_name: string, device_id: string, url: string) {
 }
 
 interface UseStreamProps {
-  host: Host;
+  host: Host | null; // Can be null when no device is selected
   device_id: string; // Can be empty string when no device is selected
 }
 
@@ -142,7 +142,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
         setIsLoadingUrl(false);
       }
     },
-    [host.host_name, device_id], // Only depend on host_name, not entire host object
+    [host?.host_name, device_id], // Only depend on host_name, not entire host object
   );
 
   // Manual refetch function for force refresh
