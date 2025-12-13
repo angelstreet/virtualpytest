@@ -50,11 +50,10 @@ available_skills:
   
   # UI Interaction
   - page-navigation
+  - app-navigation
 
-# Essential router tools (minimal - for quick discovery queries)
-skills:
-  - get_device_info
-  - list_userinterfaces
+# No router tools - assistant always loads skills
+skills: []
 
 permissions:
   devices:

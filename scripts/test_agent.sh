@@ -27,11 +27,52 @@ api_call() {
     fi
 }
 
-# Reload skills
-reload_skills() {
-    echo "🔄 Reloading skills..."
+# Reload both skills and agents, and restart agent sessions
+reload() {
+    echo "🔄 Reloading skills and agents..."
+    echo "Skills:"
     response=$(api_call POST "/server/skills/reload")
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
+    echo
+    echo "Agents:"
+    response=$(api_call POST "/server/agents/reload")
+    echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
+    echo
+    echo "🔄 Restarting agent sessions..."
+    response=$(api_call GET "/server/sessions")
+    sessions=$(echo "$response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    sessions = data.get('sessions', [])
+    print(' '.join([s.get('id', '') for s in sessions if s.get('id')]))
+except:
+    print('')
+" 2>/dev/null)
+
+    if [ -z "$sessions" ]; then
+        echo "No active sessions to restart"
+    else
+        echo "Restarting sessions: $sessions"
+        for session_id in $sessions; do
+            response=$(api_call DELETE "/server/sessions/$session_id")
+            success=$(echo "$response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print('true' if data.get('success') else 'false')
+except:
+    print('false')
+" 2>/dev/null)
+
+            if [ "$success" = "true" ]; then
+                echo "  ✅ Deleted session: $session_id"
+            else
+                echo "  ⚠️  Session not found: $session_id (already deleted)"
+            fi
+        done
+        echo "✅ Agent sessions restarted - configs updated!"
+    fi
 }
 
 # List skills
@@ -78,7 +119,7 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo
     echo "Commands:"
-    echo "  reload         Reload all skills from YAML"
+    echo "  reload         Reload skills/agents + restart sessions (full refresh)"
     echo "  list           List all available skills"
     echo "  test <skill>   Test specific skill validity"
     echo "  match <msg>    Test skill matching against message"
@@ -96,7 +137,7 @@ usage() {
 # Main command handling
 case "$1" in
     reload)
-        reload_skills
+        reload
         ;;
     list)
         list_skills

@@ -1560,27 +1560,46 @@ useEffect(() => {
                 >
                   {!isUser && (() => {
                     // Extract all unique agents from events
-                    const agentChain = msg.events 
+                    const agentChain = msg.events
                       ? [...new Set(msg.events.map(e => e.agent).filter(Boolean))]
                       : [];
                     const mainAgent = msg.agent || agentChain[0];
                     const delegatedAgents = agentChain.filter(a => a !== mainAgent && a !== 'System');
-                    
+
+                    // Extract skill name from skill_loaded event
+                    const skillLoadedEvent = msg.events?.find(e => e.type === 'skill_loaded');
+                    const skillName = skillLoadedEvent?.content || null;
+
                       return (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                           <Typography variant="subtitle2" fontWeight={600} color="text.primary" sx={{ fontSize: '0.8rem' }}>
                       {getAgentNickname(msg.agent)}
                     </Typography>
+                          {skillName && (
+                            <Chip
+                              label={skillName}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                height: 18,
+                                fontSize: '0.65rem',
+                                borderColor: '#FFD700',
+                                color: '#FFD700',
+                                fontWeight: 600,
+                                '& .MuiChip-label': { px: 0.75 }
+                              }}
+                            />
+                          )}
                         {delegatedAgents.length > 0 && (
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Typography variant="caption" sx={{ color: 'text.disabled' }}>→</Typography>
                             {delegatedAgents.map((agent) => (
-                              <Chip 
+                              <Chip
                                 key={agent}
                                 label={agent}
                                 size="small"
-                                sx={{ 
-                                  height: 18, 
+                                sx={{
+                                  height: 18,
                                   fontSize: '0.65rem',
                                   bgcolor: getAgentColor(agent),
                                   color: '#fff',

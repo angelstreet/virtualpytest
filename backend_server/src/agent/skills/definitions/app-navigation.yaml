@@ -1,6 +1,6 @@
 name: app-navigation
 version: 1.0.0
-description: Navigate apps using predefined userinterface flows and trees
+description: Navigate apps using predefined userinterface tree
 
 triggers:
   # APP NAVIGATION (predefined flows)

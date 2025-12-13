@@ -187,18 +187,20 @@ class QAManagerAgent:
 
 """
             rules = """## Rules
-- Quick query → use tool directly
+- If input clearly matches a tool's expected parameters → use tool directly
+- If input doesn't match any known command/skill pattern → fail fast: explain you don't understand
 - Complex task → respond ONLY: `LOAD SKILL [name]`
+- Never guess or force-fit unclear input to tools
 """
         else:
-            # No router tools: must always load a skill
-            mode_description = "For ANY query → analyze and load the appropriate skill."
+            # No router tools: must always load a skill - keep it simple
+            mode_description = "Analyze user input and load the most appropriate skill for the task."
             router_tools_section = ""
             rules = """## Rules
-
-- Match to appropriate skill from list above
-- Respond ONLY: `LOAD SKILL [skill-name]`
-- Parse the current user message and message history first before deciding whether to call tools
+- Analyze the user's request and determine which skill best matches their needs
+- Always respond with: `LOAD SKILL [skill-name]`
+- Choose from available skills listed above
+- If unsure, ask for clarification rather than guessing
 """
         
         return f"""You are {config['nickname']}, {config['specialty']}.
@@ -475,19 +477,39 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
 
             start = time.time()
 
-            # Use prompt caching via extra_headers
-            # disable_parallel_tool_use ensures sequential tool execution (one at a time)
-            response = self.client.messages.create(
-                model=DEFAULT_MODEL,
-                max_tokens=4096,
-                system=cached_system,
-                messages=turn_messages,
-                tools=cached_tools,
-                tool_choice={"type": "auto", "disable_parallel_tool_use": True},
-                extra_headers={
-                    "anthropic-beta": "prompt-caching-2024-07-31"
-                }
-            )
+            try:
+                # Use prompt caching via extra_headers
+                # disable_parallel_tool_use ensures sequential tool execution (one at a time)
+                response = self.client.messages.create(
+                    model=DEFAULT_MODEL,
+                    max_tokens=4096,
+                    system=cached_system,
+                    messages=turn_messages,
+                    tools=cached_tools,
+                    tool_choice={"type": "auto", "disable_parallel_tool_use": True},
+                    extra_headers={
+                        "anthropic-beta": "prompt-caching-2024-07-31"
+                    }
+                )
+            except Exception as e:
+                error_msg = f"Claude API call failed: {str(e)}"
+                self.logger.error(f"[AGENT] {error_msg}", exc_info=True)
+                print(f"[AGENT] ❌ {error_msg}")
+
+                # Provide specific error messages based on exception type
+                if "rate_limit" in str(e).lower():
+                    user_error = "Rate limit exceeded. Please wait a moment and try again."
+                elif "authentication" in str(e).lower() or "api key" in str(e).lower():
+                    user_error = "Authentication failed. Please check your API key configuration."
+                elif "network" in str(e).lower() or "connection" in str(e).lower():
+                    user_error = "Network error. Please check your internet connection and try again."
+                elif "tokens" in str(e).lower():
+                    user_error = "Message too long. Please try a shorter message."
+                else:
+                    user_error = f"AI service error: {str(e)}"
+
+                yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=user_error, error=str(e))
+                break
             
             # Extract cache metrics if available
             cache_creation = getattr(response.usage, 'cache_creation_input_tokens', 0)
@@ -506,14 +528,35 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                 print(f"[CACHE] Read {cache_read} tokens from cache (90% cheaper)")
             if cache_creation > 0:
                 print(f"[CACHE] Created cache with {cache_creation} tokens")
-            
+
+            # Track generation (with error handling)
             if LANGFUSE_ENABLED:
-                track_generation(self.nickname, DEFAULT_MODEL, turn_messages, response, session.id, session.context.get("user_id"))
+                try:
+                    track_generation(self.nickname, DEFAULT_MODEL, turn_messages, response, session.id, session.context.get("user_id"))
+                except Exception as e:
+                    self.logger.warning(f"Langfuse tracking failed: {e}")
+                    print(f"[AGENT] ⚠️ Langfuse tracking error (non-critical): {e}")
             
             turn_messages.append({"role": "assistant", "content": response.content})
-            
-            tool_use = next((b for b in response.content if b.type == "tool_use"), None)
-            text_content = next((b.text for b in response.content if b.type == "text"), "")
+
+            try:
+                tool_use = next((b for b in response.content if b.type == "tool_use"), None)
+                text_content = next((b.text for b in response.content if b.type == "text"), "")
+            except Exception as e:
+                error_msg = f"Failed to parse Claude response: {str(e)}"
+                self.logger.error(f"[AGENT] {error_msg}", exc_info=True)
+                print(f"[AGENT] ❌ {error_msg}")
+
+                # Provide more specific error information
+                if hasattr(response, 'content') and response.content:
+                    content_types = [getattr(b, 'type', 'unknown') for b in response.content]
+                    error_details = f"Response contained blocks of types: {content_types}"
+                else:
+                    error_details = "Response content was empty or malformed"
+
+                user_error = f"AI response parsing failed. {error_details}. Please try again."
+                yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=user_error, error=str(e))
+                break
             
             if tool_use:
                 yield AgentEvent(type=EventType.TOOL_CALL, agent=self.nickname, content=f"Calling: {tool_use.name}", tool_name=tool_use.name, tool_params=tool_use.input, metrics=metrics)
@@ -545,7 +588,11 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                         yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Generation stopped by user")
                         break
                     if LANGFUSE_ENABLED:
-                        track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
+                        try:
+                            track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
+                        except Exception as e:
+                            self.logger.warning(f"Langfuse tool tracking failed: {e}")
+                            print(f"[AGENT] ⚠️ Langfuse tool tracking error (non-critical): {e}")
                     yield AgentEvent(type=EventType.TOOL_RESULT, agent=self.nickname, content="Success", tool_name=tool_use.name, tool_result=result, success=True)
                     
                     # Track tool call for summary
@@ -558,8 +605,31 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": json.dumps(result)}]})
                 except Exception as e:
                     if LANGFUSE_ENABLED:
-                        track_tool_call(self.nickname, tool_use.name, tool_use.input, str(e), False, session.id)
-                    yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Tool error: {e}", error=str(e))
+                        try:
+                            track_tool_call(self.nickname, tool_use.name, tool_use.input, str(e), False, session.id)
+                        except Exception as track_e:
+                            self.logger.warning(f"Langfuse failed tool tracking failed: {track_e}")
+                            print(f"[AGENT] ⚠️ Langfuse failed tool tracking error (non-critical): {track_e}")
+
+                    # Categorize tool execution errors for better user experience
+                    error_type = type(e).__name__
+                    tool_name = tool_use.name
+
+                    if "timeout" in str(e).lower() or "time" in error_type.lower():
+                        user_error = f"Tool '{tool_name}' timed out. The operation took too long to complete."
+                    elif "connection" in str(e).lower() or "network" in str(e).lower():
+                        user_error = f"Tool '{tool_name}' failed due to network issues. Please check your connection."
+                    elif "permission" in str(e).lower() or "access" in str(e).lower():
+                        user_error = f"Tool '{tool_name}' failed due to permission issues. Access may be denied."
+                    elif "not found" in str(e).lower() or "404" in str(e):
+                        user_error = f"Tool '{tool_name}' could not find the requested resource."
+                    else:
+                        user_error = f"Tool '{tool_name}' encountered an error: {str(e)}"
+
+                    self.logger.error(f"[AGENT] Tool execution failed: {tool_name} - {str(e)}", exc_info=True)
+                    print(f"[AGENT] ❌ Tool '{tool_name}' failed: {str(e)}")
+
+                    yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=user_error, error=str(e), tool_name=tool_name)
                     
                     turn_messages.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": f"Error: {e}", "is_error": True}]})
             else:
@@ -588,7 +658,11 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                         print(f"[AGENT] Tools: {len(cached_tools)} | System: {len(cached_system[0]['text'])} chars")
                         continue  # Continue processing with loaded skill in same loop
                     else:
-                        yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=f"Failed to load skill: {skill_to_load}")
+                        available_skills = self.agent_config.get('available_skills', [])
+                        error_msg = f"Skill '{skill_to_load}' is not available. Available skills: {', '.join(available_skills)}"
+                        self.logger.error(f"[AGENT] Failed to load skill '{skill_to_load}'. Available: {available_skills}")
+                        print(f"[AGENT] ❌ Failed to load skill: {skill_to_load}")
+                        yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content=error_msg, error=f"skill_not_available:{skill_to_load}")
                     break
                 
                 # Check for unload command in response
@@ -611,7 +685,11 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
             session.add_message("assistant", response_text, agent=self.nickname)
         
         if LANGFUSE_ENABLED:
-            flush()
+            try:
+                flush()
+            except Exception as e:
+                self.logger.warning(f"Langfuse flush failed: {e}")
+                print(f"[AGENT] ⚠️ Langfuse flush error (non-critical): {e}")
         
         # Only root agent emits SESSION_ENDED
         if not _is_delegated:
@@ -880,7 +958,12 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
             print(f"[{self.nickname}] 🔧 Session created: {session.id}")
             
             # Get Socket.IO manager
-            from ..socket_manager import socket_manager
+            try:
+                from ..socket_manager import socket_manager
+            except Exception as import_error:
+                print(f"[{self.nickname}] ⚠️  Failed to import socket_manager: {import_error}")
+                self.logger.error(f"[{self.nickname}] Socket.IO import failed: {import_error}")
+                socket_manager = None
             
             # Process with agent
             print(f"[{self.nickname}] 🔧 Starting async processing...")
@@ -896,17 +979,22 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                             responses.append(event.content)
                         
                         # Emit event to Socket.IO
-                        try:
-                            event_dict = event.to_dict()
-                            socket_manager.emit_to_room(
-                                room='background_tasks',
-                                event='agent_event',
-                                data=event_dict,
-                                namespace='/agent'
-                            )
-                            print(f"[{self.nickname}] 📡 Emitted event: {event.type} to background_tasks room")
-                        except Exception as emit_error:
-                            print(f"[{self.nickname}] ⚠️  Failed to emit event: {emit_error}")
+                        if socket_manager:
+                            try:
+                                event_dict = event.to_dict()
+                                socket_manager.emit_to_room(
+                                    room='background_tasks',
+                                    event='agent_event',
+                                    data=event_dict,
+                                    namespace='/agent'
+                                )
+                                print(f"[{self.nickname}] 📡 Emitted event: {event.type} to background_tasks room")
+                            except Exception as emit_error:
+                                print(f"[{self.nickname}] ⚠️  Socket.IO emission failed: {emit_error}")
+                                self.logger.error(f"[{self.nickname}] Socket.IO emission failed for event {event.type}: {emit_error}", exc_info=True)
+                                # Continue processing even if Socket.IO fails - don't let it break the task
+                        else:
+                            print(f"[{self.nickname}] 📡 Socket.IO not available - skipping event emission for {event.type}")
                 
                 loop.run_until_complete(process())
                 
@@ -932,4 +1020,27 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
             import traceback
             traceback.print_exc()
             print(f"[{self.nickname}] ❌❌❌ END OF ERROR")
+
+            # Emit error event to frontend
+            if socket_manager:
+                try:
+                    error_event = AgentEvent(
+                        type=EventType.ERROR,
+                        agent=self.nickname,
+                        content=f"Background task {task_id} failed: {str(e)}",
+                        error=str(e)
+                    )
+                    event_dict = error_event.to_dict()
+                    socket_manager.emit_to_room(
+                        room='background_tasks',
+                        event='agent_event',
+                        data=event_dict,
+                        namespace='/agent'
+                    )
+                    print(f"[{self.nickname}] 📡 Emitted error event for failed task {task_id}")
+                except Exception as emit_error:
+                    print(f"[{self.nickname}] ⚠️  Failed to emit error event: {emit_error}")
+                    self.logger.error(f"[{self.nickname}] Failed to emit error event: {emit_error}")
+            else:
+                print(f"[{self.nickname}] 📡 Socket.IO not available - could not emit error event for failed task {task_id}")
     

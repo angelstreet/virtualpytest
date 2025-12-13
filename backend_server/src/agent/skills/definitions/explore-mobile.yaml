@@ -5,7 +5,8 @@ description: Build navigation tree for mobile apps with auto-validation
 triggers:
   - explore mobile
   - explore android
-  - build mobile tree
+  - build userinterface
+  - create userinterface
 
 system_prompt: |
   Build navigation trees for mobile apps.

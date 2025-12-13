@@ -59,7 +59,7 @@ VirtualPyTest uses a **token-optimized skill-based agent architecture** where 3 
 | Nickname | Atlas |
 | Selectable | Yes (default in UI) |
 | Trigger | User chat messages |
-| Mode | Interactive |
+| Mode | Interactive (skill-based only) |
 
 **Available Skills (9 micro-skills):**
 
@@ -78,7 +78,8 @@ VirtualPyTest uses a **token-optimized skill-based agent architecture** where 3 
 **Example Interactions:**
 ```
 User: "Run goto script on google_tv"
-Atlas: [Loads run-script skill - 2 tools]
+Atlas: LOAD SKILL run-script
+Atlas: [Now in run-script skill mode - 2 tools]
        Calling: get_compatible_hosts
        Calling: execute_script
        **goto** on device1: PASSED (7.5s)
@@ -292,12 +293,15 @@ timeout_seconds: 1800               # Default timeout
 
 ## How Skill Loading Works
 
-### Router Mode vs Skill Mode
+### Skill-Based Operation
+
+The assistant operates in a single skill-based mode:
 
 | Mode | Tools | Purpose |
 |------|-------|---------|
-| Router | 2 (list_userinterfaces, list_hosts) | Quick queries, skill selection |
-| Skill | 2-8 (from loaded skill) | Execute specialized task |
+| Skill Mode | 2-8 (from loaded skill) | Analyze request → load skill → execute task |
+
+**No Router Tools:** Unlike other agents, Atlas has no router tools. It always analyzes the user's request and loads the most appropriate skill directly.
 
 ### Skill Loading Flow
 
@@ -306,9 +310,9 @@ User: "Run goto script on google_tv"
          │
          ▼
 ┌─────────────────────────────────────┐
-│  Router Mode (2 tools)              │
-│  Matches "run script" -> run-script │
-│  Response: LOAD SKILL run-script    │
+│  Analyze Request                     │
+│  Matches "run script" -> run-script  │
+│  Response: LOAD SKILL run-script     │
 └─────────────────────────────────────┘
          │
          ▼
@@ -326,6 +330,8 @@ User: "Run goto script on google_tv"
 │  3. Return result                   │
 └─────────────────────────────────────┘
 ```
+
+**Note:** Atlas has no intermediate router mode. It analyzes the request and loads the skill directly.
 
 ---
 

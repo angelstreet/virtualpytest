@@ -12,14 +12,22 @@ triggers:
   - press key
   - available actions
 
+  # UI INSPECTION (independent tools)
+  - dump ui
+  - show ui
+  - inspect screen
+
 system_prompt: |
   Control physical devices with raw hardware actions (click, swipe, press).
-  DO NOT use for go or goto (that's app-navigation skill).
 
   WORKFLOW:
   1. get_device_info() → find available devices
   2. list_actions() → see valid actions for the device
   3. execute_device_action() → use ONLY actions from step 2, match parameters exactly
+
+  UI TOOLS:
+  - list_userinterfaces: List all available interfaces (Do not use for dump ui)
+  - dump_ui_elements: Dump current screen UI elements (does not require list_userinterfaces)
 
 tools:
   - get_device_info
