@@ -320,6 +320,10 @@ def register_all_server_routes(app):
         print("[@backend_server:routes] 🔍 Importing agent_benchmark_routes...")
         from routes import agent_benchmark_routes
         print("[@backend_server:routes] ✅ agent_benchmark_routes imported successfully")
+
+        print("[@backend_server:routes] 🔍 Importing agent_skill_routes...")
+        from routes import agent_skill_routes
+        print("[@backend_server:routes] ✅ agent_skill_routes imported successfully")
         
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
@@ -383,6 +387,7 @@ def register_all_server_routes(app):
             # Multi-Agent Platform (Event-Driven)
             (agent_registry_routes.server_agent_registry_bp, 'Agent Registry (versioning, import/export)'),
             (agent_runtime_routes.server_agent_runtime_bp, 'Agent Runtime (instance management)'),
+            (agent_skill_routes.server_agent_skill_bp, 'Agent Skills (reload, testing, management)'),
             (event_routes.server_event_bp, 'Event System (manual triggers, stats)'),
             (agent_benchmark_routes.server_agent_benchmark_bp, 'Agent Benchmarks & Feedback'),
         ]

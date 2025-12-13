@@ -16,7 +16,7 @@ python scripts/test_agent.py --reload-skills
 ./scripts/test_agent.sh reload
 
 # Or via HTTP API
-curl -X POST http://localhost:5109/server/skills/reload
+curl -X POST http://localhost:3000/server/skills/reload
 ```
 
 ### 2. Test Skill Changes
@@ -34,10 +34,10 @@ python scripts/test_agent.py --list-skills
 
 ### 3. Development Workflow
 
-1. **Edit skill YAML** (e.g., `backend_server/src/agent/skills/definitions/device-control.yaml`)
-2. **Reload**: `python scripts/test_agent.py --reload-skills`
-3. **Test**: `python scripts/test_agent.py --test-skill device-control`
-4. **Verify matching**: `python scripts/test_agent.py --match-skill "your message"`
+1. **Edit skill YAML** (e.g., `src/agent/skills/definitions/device-control.yaml`)
+2. **Reload skills**: `python scripts/test_agent.py --reload-skills`
+3. **Test immediately**: `python scripts/test_agent.py --test-skill device-control`
+4. **Test matching**: `python scripts/test_agent.py --match-skill "your test message"`
 
 ## 📋 Available Commands
 
@@ -81,26 +81,26 @@ All testing functionality is also available via REST API:
 
 ```bash
 # Reload skills
-curl -X POST http://localhost:5109/server/skills/reload
+curl -X POST http://localhost:3000/server/skills/reload
 
 # List skills
-curl http://localhost:5109/server/skills
+curl http://localhost:3000/server/skills
 
 # Get specific skill details
-curl http://localhost:5109/server/skills/device-control
+curl http://localhost:3000/server/skills/device-control
 
 # Test skill validity
-curl -X POST http://localhost:5109/server/skills/test/device-control
+curl -X POST http://localhost:3000/server/skills/test/device-control
 
 # Test skill matching
-curl -X POST http://localhost:5109/server/skills/match \
+curl -X POST http://localhost:3000/server/skills/match \
   -H "Content-Type: application/json" \
   -d '{"message": "swipe down on device1"}'
 ```
 
 ## 🔧 Environment Variables
 
-- `SERVER_URL`: Server URL (default: `http://localhost:5109`)
+- `SERVER_URL`: Server URL (default: `http://localhost:3000`)
 
 ```bash
 # Test against different server
@@ -119,25 +119,26 @@ SERVER_URL=http://localhost:8080 python scripts/test_agent.py --list-skills
 ### Server Not Running
 ```bash
 # Start the server first
-./scripts/launch_virtualpytest.sh
+cd backend_server
+python src/app.py
 ```
 
 ### Skills Not Loading
 ```bash
 # Check skill YAML syntax
-python -c "import yaml; yaml.safe_load(open('backend_server/src/agent/skills/definitions/device-control.yaml'))"
+python -c "import yaml; yaml.safe_load(open('src/agent/skills/definitions/device-control.yaml'))"
 
 # Check server logs for errors
-tail -f backend_server/logs/agent_conversations.log
+tail -f logs/agent_conversations.log
 ```
 
 ### Network Issues
 ```bash
 # Test basic connectivity
-curl http://localhost:5109/server/skills
+curl http://localhost:3000/server/skills
 
 # Check server is running on correct port
-netstat -tlnp | grep :5109
+netstat -tlnp | grep :3000
 ```
 
 ## 📚 Advanced Usage
@@ -148,9 +149,9 @@ Add to your shell aliases:
 
 ```bash
 # ~/.bashrc or ~/.zshrc
-alias reload-skills='python scripts/test_agent.py --reload-skills'
-alias test-skill='python scripts/test_agent.py --test-skill'
-alias match-skill='python scripts/test_agent.py --match-skill'
+alias reload-skills='python backend_server/scripts/test_agent.py --reload-skills'
+alias test-skill='python backend_server/scripts/test_agent.py --test-skill'
+alias match-skill='python backend_server/scripts/test_agent.py --match-skill'
 ```
 
 Then use:
@@ -168,7 +169,7 @@ These endpoints can be used in automated testing:
 # Example GitHub Actions step
 - name: Test Agent Skills
   run: |
-    python scripts/test_agent.py --reload-skills
-    python scripts/test_agent.py --test-skill device-control
-    python scripts/test_agent.py --match-skill "swipe down on device1"
+    python backend_server/scripts/test_agent.py --reload-skills
+    python backend_server/scripts/test_agent.py --test-skill device-control
+    python backend_server/scripts/test_agent.py --match-skill "swipe down on device1"
 ```

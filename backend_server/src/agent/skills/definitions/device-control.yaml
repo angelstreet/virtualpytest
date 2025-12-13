@@ -32,20 +32,13 @@ triggers:
   - device actions
 
 system_prompt: |
-  Control physical devices (phones, TVs) with direct hardware actions.
-
-  CRITICAL: Raw device interactions on any screen/app (click, swipe, press, etc.).
+  Control physical devices with raw hardware actions (click, swipe, press).
   NOT for predefined navigation flows (that's app-navigation skill).
 
   WORKFLOW:
-  1. get_device_info() - Find available devices
-  2. list_actions() - See what actions are available for the device
-  3. execute_device_action(host_name='...', device_id='...', actions=[...])
-
-  EXAMPLES:
-  - Click "Replay" button: execute_device_action with click_element
-  - Swipe up/down on mobile: execute_device_action with swipe_up/swipe_down
-  - Press volume buttons: execute_device_action with KEY_VOLUME_UP
+  1. get_device_info() → find available devices
+  2. list_actions() → see valid actions for the device
+  3. execute_device_action() → use ONLY actions from step 2, match parameters exactly
 
 tools:
   - get_device_info
