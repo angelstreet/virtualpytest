@@ -149,26 +149,26 @@ class QAManagerAgent:
         match = re.search(r'LOAD\s+SKILL\s+([\w-]+)', text, re.IGNORECASE)
         return match.group(1).lower() if match else None
     
-    def get_system_prompt(self, context: Dict[str, Any] = None) -> str:
+    def get_system_prompt(self, context: Dict[str, Any] = None, message: str = "") -> str:
         """Build system prompt based on current mode"""
         if self._active_skill:
             return self._build_skill_prompt(context)
-        return self._build_router_prompt(context)
+        return self._build_router_prompt(context, message)
     
     def _build_context_section(self, ctx: Dict[str, Any]) -> str:
         """Context injection disabled - rely on conversation history"""
         return ""
     
-    def _build_router_prompt(self, ctx: Dict[str, Any] = None) -> str:
+    def _build_router_prompt(self, ctx: Dict[str, Any] = None, message: str = "") -> str:
         """Build router mode prompt - decides which skill to load"""
         from ..skills import SkillLoader
-        
+
         config = self.agent_config
         ctx = ctx or {}
-        
-        # Get skill descriptions for available skills
+
+        # Get skill descriptions for available skills (with message context for trigger filtering)
         available = config.get('available_skills', [])
-        skill_descriptions = SkillLoader.get_skill_descriptions(available)
+        skill_descriptions = SkillLoader.get_skill_descriptions(available, message)
         
         # Tools available in router mode
         router_tools = config.get('skills', [])
@@ -234,9 +234,9 @@ Tools: {', '.join(skill.tools)}
 
 Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."""
     
-    def _build_cached_system(self, context: Dict[str, Any] = None) -> List[Dict]:
+    def _build_cached_system(self, context: Dict[str, Any] = None, message: str = "") -> List[Dict]:
         """Build system prompt with cache control for Anthropic prompt caching"""
-        prompt_text = self.get_system_prompt(context)
+        prompt_text = self.get_system_prompt(context, message)
         return [{
             "type": "text",
             "text": prompt_text,
@@ -450,7 +450,7 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                 })
         
         # Build cached system prompt and tools
-        cached_system = self._build_cached_system(session.context)
+        cached_system = self._build_cached_system(session.context, message)
         cached_tools = self._build_cached_tools(self.tool_names)
         
         # Log raw prompt only for root calls (avoid duplicate logs on delegated runs)
@@ -653,7 +653,7 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
 
                     if self.load_skill(skill_to_load):
                         # Rebuild system prompt and tools for the loaded skill
-                        cached_system = self._build_cached_system(session.context)
+                        cached_system = self._build_cached_system(session.context, message)
                         cached_tools = self._build_cached_tools(self.tool_names)
                         print(f"[AGENT] Tools: {len(cached_tools)} | System: {len(cached_system[0]['text'])} chars")
                         continue  # Continue processing with loaded skill in same loop

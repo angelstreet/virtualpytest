@@ -108,23 +108,47 @@ class SkillLoader:
         return [cls._skills[name] for name in skill_names if name in cls._skills]
     
     @classmethod
-    def get_skill_descriptions(cls, skill_names: List[str]) -> str:
+    def get_skill_descriptions(cls, skill_names: List[str], message: str = "") -> str:
         """
         Get formatted descriptions of skills for system prompt
-        
+
+        Args:
+            skill_names: List of skill names to include
+            message: User message to filter relevant triggers (optional)
+
         Returns:
-            Formatted string with skill names and descriptions (no triggers for token efficiency)
+            Token-efficient skill descriptions with relevant triggers highlighted
         """
         if not cls._loaded:
             cls.load_all_skills()
-        
+
+        message_lower = message.lower() if message else ""
         lines = []
+
         for name in skill_names:
             skill = cls._skills.get(name)
             if skill:
                 platform_str = f" [{skill.platform}]" if skill.platform else ""
+
+                # Find matching triggers for this message
+                matching_triggers = [t for t in skill.triggers if t.lower() in message_lower]
+                other_triggers = [t for t in skill.triggers if t not in matching_triggers]
+
+                # Build trigger string (prioritize matching triggers)
+                trigger_parts = []
+                if matching_triggers:
+                    trigger_parts.extend(f'**{t}**' for t in matching_triggers[:3])  # Highlight matches
+                if other_triggers:
+                    trigger_parts.extend(other_triggers[:2])  # Show a few others
+                if len(skill.triggers) > 5:
+                    trigger_parts.append(f"+{len(skill.triggers)-5} more")
+
+                triggers_str = ", ".join(trigger_parts) if trigger_parts else "various commands"
+
                 lines.append(f"- **{skill.name}**{platform_str}: {skill.description.split('.')[0]}.")
-        
+                if trigger_parts:
+                    lines.append(f"  Triggers: {triggers_str}")
+
         return '\n'.join(lines) if lines else "No skills available."
     
     @classmethod

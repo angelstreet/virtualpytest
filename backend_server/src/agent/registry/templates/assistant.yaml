@@ -25,7 +25,7 @@ metadata:
     - "List all testcases"
     - "Explore the sauce-demo web app"
     - "Show device status"
-    - "Navigate to test results page"
+    - "Navigate to home device1 host sunri-pi1"
 
 subagents: []
 
