@@ -23,8 +23,9 @@ interface PlaywrightWebOverlayProps {
   panelInfo: PanelInfo;
 }
 
-// Same colors as Android mobile overlay for consistency
-const COLORS = ['#FF0000', '#0066FF', '#FFD700', '#00CC00', '#9900FF'];
+// Element highlight colors - using centralized theme
+import { ELEMENT_HIGHLIGHT_COLORS } from '../../../constants/agentChatTheme';
+const COLORS = ELEMENT_HIGHLIGHT_COLORS;
 
 export const PlaywrightWebOverlay = React.memo(
   function PlaywrightWebOverlay({

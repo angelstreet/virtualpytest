@@ -19,6 +19,7 @@ import {
   EmojiEvents, Speed, Star
 } from '@mui/icons-material';
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { AGENT_CHAT_PALETTE } from '../constants/agentChatTheme';
 
 // Types
 interface AgentDefinition {
@@ -69,9 +70,10 @@ interface LeaderboardEntry {
   score_trend?: string;
 }
 
-// Gold accent colors
-const GOLD = '#D4AF37';
-const GOLD_DARK = '#B8860B';
+// ⚠️ DEPRECATED: Use AGENT_CHAT_PALETTE.gold and AGENT_CHAT_PALETTE.accent for consistency
+// Gold accent colors - using centralized theme
+const GOLD = AGENT_CHAT_PALETTE.gold;        // Bright gold for highlights
+const GOLD_DARK = AGENT_CHAT_PALETTE.accent; // Muted gold for accents
 
 export const AgentDashboard: React.FC = () => {
   // Tab state
@@ -347,9 +349,9 @@ ${agent.triggers.map(t => `  - type: ${t}`).join('\n')}
   };
 
   const getRankIcon = (rank: number) => {
-    if (rank === 1) return <EmojiEvents sx={{ color: '#FFD700', fontSize: 20 }} />;
-    if (rank === 2) return <EmojiEvents sx={{ color: '#C0C0C0', fontSize: 20 }} />;
-    if (rank === 3) return <EmojiEvents sx={{ color: '#CD7F32', fontSize: 20 }} />;
+    if (rank === 1) return <EmojiEvents sx={{ color: AGENT_CHAT_PALETTE.gold, fontSize: 20 }} />; // 🥇 Gold
+    if (rank === 2) return <EmojiEvents sx={{ color: '#C0C0C0', fontSize: 20 }} />; // 🥈 Silver
+    if (rank === 3) return <EmojiEvents sx={{ color: '#CD7F32', fontSize: 20 }} />; // 🥉 Bronze
     return <Typography sx={{ color: '#888', fontWeight: 'bold' }}>{rank}</Typography>;
   };
 

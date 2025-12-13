@@ -48,6 +48,9 @@ interface DeviceControlPanelsProps {
     bottom?: string;
   };
   
+  // 🆕 NEW: Custom Styles (optional - for AV panel styling)
+  avPanelSx?: any;
+  
   // Handlers
   handleDisconnectComplete: () => void;
   handleAVPanelCollapsedChange?: (collapsed: boolean) => void;
@@ -71,6 +74,7 @@ export const DeviceControlPanels: React.FC<DeviceControlPanelsProps> = ({
   isSidebarOpen = true,
   footerHeight = 40,
   customPosition, // 🆕 NEW: Custom positioning
+  avPanelSx, // 🆕 NEW: Custom AV panel styles
   handleDisconnectComplete,
   handleAVPanelCollapsedChange = () => {},
   handleAVPanelMinimizedChange = () => {},
@@ -241,6 +245,7 @@ export const DeviceControlPanels: React.FC<DeviceControlPanelsProps> = ({
               useAbsolutePositioning={true}
               positionLeft={streamLeftPosition}
               positionBottom={streamBottomPosition}
+              sx={avPanelSx}
             />
           ) : (
             <HDMIStream
@@ -257,6 +262,7 @@ export const DeviceControlPanels: React.FC<DeviceControlPanelsProps> = ({
               positionLeft={streamLeftPosition}
               positionBottom={streamBottomPosition}
               isLandscape={isMobileOrientationLandscape}
+              sx={avPanelSx}
             />
           )}
         </>

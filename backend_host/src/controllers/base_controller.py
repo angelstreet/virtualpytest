@@ -64,8 +64,9 @@ class RemoteControllerInterface(BaseController):
             print(f"Remote[{self.device_type.upper()}]: Command {i+1}/{len(commands)}: {command}")
             
             # Execute command
-            success = self.execute_command(command, params)
-            
+            result = self.execute_command(command, params)
+            success = result.get('success', False) if isinstance(result, dict) else bool(result)
+
             if not success:
                 print(f"Remote[{self.device_type.upper()}]: Command {i+1} failed: {command}")
                 main_success = False
@@ -93,8 +94,9 @@ class RemoteControllerInterface(BaseController):
                 print(f"Remote[{self.device_type.upper()}]: Retry {i+1}/{len(retry_actions)}: {command}")
                 
                 # Execute retry command
-                success = self.execute_command(command, params)
-                
+                result = self.execute_command(command, params)
+                success = result.get('success', False) if isinstance(result, dict) else bool(result)
+
                 if success:
                     print(f"Remote[{self.device_type.upper()}]: Retry {i+1} succeeded: {command}")
                 else:

@@ -703,9 +703,6 @@ class ActionExecutor:
                             command=request_data['command'],
                             params=request_data['params']
                         )
-                        # Remote controller returns boolean, convert to proper response format
-                        if isinstance(response_data, bool):
-                            response_data = {'success': response_data}
                         status_code = 200 if response_data.get('success', False) else 500
                     else:
                         response_data = {'success': False, 'error': 'Remote controller not available'}

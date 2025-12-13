@@ -146,6 +146,12 @@ const AgentChat: React.FC = () => {
       bottom: '22px', // 10px from bottom (no footer in AgentChat)
       // You can also use: right, top
     },
+    // Custom styling - discreet white border
+    avPanelSx: {
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '8px',
+      overflow: 'hidden',
+    },
   };
   
   // Sidebar tab state: 'system' for background agents, 'chats' for conversations
@@ -1583,8 +1589,8 @@ useEffect(() => {
                               sx={{
                                 height: 18,
                                 fontSize: '0.65rem',
-                                borderColor: '#FFD700',
-                                color: '#FFD700',
+                                borderColor: PALETTE.accent,
+                                color: PALETTE.accent,
                                 fontWeight: 600,
                                 '& .MuiChip-label': { px: 0.75 }
                               }}

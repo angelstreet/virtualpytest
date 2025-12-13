@@ -18,6 +18,7 @@ import React, { useRef, useMemo } from 'react';
 
 import { UseVerificationEditorType } from '../../../hooks/verification/useVerificationEditor';
 import { useR2Url } from '../../../hooks/storage/useR2Url';
+import { AGENT_CHAT_PALETTE } from '../../../constants/agentChatTheme';
 
 interface DragArea {
   x: number;
@@ -435,7 +436,7 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
                   sx={{
                     fontSize: '0.65rem',
                     fontWeight: 600,
-                    color: '#FFD700',
+                    color: AGENT_CHAT_PALETTE.gold,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.5,
@@ -469,7 +470,7 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
                         minHeight: '28px',
                         maxHeight: '28px',
                         overflow: 'hidden',
-                        borderColor: selectedArea.fx !== undefined ? '#FFD700' : undefined,
+                        borderColor: selectedArea.fx !== undefined ? AGENT_CHAT_PALETTE.gold : undefined,
                       },
                       '& .MuiInputBase-input': {
                         fontSize: '0.65rem',
@@ -479,7 +480,7 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
                       },
                       '& .MuiInputLabel-root': {
                         fontSize: '0.65rem',
-                        color: selectedArea.fx !== undefined ? '#FFD700' : undefined,
+                        color: selectedArea.fx !== undefined ? AGENT_CHAT_PALETTE.gold : undefined,
                         transform: 'translate(10px, 6px) scale(1)',
                         '&.Mui-focused, &.MuiFormLabel-filled': {
                           transform: 'translate(10px, -9px) scale(0.75)',
@@ -518,7 +519,7 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
                       },
                       '& .MuiInputLabel-root': {
                         fontSize: '0.65rem',
-                        color: selectedArea.fy !== undefined ? '#FFD700' : undefined,
+                        color: selectedArea.fy !== undefined ? AGENT_CHAT_PALETTE.gold : undefined,
                         transform: 'translate(10px, 6px) scale(1)',
                         '&.Mui-focused, &.MuiFormLabel-filled': {
                           transform: 'translate(10px, -9px) scale(0.75)',
@@ -557,7 +558,7 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
                       },
                       '& .MuiInputLabel-root': {
                         fontSize: '0.65rem',
-                        color: selectedArea.fwidth !== undefined ? '#FFD700' : undefined,
+                        color: selectedArea.fwidth !== undefined ? AGENT_CHAT_PALETTE.gold : undefined,
                         transform: 'translate(10px, 6px) scale(1)',
                         '&.Mui-focused, &.MuiFormLabel-filled': {
                           transform: 'translate(10px, -9px) scale(0.75)',
@@ -596,7 +597,7 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
                       },
                       '& .MuiInputLabel-root': {
                         fontSize: '0.65rem',
-                        color: selectedArea.fheight !== undefined ? '#FFD700' : undefined,
+                        color: selectedArea.fheight !== undefined ? AGENT_CHAT_PALETTE.gold : undefined,
                         transform: 'translate(10px, 6px) scale(1)',
                         '&.Mui-focused, &.MuiFormLabel-filled': {
                           transform: 'translate(10px, -9px) scale(0.75)',

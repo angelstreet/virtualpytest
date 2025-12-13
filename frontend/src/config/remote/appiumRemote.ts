@@ -1,3 +1,5 @@
+import { ELEMENT_HIGHLIGHT_COLORS } from '../../constants/agentChatTheme';
+
 export interface AppiumRemoteConfig {
   containerWidth: number;
   platformSupport: string[];
@@ -129,7 +131,7 @@ export const appiumRemoteConfig: AppiumRemoteConfig = {
     enableCoordinateTap: true,
     enableAppLauncher: true,
     maxElementsDisplay: 100,
-    elementHighlightColors: ['#FF0000', '#0066FF', '#FFD700', '#00CC00', '#9900FF'],
+    elementHighlightColors: ELEMENT_HIGHLIGHT_COLORS,
     tapAnimationDuration: 300,
   },
 };

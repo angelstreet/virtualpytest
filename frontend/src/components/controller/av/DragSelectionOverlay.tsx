@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import React, { useState, useCallback, useRef } from 'react';
 
 import { getZIndex } from '../../../utils/zIndexUtils';
+import { AGENT_CHAT_PALETTE } from '../../../constants/agentChatTheme';
 
 interface DragArea {
   x: number;
@@ -292,7 +293,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
             top: getImageBounds()!.top + displayFuzzyArea.y,
             width: displayFuzzyArea.width,
             height: displayFuzzyArea.height,
-            border: '2px solid #FFD700',
+            border: `2px solid ${AGENT_CHAT_PALETTE.gold}`,
             backgroundColor: 'rgba(200, 200, 200, 0.2)',
             pointerEvents: 'none',
             boxSizing: 'border-box',

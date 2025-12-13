@@ -6,7 +6,7 @@ Key difference from TV controller: focuses on UI element dumping and clicking ra
 Based on the ADB actions pattern and RecAndroidPhoneRemote component.
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Union
 import subprocess
 import time
 import json
@@ -1001,7 +1001,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             ]
         }
 
-    def execute_command(self, command: str, params: Dict[str, Any] = None) -> bool:
+    def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Execute Android Mobile specific command with proper abstraction and auto-reconnection.
         
@@ -1010,7 +1010,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             params: Command parameters (including wait_time)
             
         Returns:
-            bool: True if command executed successfully
+            Dict[str, Any]: Dict with 'success' key indicating command execution status, and optional 'error' key
         """
         if params is None:
             params = {}
@@ -1024,31 +1024,37 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             """Execute the specific command - centralized logic"""
             if command == 'press_key':
                 key = params.get('key')
-                return self.press_key(key) if key else False
+                success = self.press_key(key) if key else False
+                return {'success': success}
             
             elif command == 'input_text':
                 text = params.get('text')
-                return self.input_text(text) if text else False
+                success = self.input_text(text) if text else False
+                return {'success': success}
             
             elif command == 'launch_app':
                 package = params.get('package')
-                return self.launch_app(package) if package else False
+                success = self.launch_app(package) if package else False
+                return {'success': success}
             
             elif command == 'close_app':
                 package = params.get('package')
-                return self.close_app(package) if package else False
+                success = self.close_app(package) if package else False
+                return {'success': success}
             
             elif command == 'click_element':
                 # Support both 'element_id' (frontend) and 'text' (MCP/docs) for backward compatibility
                 element_id = params.get('element_id') or params.get('text')
                 if not element_id:
                     print(f"Remote[{self.device_type.upper()}]: ERROR - click_element requires 'element_id' or 'text' parameter")
-                    return False
-                return self.click_element(element_id)
+                    return {'success': False}
+                success = self.click_element(element_id)
+                return {'success': success}
             
             elif command == 'tap_coordinates':
                 x, y = params.get('x'), params.get('y')
-                return self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
+                success = self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
+                return {'success': success}
             
             elif command == 'swipe':
                 from_x = params.get('from_x')
@@ -1057,9 +1063,10 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 to_y = params.get('to_y')
                 duration = params.get('duration', 300)
                 if all(v is not None for v in [from_x, from_y, to_x, to_y]):
-                    return self.swipe(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                    success = self.swipe(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                    return {'success': success}
                 else:
-                    return False
+                    return {'success': False}
             
             elif command == 'swipe_up':
                 # For swipe_up, ensure vertical movement by keeping X coordinate the same
@@ -1068,7 +1075,8 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 to_x = from_x  # Keep X coordinate the same for vertical swipe
                 to_y = params.get('to_y', 500)
                 duration = params.get('duration', 300)
-                return self.swipe_up(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                success = self.swipe_up(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                return {'success': success}
             
             elif command == 'swipe_down':
                 # For swipe_down, ensure vertical movement by keeping X coordinate the same
@@ -1077,7 +1085,8 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 to_x = from_x  # Keep X coordinate the same for vertical swipe
                 to_y = params.get('to_y', 1500)
                 duration = params.get('duration', 300)
-                return self.swipe_down(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                success = self.swipe_down(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                return {'success': success}
             
             elif command == 'swipe_left':
                 # For swipe_left, ensure horizontal movement by keeping Y coordinate the same
@@ -1086,7 +1095,8 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 to_x = params.get('to_x', 200)
                 to_y = from_y  # Keep Y coordinate the same for horizontal swipe
                 duration = params.get('duration', 300)
-                return self.swipe_left(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                success = self.swipe_left(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                return {'success': success}
             
             elif command == 'swipe_right':
                 # For swipe_right, ensure horizontal movement by keeping Y coordinate the same
@@ -1095,20 +1105,25 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 to_x = params.get('to_x', 800)
                 to_y = from_y  # Keep Y coordinate the same for horizontal swipe
                 duration = params.get('duration', 300)
-                return self.swipe_right(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                success = self.swipe_right(int(from_x), int(from_y), int(to_x), int(to_y), int(duration))
+                return {'success': success}
             
             # Handle uppercase swipe commands from frontend
             elif command == 'SWIPE_UP':
-                return self.swipe_up()
-            
+                success = self.swipe_up()
+                return {'success': success}
+
             elif command == 'SWIPE_DOWN':
-                return self.swipe_down()
-            
+                success = self.swipe_down()
+                return {'success': success}
+
             elif command == 'SWIPE_LEFT':
-                return self.swipe_left()
-            
+                success = self.swipe_left()
+                return {'success': success}
+
             elif command == 'SWIPE_RIGHT':
-                return self.swipe_right()
+                success = self.swipe_right()
+                return {'success': success}
             
             elif command == 'click_element_by_id':
                 # Android Mobile specific - always dumps UI for edge actions to ensure current state
@@ -1186,7 +1201,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             elif command == 'get_installed_apps':
                 # Android Mobile specific
                 apps = self.get_installed_apps()
-                return len(apps) > 0
+                return {'success': len(apps) > 0, 'apps': apps}
             
             elif command == 'getMenuInfo':
                 # Verification command - return dict instead of bool
@@ -1209,7 +1224,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     f"Use list_actions() to see all available commands."
                 )
                 print(f"Remote[{self.device_type.upper()}]: {error_msg}")
-                # Return dict with error instead of False for better error propagation
                 return {'success': False, 'error': error_msg}
         
         # First attempt
@@ -1252,7 +1266,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                         print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed even after exception recovery")
                 except Exception as retry_e:
                     print(f"Remote[{self.device_type.upper()}]: Command '{command}' retry after exception also failed: {retry_e}")
-                    return False
+                    return {'success': False, 'error': str(retry_e)}
             else:
                 error_msg = f"Failed to reconnect after command '{command}' exception"
                 print(f"Remote[{self.device_type.upper()}]: {error_msg}")

@@ -26,8 +26,9 @@ interface AppiumOverlayProps {
   deviceId: string; // Add deviceId for API calls
 }
 
-// Same colors as the original UIElementsOverlay
-const COLORS = ['#FF0000', '#0066FF', '#FFD700', '#00CC00', '#9900FF'];
+// Element highlight colors - using centralized theme
+import { ELEMENT_HIGHLIGHT_COLORS } from '../../../constants/agentChatTheme';
+const COLORS = ELEMENT_HIGHLIGHT_COLORS;
 
 export const AppiumOverlay = React.memo(function AppiumOverlay({
   elements,

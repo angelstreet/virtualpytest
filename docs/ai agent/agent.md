@@ -53,6 +53,8 @@ VirtualPyTest uses a **token-optimized skill-based agent architecture** where 3 
 
 **Purpose:** Interactive QA assistant for human-driven tasks
 
+**Architecture Note:** Unlike Monitor and Analyzer agents, Atlas has no router tools and operates purely in skill-based mode for simplicity and predictability.
+
 | Property | Value |
 |----------|-------|
 | ID | `assistant` |
@@ -485,8 +487,9 @@ config:
 ### For Users
 
 1. **Be specific:** "Run goto script on google_tv"
-2. **One task at a time:** Complete before switching
+2. **One task at a time:** Complete before switching skills
 3. **Use suggestions:** Click example prompts
+4. **Skill-based:** Atlas always loads a skill - be clear about what you want to accomplish
 
 ---
 
@@ -500,8 +503,9 @@ config:
 
 ### "Skill not loading"
 
-- Check skill name in `available_skills`
+- Check skill name in `available_skills` (Atlas has no router tools)
 - Verify YAML exists in `skills/definitions/`
+- Be specific in requests - Atlas analyzes and loads skills directly
 
 ### "Cache not working"
 

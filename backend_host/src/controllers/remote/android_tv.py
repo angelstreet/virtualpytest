@@ -5,7 +5,7 @@ This controller provides real Android TV remote control functionality using ADB.
 Connects directly to Android TV devices via ADB.
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Union
 import subprocess
 import time
 import json
@@ -742,7 +742,7 @@ class AndroidTVRemoteController(RemoteControllerInterface):
         """Get device-specific capture path for screenshots."""
         return self.device_config['video_capture_path']
 
-    def execute_command(self, command: str, params: Dict[str, Any] = None) -> bool:
+    def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Execute Android TV specific command with proper abstraction and auto-reconnection.
         
@@ -751,7 +751,7 @@ class AndroidTVRemoteController(RemoteControllerInterface):
             params: Command parameters (including wait_time)
             
         Returns:
-            bool: True if command executed successfully
+            Dict[str, Any]: Dict with 'success' key indicating command execution status, and optional 'error' key
         """
         if params is None:
             params = {}
@@ -765,36 +765,42 @@ class AndroidTVRemoteController(RemoteControllerInterface):
             """Execute the specific command - centralized logic"""
             if command == 'press_key':
                 key = params.get('key')
-                return self.press_key(key) if key else False
+                success = self.press_key(key) if key else False
+                return {'success': success}
             
             elif command == 'input_text':
                 text = params.get('text')
-                return self.input_text(text) if text else False
+                success = self.input_text(text) if text else False
+                return {'success': success}
             
             elif command == 'launch_app':
                 package = params.get('package')
-                return self.launch_app(package) if package else False
+                success = self.launch_app(package) if package else False
+                return {'success': success}
             
             elif command == 'close_app':
                 package = params.get('package')
-                return self.close_app(package) if package else False
+                success = self.close_app(package) if package else False
+                return {'success': success}
             
             elif command == 'tap_coordinates':
                 x, y = params.get('x'), params.get('y')
-                return self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
+                success = self.tap_coordinates(int(x), int(y)) if x is not None and y is not None else False
+                return {'success': success}
             
             elif command == 'click_element':
                 # Support both 'element_id' (frontend) and 'text' (MCP/docs) for backward compatibility
                 element_id = params.get('element_id') or params.get('text')
                 if not element_id:
                     print(f"Remote[{self.device_type.upper()}]: ERROR - click_element requires 'element_id' or 'text' parameter")
-                    return False
-                return self.click_element(element_id)
+                    return {'success': False}
+                success = self.click_element(element_id)
+                return {'success': success}
             
             elif command == 'get_installed_apps':
                 # Android TV specific
                 apps = self.get_installed_apps()
-                return len(apps) > 0
+                return {'success': len(apps) > 0, 'apps': apps}
             
             else:
                 # ❌ VALIDATION: Raise clear error for unknown commands
@@ -851,7 +857,7 @@ class AndroidTVRemoteController(RemoteControllerInterface):
                         print(f"Remote[{self.device_type.upper()}]: Command '{command}' failed even after exception recovery")
                 except Exception as retry_e:
                     print(f"Remote[{self.device_type.upper()}]: Command '{command}' retry after exception also failed: {retry_e}")
-                    return False
+                    return {'success': False, 'error': str(retry_e)}
             else:
                 error_msg = f"Failed to reconnect after command '{command}' exception"
                 print(f"Remote[{self.device_type.upper()}]: {error_msg}")

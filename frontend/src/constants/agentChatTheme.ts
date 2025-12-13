@@ -2,6 +2,12 @@
  * UI Theme Constants for Agent Chat
  * 
  * Centralized color palette and layout dimensions for the AI Agent Chat page.
+ * 
+ * CONSISTENCY RULE: Use these colors across all pages for a unified look.
+ * - Primary accent: #d4a574 (muted gold)
+ * - Skill/badge/highlight: #FFD700 (bright gold)
+ * - Success: #22c55e (green)
+ * - Error: #ef4444 (red)
  */
 
 export const AGENT_CHAT_PALETTE = {
@@ -12,8 +18,11 @@ export const AGENT_CHAT_PALETTE = {
   textPrimary: '#f0f0f0',
   textSecondary: '#9a9a9a',
   textMuted: '#666666',
-  accent: '#d4a574',
-  accentHover: '#c49464',
+  accent: '#d4a574',           // Primary accent (muted gold) - buttons, switches, main UI
+  accentHover: '#c49464',       // Hover state for accent
+  gold: '#FFD700',              // Bright gold - skills, badges, awards, highlights
+  success: '#22c55e',           // Success/pass state
+  error: '#ef4444',             // Error/fail state
   agentBubble: '#262626',
   agentBorder: '#333333',
   userBubble: '#3a3a3a',
@@ -45,4 +54,16 @@ export const AGENT_COLORS: Record<string, string> = {
   'design': '#ffb74d',
   'monitoring-read': '#4fc3f7',
 };
+
+/**
+ * Element highlight colors for overlays (used to distinguish multiple UI elements)
+ * Centralized array to ensure consistency across all overlay components
+ */
+export const ELEMENT_HIGHLIGHT_COLORS = [
+  '#FF0000',                    // Red
+  '#0066FF',                    // Blue
+  AGENT_CHAT_PALETTE.gold,     // Gold (uses theme color)
+  '#00CC00',                    // Green
+  '#9900FF',                    // Purple
+];
 
