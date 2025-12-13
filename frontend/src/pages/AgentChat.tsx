@@ -179,6 +179,19 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [agentsLoading, setAgentsLoading] = useState(true);
   const [agentsError, setAgentsError] = useState<string | null>(null);
   
+  // Auto-select first available device when component loads
+  useEffect(() => {
+    if (!selectedDevice) {
+      const hosts = getAllHosts();
+      const allDevices = hosts.flatMap(host => host.devices || []);
+
+      if (allDevices.length > 0) {
+        console.log('[AgentChat] Auto-selecting first available device:', allDevices[0].device_name);
+        handleDeviceSelection(allDevices[0].device_id);
+      }
+    }
+  }, [selectedDevice, getAllHosts]); // Include dependencies
+
   // Load agents from API (ONLY source of truth)
   useEffect(() => {
     const loadAgents = async () => {
@@ -2305,14 +2318,14 @@ useEffect(() => {
           {/* Device Controls */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {/* Device Selection Dropdown */}
-            <FormControl size="small" sx={{ minWidth: 160 }}>
+            <FormControl size="small" sx={{ width: 200 }}>
               <InputLabel id="agent-chat-device-select-label">Device</InputLabel>
               <Select
                 labelId="agent-chat-device-select-label"
                 value={selectedDevice || ''}
                 onChange={(e) => handleDeviceSelection(e.target.value)}
                 label="Device"
-                sx={{ height: 32, fontSize: '0.75rem' }}
+                sx={{ height: 32, fontSize: '0.85rem' }}
               >
                 <MenuItem value="">
                   <em>Select Device...</em>
@@ -2339,7 +2352,7 @@ useEffect(() => {
             </FormControl>
 
             {/* UserInterface Selection Dropdown */}
-            <Box sx={{ minWidth: 140 }}>
+            <Box sx={{ width: 200 }}>
               <UserinterfaceSelector
                 deviceModel={getSelectedDeviceModel()}
                 value={selectedUserInterface}
@@ -2347,6 +2360,7 @@ useEffect(() => {
                 label="Interface"
                 size="small"
                 fullWidth
+                sx={{ height: 32, fontSize: '0.85rem' }}
               />
             </Box>
 
