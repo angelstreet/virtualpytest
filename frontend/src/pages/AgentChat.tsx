@@ -76,6 +76,7 @@ const AgentChat: React.FC = () => {
   // Layout state - each section can be shown/hidden
   const [showHistory, setShowHistory] = useState(true);
   const [showContentViewer, setShowContentViewer] = useState(false);
+  const [contentViewerFullscreen, setContentViewerFullscreen] = useState(false);
   const [showDevice, setShowDevice] = useState(false);
 
   // Content panel state - controlled by AI agent or user selections
@@ -92,6 +93,11 @@ const AgentChat: React.FC = () => {
   const [selectedTestCase, setSelectedTestCase] = useState<string>('');
   const [testCaseList, setTestCaseList] = useState<Array<{ testcase_id: string; name: string }>>([]);
   const [isLoadingTestCases, setIsLoadingTestCases] = useState(false);
+
+  // Campaign selection state
+  const [selectedCampaign, setSelectedCampaign] = useState<string>('');
+  const [campaignList, setCampaignList] = useState<Array<{ campaign_id: string; name: string }>>([]);
+  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
   
   // Content viewer active tab
   const [activeContentTab, setActiveContentTab] = useState<ContentTab>('navigation');
@@ -329,6 +335,16 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
           setContentData({ testcase_id });
           // Title will update when testCaseList is available
         }
+        if (campaign_id) {
+          setSelectedCampaign(campaign_id);
+          // Auto-show content viewer with campaign tab
+          setShowContentViewer(true);
+          setActiveContentTab('campaign');
+          setContentType('campaign-flow');
+          setContentData({ campaign_id });
+          // Title will update when campaignList is available
+        }
+        // Note: heatmap doesn't need specific syncing as it's always available
       }
     });
     
@@ -500,10 +516,27 @@ useEffect(() => {
       setIsLoadingTestCases(false);
     }
   };
-  
-  // Fetch test cases on mount
+
+  // Fetch campaign list
+  const fetchCampaignList = async () => {
+    try {
+      setIsLoadingCampaigns(true);
+      const response = await fetch(buildServerUrl(`/server/campaigns/?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`));
+      if (response.ok) {
+        const data = await response.json();
+        setCampaignList(data.campaigns || []);
+      }
+    } catch (error) {
+      console.error('[AgentChat] Failed to fetch campaigns:', error);
+    } finally {
+      setIsLoadingCampaigns(false);
+    }
+  };
+
+  // Fetch test cases and campaigns on mount
   useEffect(() => {
     fetchTestCaseList();
+    fetchCampaignList();
   }, []);
   
   // Handle test case selection
@@ -517,6 +550,20 @@ useEffect(() => {
       setContentType('testcase-flow');
       setContentData({ testcase_id: testcaseId });
       setContentTitle(testcase ? `Test Case: ${testcase.name}` : 'Test Case');
+    }
+  };
+
+  // Handle campaign selection
+  const handleCampaignSelection = (campaignId: string) => {
+    setSelectedCampaign(campaignId);
+
+    // Auto-show ContentViewer with Campaign tab when campaign selected and content viewer is active
+    if (campaignId && showContentViewer) {
+      const campaign = campaignList.find(c => c.campaign_id === campaignId);
+      setActiveContentTab('campaign');
+      setContentType('campaign-flow');
+      setContentData({ campaign_id: campaignId });
+      setContentTitle(campaign ? `Campaign: ${campaign.name}` : 'Campaign');
     }
   };
 
@@ -906,6 +953,31 @@ useEffect(() => {
               </Select>
             </FormControl>
 
+            {/* Campaign Selection Dropdown */}
+            <FormControl size="small" sx={{ width: 200 }}>
+              <InputLabel id="agent-chat-campaign-select-label">Campaign</InputLabel>
+              <Select
+                labelId="agent-chat-campaign-select-label"
+                value={selectedCampaign || ''}
+                onChange={(e) => handleCampaignSelection(e.target.value)}
+                label="Campaign"
+                sx={{ height: 32, fontSize: '0.85rem' }}
+                disabled={isLoadingCampaigns}
+              >
+                <MenuItem value="">
+                  <em>{isLoadingCampaigns ? 'Loading...' : 'Select Campaign...'}</em>
+                </MenuItem>
+                {campaignList.map((campaign) => (
+                  <MenuItem
+                    key={campaign.campaign_id}
+                    value={campaign.campaign_id}
+                  >
+                    {campaign.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
           </Box>
 
           
@@ -930,6 +1002,7 @@ useEffect(() => {
                 if (showContentViewer) {
                   // Hide content viewer - go to full chat (keep selections)
                   setShowContentViewer(false);
+                  setContentViewerFullscreen(false);
                   setContentType(null);
                   setContentData(null);
                   setContentTitle(undefined);
@@ -966,18 +1039,18 @@ useEffect(() => {
       </Box>
 
       {/* Main Content Area */}
-      <Box sx={{ 
-        flex: 1, 
-        display: 'flex', 
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
         overflow: 'hidden',
       }}>
-        {/* Left Sidebar */}
-        {renderLeftSidebar()}
+        {/* Left Sidebar - hidden in fullscreen */}
+        {!contentViewerFullscreen && renderLeftSidebar()}
 
         {/* Center - Content Viewer + Chat (vertical split) */}
-        <Box sx={{ 
-          flex: 1, 
-          display: 'flex', 
+        <Box sx={{
+          flex: 1,
+          display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
           overflow: 'hidden',
@@ -1007,30 +1080,39 @@ useEffect(() => {
               selectedUserInterface={selectedUserInterface}
               selectedTestCase={selectedTestCase}
               selectedTestCaseName={testCaseList.find(tc => tc.testcase_id === selectedTestCase)?.name}
+              selectedCampaign={selectedCampaign}
+              selectedCampaignName={campaignList.find(c => c.campaign_id === selectedCampaign)?.name}
+              isFullscreen={contentViewerFullscreen}
+              onFullscreenChange={(fullscreen) => {
+                setContentViewerFullscreen(fullscreen);
+              }}
               onClose={() => {
                 setShowContentViewer(false);
+                setContentViewerFullscreen(false);
                 setContentType(null);
                 setContentData(null);
                 setContentTitle(undefined);
               }}
             />
           )}
-          
-          {/* Chat Area (minimized when content viewer is shown, full otherwise) */}
-          <Box sx={{
-            flex: showContentViewer ? 0.4 : 1,
-            minHeight: showContentViewer ? 200 : 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            transition: 'flex 0.2s ease-in-out',
-          }}>
-            {renderChatContent()}
-          </Box>
+
+          {/* Chat Area - hidden in fullscreen */}
+          {(!contentViewerFullscreen || !showContentViewer) && (
+            <Box sx={{
+              flex: showContentViewer ? 0.4 : 1,
+              minHeight: showContentViewer ? 200 : 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              transition: 'flex 0.2s ease-in-out',
+            }}>
+              {renderChatContent()}
+            </Box>
+          )}
         </Box>
 
-        {/* Right Panel */}
-        {renderRightPanel()}
+        {/* Right Panel - hidden in fullscreen */}
+        {!contentViewerFullscreen && renderRightPanel()}
       </Box>
 
       {/* Confirm Dialog */}

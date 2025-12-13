@@ -753,19 +753,21 @@ def sync_ui_context(
     device_id: Optional[str] = None,
     host_name: Optional[str] = None,
     userinterface_name: Optional[str] = None,
-    testcase_id: Optional[str] = None
+    testcase_id: Optional[str] = None,
+    campaign_id: Optional[str] = None
 ) -> str:
     """
     Sync the AgentChat UI dropdowns with the agent's current execution context.
-    Call this when starting to work with a specific device, interface, or test case
+    Call this when starting to work with a specific device, interface, test case, or campaign
     so the UI stays in sync with what the agent is doing.
-    
+
     Args:
         device_id: The device ID to select in the Device dropdown
         host_name: The host name (for reference, device_id is used for selection)
         userinterface_name: The user interface name to select in the Interface dropdown
         testcase_id: The test case ID to select in the TestCase dropdown
-    
+        campaign_id: The campaign ID to select in the Campaign dropdown
+
     Example:
         sync_ui_context(device_id='s21', userinterface_name='Netflix', testcase_id='tc_login')
     """
@@ -783,6 +785,8 @@ def sync_ui_context(
         payload['userinterface_name'] = userinterface_name
     if testcase_id:
         payload['testcase_id'] = testcase_id
+    if campaign_id:
+        payload['campaign_id'] = campaign_id
     
     socket_manager.broadcast(
         'ui_action',

@@ -33,11 +33,17 @@ import { AGENT_CHAT_PALETTE as PALETTE } from '../../constants/agentChatTheme';
 // Real viewer components
 import { NavigationTreeViewer } from './NavigationTreeViewer';
 import { TestCaseFlowViewer } from './TestCaseFlowViewer';
+import { CampaignFlowViewer } from './CampaignFlowViewer';
+import { HeatmapViewer } from './HeatmapViewer';
+import { AlertsViewer } from './AlertsViewer';
 
 // Content type definitions
-export type ContentType = 
+export type ContentType =
   | 'navigation-tree'
   | 'testcase-flow'
+  | 'campaign-flow'
+  | 'heatmap'
+  | 'alerts'
   | 'rec-preview'
   | 'report-chart'
   | 'data-table'
@@ -48,10 +54,14 @@ export interface ContentData {
   tree_id?: string;
   node_id?: string;
   userinterface_name?: string;
-  
+
   // Test case
   testcase_id?: string;
   editable?: boolean;
+
+  // Campaign
+  campaign_id?: string;
+}
   
   // REC preview
   device_ids?: string[];
@@ -69,7 +79,7 @@ export interface ContentData {
   log_entries?: { timestamp: string; level: string; message: string }[];
 }
 
-export type ContentTab = 'navigation' | 'testcase';
+export type ContentTab = 'navigation' | 'testcase' | 'campaign' | 'heatmap' | 'alerts';
 
 interface ContentViewerProps {
   contentType: ContentType | null;
@@ -83,12 +93,20 @@ interface ContentViewerProps {
   selectedUserInterface?: string;
   selectedTestCase?: string;
   selectedTestCaseName?: string;
+  selectedCampaign?: string;
+  selectedCampaignName?: string;
+  // Fullscreen support
+  isFullscreen?: boolean;
+  onFullscreenChange?: (fullscreen: boolean) => void;
 }
 
 // Icon mapping for content types
 const ContentTypeIcon: Record<ContentType, React.ElementType> = {
   'navigation-tree': TreeIcon,
   'testcase-flow': TestCaseIcon,
+  'campaign-flow': TestCaseIcon, // Use same icon as testcase for now
+  'heatmap': TreeIcon, // Use TreeIcon for heatmap grid
+  'alerts': ErrorIcon, // Use ErrorIcon for alerts/incidents
   'rec-preview': StreamIcon,
   'report-chart': ChartIcon,
   'data-table': TableIcon,
@@ -99,6 +117,9 @@ const ContentTypeIcon: Record<ContentType, React.ElementType> = {
 const ContentTypeLabel: Record<ContentType, string> = {
   'navigation-tree': 'Navigation Tree',
   'testcase-flow': 'Test Case',
+  'campaign-flow': 'Campaign',
+  'heatmap': 'Heatmap',
+  'alerts': 'Alerts',
   'rec-preview': 'Device Preview',
   'report-chart': 'Report',
   'data-table': 'Data',
@@ -116,17 +137,20 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
   selectedUserInterface,
   selectedTestCase,
   selectedTestCaseName,
+  isFullscreen = false,
+  onFullscreenChange,
 }) => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Determine if tabs should be shown (when we have manual selection mode)
-  const showTabs = selectedUserInterface !== undefined || selectedTestCase !== undefined;
-  
+  const showTabs = selectedUserInterface !== undefined || selectedTestCase !== undefined || selectedCampaign !== undefined;
+
   // Tab enabled states
   const navigationEnabled = !!selectedUserInterface;
   const testcaseEnabled = !!selectedTestCase;
+  const campaignEnabled = !!selectedCampaign;
 
   // Don't render if no content type AND no tabs
   if (!contentType && !showTabs) return null;
@@ -162,6 +186,12 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
         return <NavigationTreeContent data={contentData} />;
       case 'testcase-flow':
         return <TestCaseFlowContent data={contentData} />;
+      case 'campaign-flow':
+        return <CampaignFlowContent data={contentData} />;
+      case 'heatmap':
+        return <HeatmapContent data={contentData} />;
+      case 'alerts':
+        return <AlertsContent data={contentData} />;
       case 'rec-preview':
         return <RecPreviewContent data={contentData} />;
       case 'report-chart':
@@ -221,13 +251,34 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
             />
           </Box>
         );
+      } else if (activeTab === 'campaign' && selectedCampaign) {
+        return (
+          <Box sx={{ flex: 1, display: 'flex', width: '100%', height: '100%' }}>
+            <CampaignFlowViewer
+              campaignId={selectedCampaign}
+              readOnly={true}
+            />
+          </Box>
+        );
+      } else if (activeTab === 'heatmap') {
+        return (
+          <Box sx={{ flex: 1, display: 'flex', width: '100%', height: '100%' }}>
+            <HeatmapViewer />
+          </Box>
+        );
+      } else if (activeTab === 'alerts') {
+        return (
+          <Box sx={{ flex: 1, display: 'flex', width: '100%', height: '100%' }}>
+            <AlertsViewer />
+          </Box>
+        );
       } else {
         // No valid selection for active tab
         return (
-          <Box sx={{ 
-            flex: 1, 
-            display: 'flex', 
-            alignItems: 'center', 
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'column',
             gap: 2,
@@ -240,11 +291,18 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
                   Select an Interface to view navigation tree
                 </Typography>
               </>
-            ) : (
+            ) : activeTab === 'testcase' ? (
               <>
                 <TestCaseIcon sx={{ fontSize: 64, color: 'text.disabled', opacity: 0.3 }} />
                 <Typography variant="body1" color="text.secondary">
                   Select a Test Case to view flow
+                </Typography>
+              </>
+            ) : (
+              <>
+                <TestCaseIcon sx={{ fontSize: 64, color: 'text.disabled', opacity: 0.3 }} />
+                <Typography variant="body1" color="text.secondary">
+                  Select a Campaign to view flow
                 </Typography>
               </>
             )}
@@ -299,29 +357,7 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
           >
             <Tab
               value="navigation"
-              disabled={!navigationEnabled}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  <TreeIcon sx={{ fontSize: 16 }} />
-                  <span>Navigation</span>
-                  {selectedUserInterface && (
-                    <Chip
-                      label={selectedUserInterface}
-                      size="small"
-                      sx={{
-                        height: 18,
-                        maxWidth: 100,
-                        fontSize: '0.65rem',
-                        bgcolor: activeTab === 'navigation' 
-                          ? PALETTE.accent 
-                          : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
-                        color: activeTab === 'navigation' ? '#fff' : 'text.secondary',
-                        '& .MuiChip-label': { px: 0.75 },
-                      }}
-                    />
-                  )}
-                </Box>
-              }
+              label="Userinterface"
               sx={{
                 minHeight: 42,
                 py: 1,
@@ -331,36 +367,12 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
                 fontWeight: activeTab === 'navigation' ? 600 : 400,
                 color: activeTab === 'navigation' ? 'text.primary' : 'text.secondary',
                 opacity: navigationEnabled ? 1 : 0.5,
-                '&.Mui-disabled': {
-                  color: 'text.disabled',
-                },
+                pointerEvents: navigationEnabled ? 'auto' : 'none',
               }}
             />
             <Tab
               value="testcase"
-              disabled={!testcaseEnabled}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  <TestCaseIcon sx={{ fontSize: 16 }} />
-                  <span>Test Case</span>
-                  {selectedTestCaseName && (
-                    <Chip
-                      label={selectedTestCaseName}
-                      size="small"
-                      sx={{
-                        height: 18,
-                        maxWidth: 100,
-                        fontSize: '0.65rem',
-                        bgcolor: activeTab === 'testcase' 
-                          ? PALETTE.accent 
-                          : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'grey.300'),
-                        color: activeTab === 'testcase' ? '#fff' : 'text.secondary',
-                        '& .MuiChip-label': { px: 0.75 },
-                      }}
-                    />
-                  )}
-                </Box>
-              }
+              label="TestCase"
               sx={{
                 minHeight: 42,
                 py: 1,
@@ -370,9 +382,52 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
                 fontWeight: activeTab === 'testcase' ? 600 : 400,
                 color: activeTab === 'testcase' ? 'text.primary' : 'text.secondary',
                 opacity: testcaseEnabled ? 1 : 0.5,
-                '&.Mui-disabled': {
-                  color: 'text.disabled',
-                },
+                pointerEvents: testcaseEnabled ? 'auto' : 'none',
+              }}
+            />
+            <Tab
+              value="campaign"
+              label="Campaign"
+              sx={{
+                minHeight: 42,
+                py: 1,
+                px: 2,
+                textTransform: 'none',
+                fontSize: '0.85rem',
+                fontWeight: activeTab === 'campaign' ? 600 : 400,
+                color: activeTab === 'campaign' ? 'text.primary' : 'text.secondary',
+                opacity: campaignEnabled ? 1 : 0.5,
+                pointerEvents: campaignEnabled ? 'auto' : 'none',
+              }}
+            />
+            <Tab
+              value="heatmap"
+              label="Heatmap"
+              sx={{
+                minHeight: 42,
+                py: 1,
+                px: 2,
+                textTransform: 'none',
+                fontSize: '0.85rem',
+                fontWeight: activeTab === 'heatmap' ? 600 : 400,
+                color: activeTab === 'heatmap' ? 'text.primary' : 'text.secondary',
+                opacity: 1, // Always enabled - no selection required
+                pointerEvents: 'auto',
+              }}
+            />
+            <Tab
+              value="alerts"
+              label="Alerts"
+              sx={{
+                minHeight: 42,
+                py: 1,
+                px: 2,
+                textTransform: 'none',
+                fontSize: '0.85rem',
+                fontWeight: activeTab === 'alerts' ? 600 : 400,
+                color: activeTab === 'alerts' ? 'text.primary' : 'text.secondary',
+                opacity: 1, // Always enabled - no selection required
+                pointerEvents: 'auto',
               }}
             />
           </Tabs>
@@ -399,8 +454,8 @@ export const ContentViewer: React.FC<ContentViewerProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton
             size="small"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            sx={{ 
+            onClick={() => onFullscreenChange?.(!isFullscreen)}
+            sx={{
               color: 'text.secondary',
               '&:hover': { color: PALETTE.accent },
             }}
@@ -476,6 +531,39 @@ const TestCaseFlowContent: React.FC<{ data: ContentData | null }> = ({ data }) =
         testcaseId={data?.testcase_id}
         readOnly={!data?.editable}
       />
+    </Box>
+  );
+};
+
+// Campaign Flow Content - Uses real CampaignFlowViewer component
+const CampaignFlowContent: React.FC<{ data: ContentData | null }> = ({ data }) => {
+  // Can show empty state or load a specific campaign
+  return (
+    <Box sx={{ flex: 1, display: 'flex', width: '100%', height: '100%' }}>
+      <CampaignFlowViewer
+        campaignId={data?.campaign_id}
+        readOnly={true}
+      />
+    </Box>
+  );
+};
+
+// Heatmap Content - Uses real HeatmapViewer component
+const HeatmapContent: React.FC<{ data: ContentData | null }> = ({ data }) => {
+  // Heatmap viewer doesn't need specific data - it shows the current heatmap
+  return (
+    <Box sx={{ flex: 1, display: 'flex', width: '100%', height: '100%' }}>
+      <HeatmapViewer />
+    </Box>
+  );
+};
+
+// Alerts Content - Uses real AlertsViewer component
+const AlertsContent: React.FC<{ data: ContentData | null }> = ({ data }) => {
+  // Alerts viewer doesn't need specific data - it shows current active alerts
+  return (
+    <Box sx={{ flex: 1, display: 'flex', width: '100%', height: '100%' }}>
+      <AlertsViewer />
     </Box>
   );
 };
