@@ -1,24 +1,22 @@
 name: app-navigation
 version: 1.0.0
-description: Navigate apps using predefined userinterface flows and trees (TEST CHANGE)
+description: Navigate apps using predefined userinterface flows and trees
 
 triggers:
   # APP NAVIGATION (predefined flows)
   - navigate
   - goto
   - go
-
-
-  # USERINTERFACE MANAGEMENT
+  - show userinterface
   - list userinterfaces
-  - list apps
-  - show userinterfaces
-  - get userinterface
-
-  # TREE NAVIGATION
-  - navigate tree
-  - follow path
-  - execute navigation
+  - show nodes
+  - show edges
+  - list nodes
+  - list edges
+  - preview userinterface
+  - verify node
+  - node verification
+  - execute edge
 
 system_prompt: |
   Navigate through apps using predefined userinterface flows and navigation trees.
