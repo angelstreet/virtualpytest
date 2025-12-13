@@ -58,7 +58,6 @@ skills: []
 permissions:
   devices:
     - read
-    - take_control
 
   database:
     - read

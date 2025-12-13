@@ -1380,6 +1380,9 @@ export const useAgentChat = () => {
       agent_id: agentIdRef.current || 'assistant',
       allow_auto_navigation: allowAutoNavigationRef.current,
       current_page: currentPageRef.current,
+      host_name: hostNameRef.current,
+      device_id: deviceIdRef.current,
+      userinterface_name: userinterfaceRef.current,
     });
   }, [input, isProcessing, session?.id, activeConversationId]);
 
@@ -1392,10 +1395,16 @@ export const useAgentChat = () => {
   // Navigation context refs (set by parent component)
   const allowAutoNavigationRef = useRef<boolean>(false);
   const currentPageRef = useRef<string>('/');
-  
-  const setNavigationContext = useCallback((allowAutoNavigation: boolean, currentPage: string) => {
+  const hostNameRef = useRef<string>('');
+  const deviceIdRef = useRef<string>('');
+  const userinterfaceRef = useRef<string>('');
+
+  const setNavigationContext = useCallback((allowAutoNavigation: boolean, currentPage: string, hostName: string = '', deviceId: string = '', userinterface: string = '') => {
     allowAutoNavigationRef.current = allowAutoNavigation;
     currentPageRef.current = currentPage;
+    hostNameRef.current = hostName;
+    deviceIdRef.current = deviceId;
+    userinterfaceRef.current = userinterface;
   }, []);
 
   const handleApproval = useCallback((approved: boolean) => {

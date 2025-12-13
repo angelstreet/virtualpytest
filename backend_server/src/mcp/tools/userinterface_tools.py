@@ -378,15 +378,15 @@ class UserInterfaceTools:
     def list_edges(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         List all edges in a navigation tree.
-        
+
         Example: list_edges(tree_id='abc123')
-        
+
         Args:
             params: {
                 'tree_id': str (REQUIRED - navigation tree ID),
                 'node_ids': list (OPTIONAL - filter by node IDs)
             }
-        
+
         Returns:
             List of edges with action sets
         """
@@ -394,27 +394,33 @@ class UserInterfaceTools:
             tree_id = params['tree_id']
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             node_ids = params.get('node_ids')
-            
+
             self.logger.info(f"Listing edges for tree {tree_id}")
-            
-            # Call backend - EXISTING ENDPOINT
-            query_params = {'team_id': team_id}
-            if node_ids:
-                query_params['node_ids'] = node_ids
-            
+
+            # Get complete tree data (same source as preview_userinterface)
             result = self.api_client.get(
-                f'/server/navigationTrees/{tree_id}/edges',
-                params=query_params
+                f'/server/navigationTrees/{tree_id}/full',
+                params={'team_id': team_id}
             )
-            
+
             if not result.get('success'):
                 return self.formatter.format_error(
-                    f"Failed to list edges: {result.get('error', 'Unknown error')}",
+                    f"Failed to get tree data: {result.get('error', 'Unknown error')}",
                     ErrorCategory.BACKEND
                 )
-            
+
             edges = result.get('edges', [])
-            
+
+            # Filter by node_ids if provided
+            if node_ids:
+                filtered_edges = []
+                for edge in edges:
+                    source_id = edge.get('source_node_id')
+                    target_id = edge.get('target_node_id')
+                    if source_id in node_ids or target_id in node_ids:
+                        filtered_edges.append(edge)
+                edges = filtered_edges
+
             # Minimal edges: only essential fields
             minimal_edges = []
             for e in edges:

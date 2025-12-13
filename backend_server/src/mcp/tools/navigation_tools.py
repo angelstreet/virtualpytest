@@ -369,25 +369,30 @@ class NavigationTools:
     def preview_userinterface(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get compact text preview of userinterface navigation tree
-        
-        Shows all nodes, edges, actions, and verifications in compact format.
+
+        Shows all nodes, edges (with edge_ids for execute_edge), actions, and verifications in compact format.
         Perfect for quick overview: "What do we test and how?"
-        
+
+        Use this first to see available transitions, then use execute_edge with the edge_id shown.
+
         Args:
             params: {
                 'userinterface_name': str (REQUIRED) - e.g., 'netflix_mobile'
                 'team_id': str (OPTIONAL)
             }
-            
+
         Returns:
-            Compact text showing all transitions (8-10 lines)
-            
+            Compact text showing all transitions with edge_ids
+
         Example output:
             netflix_mobile (7 nodes, 13 transitions)
-            
+
             Entry→home: launch_app + tap(540,1645) [✓ Startseite]
+              edge_id: edge-123
             home⟷search: click(Suchen) ⟷ click(Nach oben navigieren) [✓ Suchen]
+              edge_id: edge-456
             home⟷content_detail: click(The Witcher) ⟷ BACK [✓ abspielen]
+              edge_id: edge-789
             ...
         """
         userinterface_name = params.get('userinterface_name')
@@ -498,11 +503,15 @@ class NavigationTools:
             if not action_sets:
                 continue
             
+            # Get edge_id for execute_edge tool
+            edge_id = edge.get('edge_id', edge.get('id', 'unknown'))
+
             # Check if bidirectional
             is_bidirectional = len(action_sets) > 1 and action_sets[1].get('actions')
-            
+
             if is_bidirectional:
                 output += f"{source_label} ⟷ {target_label}\n"
+                output += f"  edge_id: {edge_id}\n"  # Show edge_id for execute_edge
                 # Forward actions
                 forward_actions = action_sets[0].get('actions', [])
                 output += f"  Forward: {self._format_actions_with_delay(forward_actions)}\n"
@@ -511,9 +520,10 @@ class NavigationTools:
                 output += f"  Backward: {self._format_actions_with_delay(backward_actions)}\n"
             else:
                 output += f"{source_label} → {target_label}\n"
+                output += f"  edge_id: {edge_id}\n"  # Show edge_id for execute_edge
                 forward_actions = action_sets[0].get('actions', [])
                 output += f"  Actions: {self._format_actions_with_delay(forward_actions)}\n"
-            
+
             output += "\n"
         
         return output
@@ -626,6 +636,107 @@ class NavigationTools:
         
         return ""
 
+    def _parse_edge_label_and_find_edge_id(self, tree_id: str, edge_label: str, team_id: str) -> Optional[str]:
+        """
+        Parse an edge label in various formats and find the corresponding edge_id.
+
+        Supported formats:
+        - "home ⟷ home_movies" (with arrows)
+        - "home to home_movies" (natural language)
+        - "home_to_home_movies" (underscore)
+        - "home-home_movies" (dash)
+        - "home -> home_replay" (arrow notation)
+
+        Args:
+            tree_id: Navigation tree ID
+            edge_label: Edge label in various formats
+            team_id: Team ID
+
+        Returns:
+            edge_id string if found, None otherwise
+        """
+        import re
+
+        # Try different parsing strategies
+        strategies = [
+            # Strategy 1: Look for word + separator + word patterns
+            lambda label: re.findall(r'\b(\w+)\b\s*[\s→⟷\-\_\>]*\s*\b(\w+)\b', label.strip()),
+            # Strategy 2: Split on separators and find first/last words
+            lambda label: self._extract_nodes_from_separated(label),
+        ]
+
+        source_label = None
+        target_label = None
+
+        for strategy in strategies:
+            try:
+                result = strategy(edge_label)
+                if result and len(result) >= 1:
+                    if isinstance(result[0], tuple) and len(result[0]) == 2:
+                        source_label, target_label = result[0]
+                    elif isinstance(result, tuple) and len(result) == 2:
+                        source_label, target_label = result
+                    break
+            except:
+                continue
+
+        if not source_label or not target_label:
+            print(f"[@MCP:parse_edge_label] Could not parse edge label: {edge_label}")
+            return None
+
+        print(f"[@MCP:parse_edge_label] Parsed '{edge_label}' -> source: '{source_label}', target: '{target_label}'")
+
+        # Get all edges for this tree
+        tree_result = self.api.get(
+            f'/server/navigationTrees/{tree_id}/full',
+            params={'team_id': team_id}
+        )
+
+        if not tree_result.get('success'):
+            print(f"[@MCP:parse_edge_label] Failed to get tree data: {tree_result.get('error')}")
+            return None
+
+        edges = tree_result.get('edges', [])
+
+        # Find edge matching the source and target labels
+        for edge in edges:
+            source_node_id = edge.get('source_node_id')
+            target_node_id = edge.get('target_node_id')
+
+            # Check if this edge matches (compare node_ids, not database IDs)
+            if source_node_id == source_label and target_node_id == target_label:
+                edge_id = edge.get('edge_id') or edge.get('id')
+                print(f"[@MCP:parse_edge_label] Found matching edge: {edge_id}")
+                return edge_id
+
+        print(f"[@MCP:parse_edge_label] No edge found for transition: {source_label} -> {target_label}")
+        return None
+
+    def _extract_nodes_from_separated(self, edge_label: str) -> tuple[str, str]:
+        """Extract source and target node names from edge labels with various separators."""
+        import re
+
+        # Clean the label
+        label = edge_label.strip()
+
+        # Remove common transition words
+        label = re.sub(r'\bto\b', '', label, flags=re.IGNORECASE)
+        label = re.sub(r'\bfrom\b', '', label, flags=re.IGNORECASE)
+
+        # Replace all separators with a common delimiter
+        label = re.sub(r'[→⟷\-\_\>\|\s]+', '|', label)
+
+        # Split and clean
+        parts = [p.strip() for p in label.split('|') if p.strip()]
+
+        # Find the two main node names (skip empty parts)
+        nodes = [p for p in parts if p and not re.match(r'^[\s\|\-\_\>→⟷]*$', p)]
+
+        if len(nodes) >= 2:
+            return nodes[0], nodes[-1]  # First and last should be the nodes
+
+        return None, None
+
     def execute_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute actions defined in a specific navigation edge.
@@ -633,12 +744,16 @@ class NavigationTools:
         This tool directly executes the device actions stored in an edge, similar to how
         navigate_to_node() automatically executes edge actions during navigation.
 
-        Example: execute_edge(tree_id='abc123', edge_id='edge1', device_id='device1', host_name='sunri-pi1')
+        Examples:
+        - execute_edge(tree_id='abc123', edge_id='edge1', device_id='device1', host_name='sunri-pi1')
+        - execute_edge(tree_id='abc123', edge_label='home -> home_replay', device_id='device1', host_name='sunri-pi1')
+        - execute_edge(tree_id='abc123', edge_label='home to home_movies', device_id='device1', host_name='sunri-pi1')
 
         Args:
             params: {
                 'tree_id': str (REQUIRED - navigation tree ID),
-                'edge_id': str (REQUIRED - edge identifier),
+                'edge_id': str (OPTIONAL - edge identifier),
+                'edge_label': str (OPTIONAL - transition like 'home -> home_replay' or 'home ⟷ home_replay'),
                 'device_id': str (REQUIRED - device identifier),
                 'host_name': str (REQUIRED - host where device is connected),
                 'team_id': str (OPTIONAL)
@@ -649,6 +764,7 @@ class NavigationTools:
         """
         tree_id = params.get('tree_id')
         edge_id = params.get('edge_id')
+        edge_label = params.get('edge_label')
         device_id = params.get('device_id')
         host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
@@ -656,12 +772,20 @@ class NavigationTools:
         # Validate required parameters
         if not tree_id:
             return {"content": [{"type": "text", "text": "Error: tree_id is required"}], "isError": True}
-        if not edge_id:
-            return {"content": [{"type": "text", "text": "Error: edge_id is required"}], "isError": True}
+        if not edge_id and not edge_label:
+            return {"content": [{"type": "text", "text": "Error: Either edge_id or edge_label is required"}], "isError": True}
+        if edge_id and edge_label:
+            return {"content": [{"type": "text", "text": "Error: Provide either edge_id OR edge_label, not both"}], "isError": True}
         if not device_id:
             return {"content": [{"type": "text", "text": "Error: device_id is required"}], "isError": True}
         if not host_name:
             return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
+
+        # If edge_label provided, parse it and find the edge_id
+        if edge_label:
+            edge_id = self._parse_edge_label_and_find_edge_id(tree_id, edge_label, team_id)
+            if not edge_id:
+                return {"content": [{"type": "text", "text": f"Error: Could not find edge for transition '{edge_label}'"}], "isError": True}
 
         try:
             # Step 1: Get edge data

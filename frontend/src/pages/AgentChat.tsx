@@ -27,7 +27,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Switch,
   Tabs,
   Tab,
@@ -74,6 +73,7 @@ import { useToolExecutionTiming } from '../hooks/aiagent/useToolExecutionTiming'
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { DeviceControlPanels } from '../components/common/DeviceControlPanels';
 import { useDevicePanels } from '../hooks/useDevicePanels';
+import { AgentDeviceProvider, useAgentDevice } from '../contexts/AgentDeviceContext';
 import { useHostManager } from '../contexts/index';
 
 const { 
@@ -108,7 +108,7 @@ const colorizeStatus = (node: React.ReactNode): React.ReactNode => {
 
 // --- Components ---
 
-const AgentChat: React.FC = () => {
+const AgentChatContent: React.FC = () => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
   const { profile } = useProfile();
@@ -121,12 +121,22 @@ const AgentChat: React.FC = () => {
   const [showChat, setShowChat] = useState(true);
   const [showDevice, setShowDevice] = useState(false);
 
-  // Device selection state for manual control
-  const [selectedDevice, setSelectedDevice] = useState<string>('');
+  // Device panel visibility
   const [showDevicePanel, setShowDevicePanel] = useState(false);
 
-  // Get HostManager for device selection
-  const { getAllHosts, handleDeviceSelect, handleControlStateChange } = useHostManager();
+  // Auto-selected device and interface from context
+  const {
+    selectedDevice,
+    selectedHost,
+    selectedUserInterface,
+    isLoadingDevices,
+    isLoadingInterfaces,
+    deviceError,
+    interfaceError,
+  } = useAgentDevice();
+
+  // Get HostManager for device control (keeping for device panel management)
+  const { handleControlStateChange } = useHostManager();
 
   // Device control panels - manual control
   const devicePanels = useDevicePanels({
@@ -395,25 +405,15 @@ useEffect(() => {
   }
 }, [selectedAgentId, setAgentId]);
   
-  // Sync navigation context with hook (for 2-step workflow)
+  // Sync navigation context with auto-selected device/interface (for 2-step workflow)
   useEffect(() => {
-    setNavigationContext(allowAutoNavigation, location.pathname);
-  }, [allowAutoNavigation, location.pathname, setNavigationContext]);
-  
-  // Manual device selection handler
-  const handleDeviceSelection = (deviceId: string) => {
-    setSelectedDevice(deviceId);
+    const hostName = selectedHost?.host_name || '';
+    const deviceId = selectedDevice?.device_id || '';
+    const userinterface = selectedUserInterface || '';
 
-    // Find the host and device to update the device panels
-    const hosts = getAllHosts();
-    for (const host of hosts) {
-      const device = host.devices.find(d => d.device_id === deviceId);
-      if (device) {
-        handleDeviceSelect(host, deviceId);
-        break;
-      }
-    }
-  };
+    setNavigationContext(allowAutoNavigation, location.pathname, hostName, deviceId, userinterface);
+  }, [allowAutoNavigation, location.pathname, selectedHost, selectedDevice, selectedUserInterface, setNavigationContext]);
+  
 
   // Handle device panel show/hide
   const handleDevicePanelToggle = () => {
@@ -422,7 +422,7 @@ useEffect(() => {
       setShowDevicePanel(false);
       handleControlStateChange(false);
     } else if (selectedDevice) {
-      // Show panel for selected device
+      // Show panel for auto-selected device
       setShowDevicePanel(true);
       handleControlStateChange(true);
     }
@@ -2262,41 +2262,34 @@ useEffect(() => {
           </FormControl>
         </Box>
         
-        {/* Right: Device Controls + Auto-redirect toggle + Section Toggles */}
+        {/* Right: Device Status + Auto-redirect toggle + Section Toggles */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {/* Device Controls */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Device Selection Dropdown */}
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel id="agent-chat-device-select-label">Device</InputLabel>
-              <Select
-                labelId="agent-chat-device-select-label"
-                value={selectedDevice || ''}
-                onChange={(e) => handleDeviceSelection(e.target.value)}
-                label="Device"
-                sx={{ height: 32, fontSize: '0.75rem' }}
-              >
-                {getAllHosts().flatMap((host) => {
-                  const devices = host.devices || [];
-                  return devices.map((device) => (
-                    <MenuItem
-                      key={`${host.host_name}:${device.device_id}`}
-                      value={device.device_id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                      }}
-                    >
-                      <span>
-                        {device.device_name} ({host.host_name})
-                      </span>
-                    </MenuItem>
-                  ));
-                })}
-              </Select>
-            </FormControl>
+          {/* Auto-selected Device/Interface Status */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 200 }}>
+            {isLoadingDevices || isLoadingInterfaces ? (
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                Detecting device...
+              </Typography>
+            ) : deviceError || interfaceError ? (
+              <Typography variant="caption" color="error.main" sx={{ fontSize: '0.75rem' }}>
+                Device detection failed
+              </Typography>
+            ) : selectedDevice && selectedUserInterface ? (
+              <>
+                <DevicesIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                  {selectedDevice.device_name} • {selectedUserInterface}
+                </Typography>
+              </>
+            ) : (
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                No device available
+              </Typography>
+            )}
+          </Box>
 
+          {/* Device Screen Controls */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {/* Show/Hide Device Panel Button */}
             <Button
               variant={showDevicePanel ? 'contained' : 'outlined'}
@@ -2506,6 +2499,15 @@ useEffect(() => {
         footerHeight={0} // No footer in AgentChat
       />
     </Box>
+  );
+};
+
+// Wrapper component with automatic device/interface context
+const AgentChat: React.FC = () => {
+  return (
+    <AgentDeviceProvider>
+      <AgentChatContent />
+    </AgentDeviceProvider>
   );
 };
 

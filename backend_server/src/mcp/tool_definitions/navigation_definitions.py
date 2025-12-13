@@ -21,7 +21,7 @@ def get_tools() -> List[Dict[str, Any]]:
     return [
     {
         "name": "execute_edge",
-        "description": "Execute actions defined in a specific navigation edge. This tool directly executes the device actions stored in an edge, similar to how navigate_to_node() automatically executes edge actions during navigation. MCP-formatted response with execution results\n\nExample: execute_edge(tree_id='abc123', edge_id='edge1', device_id='device1', host_name='sunri-pi1')",
+        "description": "Execute actions defined in a specific navigation edge. This tool directly executes the device actions stored in an edge, similar to how navigate_to_node() automatically executes edge actions during navigation. Examples: - execute_edge(tree_id='abc123', edge_id='edge1', device_id='device1', host_name='sunri-pi1') - execute_edge(tree_id='abc123', edge_label='home -> home_replay', device_id='device1', host_name='sunri-pi1') - execute_edge(tree_id='abc123', edge_label='home to home_movies', device_id='device1', host_name='sunri-pi1') MCP-formatted response with execution results",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -32,6 +32,10 @@ def get_tools() -> List[Dict[str, Any]]:
                 "edge_id": {
                     "type": "string",
                     "description": "edge identifier"
+                },
+                "edge_label": {
+                    "type": "string",
+                    "description": "transition like 'home -> home_replay' or 'home \u27f7 home_replay'"
                 },
                 "device_id": {
                     "type": "string",
@@ -44,7 +48,6 @@ def get_tools() -> List[Dict[str, Any]]:
             },
             "required": [
                 "tree_id",
-                "edge_id",
                 "device_id",
                 "host_name"
             ]
@@ -109,7 +112,7 @@ def get_tools() -> List[Dict[str, Any]]:
     },
     {
         "name": "preview_userinterface",
-        "description": "Get compact text preview of userinterface navigation tree Shows all nodes, edges, actions, and verifications in compact format. Perfect for quick overview: \"What do we test and how?\" Compact text showing all transitions (8-10 lines) Example output: netflix_mobile (7 nodes, 13 transitions) Entry\u2192home: launch_app + tap(540,1645) [\u2713 Startseite] home\u27f7search: click(Suchen) \u27f7 click(Nach oben navigieren) [\u2713 Suchen] home\u27f7content_detail: click(The Witcher) \u27f7 BACK [\u2713 abspielen] ...",
+        "description": "Get compact text preview of userinterface navigation tree Shows all nodes, edges (with edge_ids for execute_edge), actions, and verifications in compact format. Perfect for quick overview: \"What do we test and how?\" Use this first to see available transitions, then use execute_edge with the edge_id shown. Compact text showing all transitions with edge_ids Example output: netflix_mobile (7 nodes, 13 transitions) Entry\u2192home: launch_app + tap(540,1645) [\u2713 Startseite] edge_id: edge-123 home\u27f7search: click(Suchen) \u27f7 click(Nach oben navigieren) [\u2713 Suchen] edge_id: edge-456 home\u27f7content_detail: click(The Witcher) \u27f7 BACK [\u2713 abspielen] edge_id: edge-789 ...",
         "inputSchema": {
             "type": "object",
             "properties": {

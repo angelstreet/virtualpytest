@@ -7,6 +7,13 @@ import { defineConfig } from 'vite';
 const serverUrl = process.env.VITE_SERVER_URL || 'http://localhost:5109';
 const shouldUseHttps = serverUrl.startsWith('https://');
 
+// Detect if we're running locally (not behind nginx proxy)
+const isLocalDevelopment = !process.env.CI && (
+  serverUrl.includes('localhost') ||
+  serverUrl.includes('127.0.0.1') ||
+  !process.env.VITE_SERVER_URL // Default localhost case
+);
+
 // Get user home directory dynamically
 const userHome = process.env.HOME || process.env.USERPROFILE || process.cwd();
 
@@ -196,11 +203,9 @@ export default defineConfig({
           }
         : undefined // Let Vite generate self-signed certificates
       : undefined, // No HTTPS
-    // HMR configuration for proxied environments (dev.virtualpytest.com)
-    // Always set clientPort: 443 because we're behind nginx HTTPS proxy
-    // Vite HMR auto-detects hostname from browser location
+    // HMR configuration - use port 5073 for local dev, 443 for production proxy
     hmr: {
-      clientPort: 443,
+      clientPort: isLocalDevelopment ? 5073 : 443,
     },
     // Configure how the dev server handles routing
     fs: {

@@ -17,21 +17,23 @@ triggers:
   - verify node
   - node verification
   - execute edge
+  - execute transition
+  - run transition
+  - perform transition
 
 system_prompt: |
   Navigate apps using predefined userinterface tree.
 
   WORKFLOW:
-  1. navigate_to_node(target_node_label='...') - Navigate to screen
-  2. verify_node() - Check current screen
-  3. execute_edge() - Execute individual edge actions
+  1. preview_userinterface(userinterface_name='...') - See available screens and transitions with edge_ids
+  2. navigate_to_node(target_node_label='...') - Navigate to screen using pathfinding
+  3. execute_edge(edge_id='...' OR edge_label='home -> home_replay') - Execute specific edge actions
+  4. verify_node() - Check current screen
 
 tools:
   - list_userinterfaces
   - preview_userinterface
   - navigate_to_node
-  - list_nodes
-  - list_edges
   - get_node
   - get_edge
   - verify_node
@@ -54,17 +56,8 @@ tool_cache:
   preview_userinterface:
     enabled: true
     ttl_seconds: 300        # 5 minutes
-    prompt_cache: false
-  
-  list_nodes:
-    enabled: true
-    ttl_seconds: 600        # 10 minutes
-    prompt_cache: false
-  
-  list_edges:
-    enabled: true
-    ttl_seconds: 600        # 10 minutes
-    prompt_cache: false
+    prompt_cache: true
+
   
   # Execution tools - NEVER cache
   navigate_to_node:
@@ -76,11 +69,7 @@ tool_cache:
   execute_edge:
     enabled: false
 
-  take_control:
-    enabled: false
-  
-  release_control:
-    enabled: false
+
 
 platform: null
 requires_device: true
