@@ -75,17 +75,14 @@ const AgentChat: React.FC = () => {
 
   // Layout state - each section can be shown/hidden
   const [showHistory, setShowHistory] = useState(true);
-  const [chatMode, setChatMode] = useState<'full' | 'minimized'>('full');
+  const [showContentViewer, setShowContentViewer] = useState(false);
   const [showDevice, setShowDevice] = useState(false);
-  
-  // Content panel state - controlled by AI agent
+
+  // Content panel state - controlled by AI agent or user selections
   const [contentType, setContentType] = useState<ContentType | null>(null);
   const [contentData, setContentData] = useState<ContentData | null>(null);
   const [contentTitle, setContentTitle] = useState<string | undefined>(undefined);
   const [contentLoading, setContentLoading] = useState(false);
-  
-  // Derived state for backward compatibility
-  const showChat = chatMode !== 'minimized' || !contentType;
 
   // Device selection state for manual control
   const [selectedDevice, setSelectedDevice] = useState<string>('');
@@ -310,29 +307,27 @@ const [selectedAgentId, setSelectedAgentId] = useState<string>('');
         // Sync UI dropdowns with agent's execution context
         const { device_id, userinterface_name, testcase_id } = data.payload || {};
         console.log('[AgentChat] Syncing UI context:', { device_id, userinterface_name, testcase_id });
-        
+
         if (device_id) {
           setSelectedDevice(device_id);
         }
         if (userinterface_name) {
           setSelectedUserInterface(userinterface_name);
-          // Also update content viewer if it's showing navigation
-          if (activeContentTab === 'navigation' || !contentType) {
-            setActiveContentTab('navigation');
-            setContentType('navigation-tree');
-            setContentData({ userinterface_name });
-            setContentTitle(`Navigation: ${userinterface_name}`);
-            setChatMode('minimized');
-          }
+          // Auto-show content viewer with navigation tab
+          setShowContentViewer(true);
+          setActiveContentTab('navigation');
+          setContentType('navigation-tree');
+          setContentData({ userinterface_name });
+          setContentTitle(`Navigation: ${userinterface_name}`);
         }
         if (testcase_id) {
           setSelectedTestCase(testcase_id);
-          // Also update content viewer if it's showing test case
-          if (activeContentTab === 'testcase') {
-            setContentType('testcase-flow');
-            setContentData({ testcase_id });
-            // Title will update when testCaseList is available
-          }
+          // Auto-show content viewer with testcase tab
+          setShowContentViewer(true);
+          setActiveContentTab('testcase');
+          setContentType('testcase-flow');
+          setContentData({ testcase_id });
+          // Title will update when testCaseList is available
         }
       }
     });
@@ -480,14 +475,13 @@ useEffect(() => {
     setSelectedUserInterface(userInterface);
     // Update navigation context with the selected userinterface (empty string for no selection)
     setNavigationContext(false, location.pathname, '', '', userInterface || '');
-    
+
     // Auto-show ContentViewer with Navigation tab when interface selected
-    if (userInterface) {
+    if (userInterface && showContentViewer) {
       setActiveContentTab('navigation');
       setContentType('navigation-tree');
       setContentData({ userinterface_name: userInterface });
       setContentTitle(`Navigation: ${userInterface}`);
-      setChatMode('minimized');
     }
   };
   
@@ -515,15 +509,14 @@ useEffect(() => {
   // Handle test case selection
   const handleTestCaseSelection = (testcaseId: string) => {
     setSelectedTestCase(testcaseId);
-    
-    // Auto-show ContentViewer with TestCase tab when test case selected
-    if (testcaseId) {
+
+    // Auto-show ContentViewer with TestCase tab when test case selected and content viewer is active
+    if (testcaseId && showContentViewer) {
       const testcase = testCaseList.find(tc => tc.testcase_id === testcaseId);
       setActiveContentTab('testcase');
       setContentType('testcase-flow');
       setContentData({ testcase_id: testcaseId });
       setContentTitle(testcase ? `Test Case: ${testcase.name}` : 'Test Case');
-      setChatMode('minimized');
     }
   };
 
@@ -932,24 +925,35 @@ useEffect(() => {
               tooltip={showHistory ? "Hide history" : "Show history"}
             />
             <SectionToggle
-              active={chatMode === 'full'}
+              active={showContentViewer}
               onClick={() => {
-                if (chatMode === 'full' && contentType) {
-                  // If content is showing, minimize chat
-                  setChatMode('minimized');
+                if (showContentViewer) {
+                  // Hide content viewer - go to full chat (keep selections)
+                  setShowContentViewer(false);
+                  setContentType(null);
+                  setContentData(null);
+                  setContentTitle(undefined);
+                  // Don't clear selectedUserInterface/selectedTestCase - user might toggle back
                 } else {
-                  // Toggle between full and minimized, and close content if going to full
-                  setChatMode(chatMode === 'full' ? 'minimized' : 'full');
-                  if (chatMode === 'minimized') {
-                    // Going to full mode - close content panel
-                    setContentType(null);
-                    setContentData(null);
-                    setContentTitle(undefined);
+                  // Show content viewer - minimize chat
+                  setShowContentViewer(true);
+                  // If we have selections, show them automatically
+                  if (selectedUserInterface) {
+                    setActiveContentTab('navigation');
+                    setContentType('navigation-tree');
+                    setContentData({ userinterface_name: selectedUserInterface });
+                    setContentTitle(`Navigation: ${selectedUserInterface}`);
+                  } else if (selectedTestCase) {
+                    setActiveContentTab('testcase');
+                    setContentType('testcase-flow');
+                    setContentData({ testcase_id: selectedTestCase });
+                    const tc = testCaseList.find(t => t.testcase_id === selectedTestCase);
+                    setContentTitle(tc ? `Test Case: ${tc.name}` : 'Test Case');
                   }
                 }
               }}
               icon={ChatPanelIcon}
-              tooltip={chatMode === 'full' ? "Minimize chat" : "Expand chat"}
+              tooltip={showContentViewer ? "Hide content viewer" : "Show content viewer"}
             />
             <SectionToggle
               active={showDevice}
@@ -978,8 +982,8 @@ useEffect(() => {
           minWidth: 0,
           overflow: 'hidden',
         }}>
-          {/* Content Viewer (top area - shown when content is active or user has made selections) */}
-          {(contentType || selectedUserInterface || selectedTestCase) && (
+          {/* Content Viewer (top area - shown when user toggles it on) */}
+          {showContentViewer && (
             <ContentViewer
               contentType={contentType}
               contentData={contentData}
@@ -1004,32 +1008,25 @@ useEffect(() => {
               selectedTestCase={selectedTestCase}
               selectedTestCaseName={testCaseList.find(tc => tc.testcase_id === selectedTestCase)?.name}
               onClose={() => {
+                setShowContentViewer(false);
                 setContentType(null);
                 setContentData(null);
                 setContentTitle(undefined);
-                setSelectedUserInterface('');
-                setSelectedTestCase('');
-                setChatMode('full');
               }}
             />
           )}
           
-          {/* Chat Area (bottom when content showing, full otherwise) */}
-          {(() => {
-            const hasContent = contentType || selectedUserInterface || selectedTestCase;
-            return (
-              <Box sx={{ 
-                flex: hasContent ? 0.4 : 1,
-                minHeight: hasContent ? 200 : 'auto',
-                display: 'flex', 
-                flexDirection: 'column',
-                overflow: 'hidden',
-                transition: 'flex 0.2s ease-in-out',
-              }}>
-                {renderChatContent()}
-              </Box>
-            );
-          })()}
+          {/* Chat Area (minimized when content viewer is shown, full otherwise) */}
+          <Box sx={{
+            flex: showContentViewer ? 0.4 : 1,
+            minHeight: showContentViewer ? 200 : 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            transition: 'flex 0.2s ease-in-out',
+          }}>
+            {renderChatContent()}
+          </Box>
         </Box>
 
         {/* Right Panel */}

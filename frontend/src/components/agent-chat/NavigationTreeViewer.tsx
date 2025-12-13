@@ -26,6 +26,7 @@ import { NavigationConfigProvider, useNavigationConfig } from '../../contexts/na
 import { NavigationEditorProvider } from '../../contexts/navigation/NavigationEditorProvider';
 import { NavigationStackProvider } from '../../contexts/navigation/NavigationStackContext';
 import { NavigationPreviewCacheProvider } from '../../contexts/navigation/NavigationPreviewCacheContext';
+import { NavigationScreenshotProvider } from '../../contexts/navigation/NavigationScreenshotContext';
 import { useNavigationEditor } from '../../hooks/navigation/useNavigationEditor';
 import { useUserInterface } from '../../hooks/pages/useUserInterface';
 
@@ -186,40 +187,42 @@ const NavigationTreeViewerContent: React.FC<NavigationTreeViewerProps> = ({
   }
 
   return (
-    <Box sx={{ flex: 1, width: '100%', height: '100%' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        connectionLineType={ConnectionLineType.SmoothStep}
-        onInit={(instance) => {
-          setReactFlowInstance(instance);
-          // Fit view on init
-          setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
-        }}
-        nodesDraggable={!readOnly}
-        nodesConnectable={!readOnly}
-        elementsSelectable={true}
-        panOnDrag={true}
-        zoomOnScroll={true}
-        zoomOnPinch={true}
-        proOptions={proOptions}
-        fitView
-      >
-        <Background variant={BackgroundVariant.Dots} gap={15} size={1} />
-        <Controls position="top-left" showInteractive={!readOnly} />
-        <MiniMap
-          style={miniMapStyle}
-          nodeColor={miniMapNodeColor}
-          maskColor="rgba(255, 255, 255, 0.2)"
-          pannable
-          zoomable
-          position="bottom-right"
-        />
-      </ReactFlow>
-    </Box>
+    <NavigationScreenshotProvider nodes={nodes}>
+      <Box sx={{ flex: 1, width: '100%', height: '100%' }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
+          connectionLineType={ConnectionLineType.SmoothStep}
+          onInit={(instance) => {
+            setReactFlowInstance(instance);
+            // Fit view on init
+            setTimeout(() => instance.fitView({ padding: 0.2 }), 100);
+          }}
+          nodesDraggable={!readOnly}
+          nodesConnectable={!readOnly}
+          elementsSelectable={true}
+          panOnDrag={true}
+          zoomOnScroll={true}
+          zoomOnPinch={true}
+          proOptions={proOptions}
+          fitView
+        >
+          <Background variant={BackgroundVariant.Dots} gap={15} size={1} />
+          <Controls position="top-left" showInteractive={!readOnly} />
+          <MiniMap
+            style={miniMapStyle}
+            nodeColor={miniMapNodeColor}
+            maskColor="rgba(255, 255, 255, 0.2)"
+            pannable
+            zoomable
+            position="bottom-right"
+          />
+        </ReactFlow>
+      </Box>
+    </NavigationScreenshotProvider>
   );
 };
 
