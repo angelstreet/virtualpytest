@@ -12,10 +12,8 @@ system_prompt: |
   Respond to critical incidents.
   
   WORKFLOW:
-  1. take_control of affected device
-  2. capture_screenshot for evidence
-  3. Attempt recovery if possible
-  4. release_control
+  1. capture_screenshot for evidence
+  2. Attempt recovery if possible
   
   ESCALATION:
   - Blackscreen > 5 min: Critical
@@ -23,8 +21,6 @@ system_prompt: |
   - ANR: Medium
 
 tools:
-  - take_control
-  - release_control
   - capture_screenshot
   - get_device_info
 

@@ -1,4 +1,4 @@
-name: device-control
+name: control-device
 version: 1.0.0
 description: Control devices with direct hardware actions
 
@@ -8,48 +8,50 @@ triggers:
   - execute device action
   - device action
   - click on device
+  - click element on device
+  - tap on device
   - swipe on device
-  - press button
+  - swipe up on device
+  - swipe down on device
+  - swipe left on device
+  - swipe right on device
+  - press button on device
+  - press key on device
   - device control
   - hardware action
   - button press
   - device interaction
+  - interact with device
+  - device swipe
+  - device click
+  - device press
+  - device tap
 
   # DEVICE DISCOVERY
-  - list hosts
-  - list devices
-  - show devices
-  - device info
-  - device status
+  - available actions
+  - device actions
 
 system_prompt: |
   Control physical devices (phones, TVs) with direct hardware actions.
 
-  SCOPE: Raw device interactions on any screen/app (click, swipe, press, etc.).
+  CRITICAL: Raw device interactions on any screen/app (click, swipe, press, etc.).
   NOT for predefined navigation flows (that's app-navigation skill).
 
   WORKFLOW:
   1. get_device_info() - Find available devices
   2. list_actions() - See what actions are available for the device
-  3. take_control(host_name='...', device_id='...') - Lock device
-  4. execute_device_action(host_name='...', device_id='...', actions=[...]) - Execute actions
-  5. release_control() - Unlock device
+  3. execute_device_action(host_name='...', device_id='...', actions=[...])
 
   EXAMPLES:
   - Click "Replay" button: execute_device_action with click_element
-  - Swipe up/down: execute_device_action with swipe
+  - Swipe up/down on mobile: execute_device_action with swipe_up/swipe_down
   - Press volume buttons: execute_device_action with KEY_VOLUME_UP
-  - Any direct hardware interaction on current screen
-
-  For navigating to specific app screens, use app-navigation skill.
 
 tools:
   - get_device_info
-  - get_compatible_hosts
   - list_actions
-  - take_control
   - execute_device_action
-  - release_control
+  - dump_ui_elements
 
 platform: null
 requires_device: true

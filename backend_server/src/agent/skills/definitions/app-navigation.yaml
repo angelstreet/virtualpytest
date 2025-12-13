@@ -66,6 +66,8 @@ tools:
   - get_node
   - get_edge
   - verify_node
+  - take_control
+  - release_control
 
 platform: null
 requires_device: true
