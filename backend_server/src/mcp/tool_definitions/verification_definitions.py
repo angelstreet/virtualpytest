@@ -5,7 +5,7 @@ Verification tool definitions - AUTO-GENERATED (DEBUG VIEW)
 This file is auto-generated from docstrings in verification_tools.py
 To change definitions, update the docstrings in the implementation.
 
-Generated: 3 tools
+Generated: 4 tools
 """
 
 from typing import List, Dict, Any
@@ -36,6 +36,24 @@ def get_tools() -> List[Dict[str, Any]]:
                 "platform": {
                     "type": "string",
                     "description": "'mobile', 'web', 'tv'"
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_installed_apps",
+        "description": "Get list of installed apps on Android device Uses the get_installed_apps method from ADBUtils MCP-formatted response with installed apps list",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "defaults to 'device1'"
+                },
+                "host_name": {
+                    "type": "string",
+                    "description": "defaults to 'sunri-pi1'"
                 }
             },
             "required": []

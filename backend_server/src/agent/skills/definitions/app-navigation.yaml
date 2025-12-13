@@ -13,6 +13,8 @@ triggers:
   - userinterface navigation
   - go to screen
   - navigate to node
+  - goto
+  - go to
 
   # USERINTERFACE MANAGEMENT
   - list userinterfaces

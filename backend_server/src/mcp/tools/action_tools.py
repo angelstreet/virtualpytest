@@ -235,24 +235,30 @@ class ActionTools:
     def _poll_action_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 180) -> Dict[str, Any]:
         """
         Poll action execution until complete
-        
+
         REUSES existing /server/action/execution/<id>/status API (same as frontend)
         Pattern from useAction.ts lines 200-246
         """
         poll_interval = 1  # 1 second (same as frontend line 206)
         elapsed = 0
-        
+
         print(f"[@MCP:poll_action] Polling for execution {execution_id} (max {max_wait}s)")
-        
+
         while elapsed < max_wait:
             time.sleep(poll_interval)
             elapsed += poll_interval
-            
-            # Poll status endpoint - SAME as frontend (useAction.ts line 195)
+
+            # Check for cancellation by polling the execution status for any cancellation indicators
+            # If the execution was cancelled externally, it should show as error or completed with cancellation
             status = self.api.get(
                 f'/server/action/execution/{execution_id}/status',
                 params={'device_id': device_id, 'host_name': host_name, 'team_id': team_id}
             )
+
+            # Check if execution was cancelled (status might indicate cancellation)
+            if status.get('status') == 'cancelled':
+                print(f"[@MCP:poll_action] Action execution cancelled after {elapsed}s")
+                return {"content": [{"type": "text", "text": "🛑 Action execution cancelled"}], "isError": True}
             
             current_status = status.get('status')
             

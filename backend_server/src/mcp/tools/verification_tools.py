@@ -120,9 +120,9 @@ class VerificationTools:
     def dump_ui_elements(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Dump UI elements from current device screen
-        
+
         REUSES existing verification endpoints
-        
+
         Args:
             params: {
                 'device_id': str (OPTIONAL - defaults to 'device1'),
@@ -130,7 +130,7 @@ class VerificationTools:
                 'team_id': str (OPTIONAL),
                 'platform': str (OPTIONAL - 'mobile', 'web', 'tv')
             }
-            
+
         Returns:
             MCP-formatted response with UI elements array
         """
@@ -138,29 +138,29 @@ class VerificationTools:
         host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         platform = params.get('platform', 'mobile')
-        
+
         query_params = {
             'device_id': device_id,
             'host_name': host_name,
             'team_id': team_id,
             'platform': platform
         }
-        
+
         print(f"[@MCP:dump_ui_elements] Dumping UI for {device_id} on {host_name}")
-        
+
         # Use /server/remote/dumpUi endpoint (proxies to backend_host)
         result = self.api.post('/server/remote/dumpUi', data=query_params)
-        
+
         # Check for errors
         if not result.get('success'):
             error_msg = result.get('error', 'Failed to dump UI elements')
             return {"content": [{"type": "text", "text": f"❌ UI dump failed: {error_msg}"}], "isError": True}
-        
+
         elements = result.get('elements', [])
-        
+
         if not elements:
             return {"content": [{"type": "text", "text": "No UI elements found"}], "isError": False}
-        
+
         # Strip bloat: remove xpath, className, package - keep only essential fields
         minimal_elements = []
         for e in elements:
@@ -172,14 +172,70 @@ class VerificationTools:
                 'bounds': e.get('bounds', {})
             }
             minimal_elements.append(minimal)
-        
+
         clickable = [e for e in elements if e.get('clickable')]
         text_summary = f"{len(elements)} elements ({len(clickable)} clickable)"
-        
+
         return {
             "content": [{"type": "text", "text": text_summary}],
             "isError": False,
             "elements": minimal_elements
+        }
+
+    def get_installed_apps(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get list of installed apps on Android device
+
+        Uses the get_installed_apps method from ADBUtils
+
+        Args:
+            params: {
+                'device_id': str (OPTIONAL - defaults to 'device1'),
+                'host_name': str (OPTIONAL - defaults to 'sunri-pi1'),
+                'team_id': str (OPTIONAL)
+            }
+
+        Returns:
+            MCP-formatted response with installed apps list
+        """
+        device_id = params.get('device_id', 'device1')
+        host_name = params.get('host_name')
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+
+        query_params = {
+            'device_id': device_id,
+            'host_name': host_name,
+            'team_id': team_id
+        }
+
+        print(f"[@MCP:get_installed_apps] Getting installed apps for {device_id} on {host_name}")
+
+        # Use /server/remote/getApps endpoint (proxies to backend_host)
+        result = self.api.post('/server/remote/getApps', data=query_params)
+
+        # Check for errors
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to get installed apps')
+            return {"content": [{"type": "text", "text": f"❌ Get apps failed: {error_msg}"}], "isError": True}
+
+        apps = result.get('apps', [])
+
+        if not apps:
+            return {"content": [{"type": "text", "text": "No apps found"}], "isError": False}
+
+        response_text = f"📱 Found {len(apps)} installed apps:\n\n"
+        for app in apps[:20]:  # Show first 20 apps
+            package_name = app.get('packageName', 'unknown')
+            label = app.get('label', package_name)
+            response_text += f"  • {label} ({package_name})\n"
+
+        if len(apps) > 20:
+            response_text += f"\n  ... and {len(apps) - 20} more apps"
+
+        return {
+            "content": [{"type": "text", "text": response_text}],
+            "isError": False,
+            "apps": apps
         }
     
     def _poll_verification_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 30) -> Dict[str, Any]:

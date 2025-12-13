@@ -127,6 +127,7 @@ class VirtualPyTestMCPServer:
             # Verification tools
             'list_verifications': self.verification_tools.list_verifications,
             'dump_ui_elements': self.verification_tools.dump_ui_elements,
+            'get_installed_apps': self.verification_tools.get_installed_apps,
             
             # TestCase tools
             'execute_testcase': self.testcase_tools.execute_testcase,

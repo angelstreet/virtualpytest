@@ -119,14 +119,15 @@ server_agent_bp = Blueprint('server_agent', __name__, url_prefix='/server/agent'
 _manager = None
 _session_manager = None
 
-def get_manager(team_id: str = None, agent_id: str = None):
+def get_manager(team_id: str = None, agent_id: str = None, session=None):
     """
     Get or create QA Manager instance (lazy load)
-    
+
     Args:
         team_id: Team/user identifier for API key retrieval
         agent_id: Selected agent ID (e.g., 'qa-web-manager', 'qa-mobile-manager')
-        
+        session: Session object for caching
+
     Returns:
         QAManagerAgent instance configured for the selected agent
     """
@@ -134,7 +135,7 @@ def get_manager(team_id: str = None, agent_id: str = None):
     # (In-memory storage means we can't cache the manager globally)
     from agent.core.manager import QAManagerAgent
     logger.info(f"Initializing QA Manager agent for team: {team_id or 'default'}, agent: {agent_id or 'assistant'}...")
-    return QAManagerAgent(user_identifier=team_id, agent_id=agent_id)
+    return QAManagerAgent(user_identifier=team_id, agent_id=agent_id, session=session)
 
 
 def get_session_manager():

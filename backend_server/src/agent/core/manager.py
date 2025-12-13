@@ -467,8 +467,14 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
         
         # Tool loop
         while True:
+            # Check for cancellation at the start of each iteration
+            if session.cancelled:
+                print(f"[AGENT] ⚠️ Processing cancelled for session {session.id}")
+                yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Generation stopped by user")
+                break
+
             start = time.time()
-            
+
             # Use prompt caching via extra_headers
             # disable_parallel_tool_use ensures sequential tool execution (one at a time)
             response = self.client.messages.create(
@@ -513,19 +519,31 @@ Be direct and concise. Never modify URLs from tools. Tool errors in 1 sentence."
                 yield AgentEvent(type=EventType.TOOL_CALL, agent=self.nickname, content=f"Calling: {tool_use.name}", tool_name=tool_use.name, tool_params=tool_use.input, metrics=metrics)
                 
                 try:
+                    # Check for cancellation before executing the tool
+                    if session.cancelled:
+                        print(f"[AGENT] ⚠️ Tool execution cancelled for session {session.id}")
+                        yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Generation stopped by user")
+                        break
+
                     # Get cache config for this tool (if in active skill)
                     cache_config = None
                     if self._active_skill:
                         cache_config = self._active_skill.get_tool_cache_config(tool_use.name)
                         if cache_config:
                             print(f"[cache] 🔧 {tool_use.name} config: enabled={cache_config.enabled}, ttl={cache_config.ttl_seconds}s")
-                    
+
                     result = self.tool_bridge.execute(
-                        tool_use.name, 
-                        tool_use.input, 
+                        tool_use.name,
+                        tool_use.input,
                         allowed_tools=self.tool_names,
                         cache_config=cache_config
                     )
+
+                    # Check for cancellation after tool execution (in case it was cancelled during execution)
+                    if session.cancelled:
+                        print(f"[AGENT] ⚠️ Processing cancelled after tool execution for session {session.id}")
+                        yield AgentEvent(type=EventType.ERROR, agent=self.nickname, content="🛑 Generation stopped by user")
+                        break
                     if LANGFUSE_ENABLED:
                         track_tool_call(self.nickname, tool_use.name, tool_use.input, result, True, session.id)
                     yield AgentEvent(type=EventType.TOOL_RESULT, agent=self.nickname, content="Success", tool_name=tool_use.name, tool_result=result, success=True)
