@@ -28,7 +28,6 @@ system_prompt: |
 
 tools:
   - list_userinterfaces
-  - get_userinterface_complete
   - preview_userinterface
   - navigate_to_node
   - list_nodes
@@ -76,7 +75,7 @@ tool_cache:
 
   execute_edge:
     enabled: false
-  
+
   take_control:
     enabled: false
   

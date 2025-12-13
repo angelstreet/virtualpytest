@@ -712,6 +712,6 @@ class NavigationTools:
             return result
 
         except Exception as e:
-            self.logger.error(f"Error executing edge: {e}", exc_info=True)
+            print(f"[@MCP:execute_edge] Error executing edge: {e}")
             return {"content": [{"type": "text", "text": f"❌ Edge execution failed: {str(e)}"}], "isError": True}
 
