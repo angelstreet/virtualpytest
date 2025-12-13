@@ -90,6 +90,16 @@ export const HDMIStream = React.memo(
       loadConfig();
     }, [effectiveDeviceModel]);
 
+    // Reset expanded state on mount or when host/deviceId changes (e.g., release and take control)
+    useEffect(() => {
+      console.log('[@component:HDMIStream] Resetting expanded state (mount or host/device change)');
+      setIsExpanded(false);
+      setIsMinimized(false);
+      // Notify parent that panel is now collapsed
+      onCollapsedChange?.(true);
+      onMinimizedChange?.(false);
+    }, [host, deviceId, onCollapsedChange, onMinimizedChange]);
+
     // Get configurable layout from AV config - memoized to prevent infinite loops
     const panelLayout = useMemo(() => {
       return getConfigurableAVPanelLayout(avConfig);
